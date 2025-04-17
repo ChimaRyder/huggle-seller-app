@@ -19,12 +19,13 @@ export default function WelcomeScreen() {
 
   const handleFacebookLogin = () => {
     // Redirect to seller registration form
-    router.push('/seller-registration');
+    // router.push('/seller-registration'); //temporary remove to redirect to tabs
+    router.replace('/(main)');
   };
 
   const handleGoogleLogin = () => {
     // Handle Google login logic here
-    router.push('/(tabs)');
+    router.replace('/(main)');
   };
 
   return (

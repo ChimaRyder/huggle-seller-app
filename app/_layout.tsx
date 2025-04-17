@@ -37,8 +37,8 @@ export default function RootLayout() {
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="seller-registration" />
+            <Stack.Screen name="(main)/index" />
+            <Stack.Screen name="seller-registration/index" />
             <Stack.Screen name="+not-found" options={{ headerShown: true, title: 'Not Found' }} />
           </Stack>
           <StatusBar style="auto" />
