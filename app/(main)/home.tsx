@@ -23,7 +23,7 @@ export default function HomeScreen() {
   return ( 
     <Layout style={styles.container}>
       <TopNavigation
-        title={evaProps => <Text {...evaProps} category="h5">Good morning!</Text>}
+        title={() => <Text category="h5">Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}!</Text>}
         alignment="start"
         accessoryRight={renderRightActions}
         style={styles.topNavigation}
