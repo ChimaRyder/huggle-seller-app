@@ -12,12 +12,15 @@ export default function DetailItem({ label, value, onEditPress }: DetailItemProp
   return (
     <View style={styles.container}>
       <View style={styles.contentContainer}>
-        <Text category="label" style={styles.label}>{label}</Text>
+        <View style={styles.labelContainer}>
+          <Text category="label" style={styles.label}>{label}</Text>
+          <TouchableOpacity onPress={onEditPress}>
+            <Text category='label' style={styles.editButton}>Edit</Text>
+          </TouchableOpacity>
+        </View>
         <Text category="p2" style={styles.value}>{value}</Text>
       </View>
-      <TouchableOpacity onPress={onEditPress}>
-        <Text style={styles.editButton}>Edit</Text>
-      </TouchableOpacity>
+      
       <Divider style={styles.divider} />
     </View>
   );
@@ -25,25 +28,26 @@ export default function DetailItem({ label, value, onEditPress }: DetailItemProp
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
   },
   contentContainer: {
     flexDirection: 'column',
     flex: 1,
+    marginVertical: 16,
   },
   label: {
     color: '#888',
-    marginBottom: 4,
   },
   value: {
     color: '#333',
+  },
+  labelContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginBottom: 8,
   },
   editButton: {
     color: '#4CAF50',
-    position: 'absolute',
-    right: 0,
-    top: 0,
+    fontWeight: 'light',
   },
   divider: {
     backgroundColor: '#f0f0f0',

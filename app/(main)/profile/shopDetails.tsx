@@ -101,7 +101,7 @@ export default function ShopDetailsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <TopNavigation
-        title="SHOP PROFILE"
+        title="Shop Details"
         alignment="center"
         accessoryLeft={() => (
           <TouchableOpacity onPress={navigateBack} style={styles.backButton}>
@@ -209,8 +209,6 @@ const styles = StyleSheet.create({
   },
   googleButton: {
     marginVertical: 16,
-    backgroundColor: '#2E7D32',
-    borderColor: '#2E7D32',
   },
   modalOverlay: {
     flex: 1,

@@ -10,6 +10,7 @@ import { ApplicationProvider, IconRegistry } from '@ui-kitten/components';
 import { EvaIconsPack } from '@ui-kitten/eva-icons';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
+import mainTheme from '@/assets/themes/main-theme.json';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -33,7 +34,7 @@ export default function RootLayout() {
   return (
     <>
       <IconRegistry icons={EvaIconsPack} />
-      <ApplicationProvider {...eva} theme={colorScheme === 'dark' ? eva.dark : eva.light}>
+      <ApplicationProvider {...eva} theme={colorScheme === 'dark' ? {...eva.dark, ...mainTheme} : {...eva.light, ...mainTheme} }>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />

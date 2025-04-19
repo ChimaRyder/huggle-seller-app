@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   userBubble: {
-    backgroundColor: '#3366FF',
+    backgroundColor: '#548C2F',
     borderBottomRightRadius: 4,
   },
   otherBubble: {

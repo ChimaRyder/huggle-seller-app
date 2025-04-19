@@ -49,7 +49,7 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <TopNavigation
-        title="SETTINGS"
+        title="Settings"
         alignment="center"
         accessoryLeft={() => (
           <TouchableOpacity onPress={navigateBack} style={styles.backButton}>
