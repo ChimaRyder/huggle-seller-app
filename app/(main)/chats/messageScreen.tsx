@@ -95,7 +95,7 @@ export default function MessageScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <TopNavigation
         title={renderTitle}
         alignment="center"
@@ -139,7 +139,7 @@ export default function MessageScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f7f9fc',
+    backgroundColor:'#f7f9fc',
   },
   topNavigation: {
     backgroundColor: '#fff',
