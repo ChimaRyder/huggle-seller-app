@@ -1,32 +1,31 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, View, SafeAreaView } from 'react-native';
 import { Layout, Text, TopNavigation, TopNavigationAction, Icon } from '@ui-kitten/components';
-import BottomNav from '.';
 import { IconProps, IconElement } from '@ui-kitten/components';
+import { Tab, TabBar } from '@ui-kitten/components';
+import TransactionsTab from './analytics/transactions/transactionsTab';
 
 const BellIcon = (props: IconProps): IconElement => (
   <Icon {...props} name="bell-outline" pack="eva" />
 );
 
 export default function AnalyticsScreen() {
-  const renderRightActions = () => (
-    <TopNavigationAction icon={BellIcon} />
-  );
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  
 
   return (
     <Layout style={styles.container}>
-      <TopNavigation
-        title={evaProps => <Text {...evaProps} category="h5">Analytics</Text>}
-        alignment="start"
-        accessoryRight={renderRightActions}
-        style={styles.topNavigation}
-      />
+      <TabBar
+        selectedIndex={selectedIndex}
+        onSelect={index => setSelectedIndex(index)}
+        style={styles.tabBar}
+      >
+        <Tab title="Transactions" />
+        <Tab title="Insights" />
+      </TabBar>
       
-      <View style={styles.content}>
-        <Text category="h5">Analytics Screen</Text>
-        <Text category="p1">This is the Analytics screen of your seller app.</Text>
-      </View>
-      
+      {selectedIndex === 0 && <TransactionsTab />}
+            
     </Layout>
   );
 }
@@ -34,9 +33,6 @@ export default function AnalyticsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f7f9fc',
-  },
-  topNavigation: {
     backgroundColor: '#fff',
   },
   content: {
@@ -44,5 +40,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
+  },
+  tabBar: {
+    margin: 5,
   },
 });

@@ -3,8 +3,8 @@ import { StyleSheet, SafeAreaView } from 'react-native';
 import { BottomNavigation, BottomNavigationTab, Icon, IconElement, IconProps, ViewPager } from '@ui-kitten/components';
 import HomeScreen from './home';
 import AnalyticsScreen from './analytics';
-import ChatScreen from './chats';
 import ProfileScreen from './profile';
+import PromotionsScreen from './promotions';
 
 const HomeIcon = (props: IconProps): IconElement => (
   <Icon
@@ -38,18 +38,18 @@ const AnalyticsFilledIcon = (props: IconProps): IconElement => (
   />
 );
 
-const ChatIcon = (props: IconProps): IconElement => (
+const GiftIcon = (props: IconProps): IconElement => (
   <Icon
     {...props}
-    name="message-square-outline"
+    name="gift-outline"
     pack="eva"
   />
 );
 
-const ChatFilledIcon = (props: IconProps): IconElement => (
+const GiftFilledIcon = (props: IconProps): IconElement => (
   <Icon
     {...props}
-    name="message-square"
+    name="gift"
     pack="eva"
   />
 );
@@ -83,7 +83,7 @@ export default function BottomNav() {
       >
         <HomeScreen />
         <AnalyticsScreen />
-        <ChatScreen />
+        <PromotionsScreen />
         <ProfileScreen />
 
       </ViewPager>
@@ -95,7 +95,7 @@ export default function BottomNav() {
       >
         <BottomNavigationTab icon={selectedIndex === 0 ? HomeFilledIcon : HomeIcon} />
         <BottomNavigationTab icon={selectedIndex === 1 ? AnalyticsFilledIcon : AnalyticsIcon} />
-        <BottomNavigationTab icon={selectedIndex === 2 ? ChatFilledIcon : ChatIcon} />
+        <BottomNavigationTab icon={selectedIndex === 2 ? GiftFilledIcon : GiftIcon} />
         <BottomNavigationTab icon={selectedIndex === 3 ? ProfileFilledIcon : ProfileIcon} />
       </BottomNavigation>
     </SafeAreaView>

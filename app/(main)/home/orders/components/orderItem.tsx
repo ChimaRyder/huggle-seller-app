@@ -23,8 +23,9 @@ const renderOrderItem = ({ item }: { item: any }) => (
     </View>
     <Button 
         size="small" 
-        status={item.status === 'Pending' ? 'warning' : 'basic'}
+        status={item.status === 'Pending' ? 'success' : 'primary'}
         style={styles.orderButton}
+        {...{activeOpacity: 1}}
     >
         {item.status}
     </Button>

@@ -47,7 +47,7 @@ const OrdersTab = () => {
   return (
     <View style={styles.tabContent}>
       <Input
-        placeholder="Search in Orders"
+        placeholder="Search orders"
         accessoryLeft={SearchIcon}
         accessoryRight={FilterIcon}
         style={styles.searchInput}

@@ -5,8 +5,7 @@ import { IconProps, IconElement } from '@ui-kitten/components';
 
 import ProductsTab from './home/products/productsTab';
 import OrdersTab from './home/orders/ordersTab';
-import TransactionsTab from './home/transactions/transactionsTab';
-import PromotionsTab from './home/promotions/promotionsTab';
+import PromotionsTab from './promotions/promotionsTab';
 
 // Icons for the tabs
 const BellIcon = (props: IconProps): IconElement => (
@@ -34,16 +33,14 @@ export default function HomeScreen() {
         onSelect={index => setSelectedIndex(index)}
         style={styles.tabBar}
       >
-        <Tab title="Products"/>
         <Tab title="Orders"/>
-        <Tab title="Transactions"/>
-        <Tab title="Promotions"/>
+        <Tab title="Products"/>
+        {/* <Tab title="Promotions"/> */}
       </TabBar>
       
-      {selectedIndex === 0 && <ProductsTab />}
-      {selectedIndex === 1 && <OrdersTab />}
-      {selectedIndex === 2 && <TransactionsTab />}
-      {selectedIndex === 3 && <PromotionsTab />}
+      {selectedIndex === 0 && <OrdersTab />}
+      {selectedIndex === 1 && <ProductsTab />}
+      {/* {selectedIndex === 3 && <PromotionsTab />} */}
     </Layout>
   );
 }
@@ -55,6 +52,8 @@ const styles = StyleSheet.create({
   },
   topNavigation: {
     backgroundColor: '#fff',
+    marginTop: 10,
+    marginHorizontal: 5,
   },
   tabBar: {
     margin: 3,

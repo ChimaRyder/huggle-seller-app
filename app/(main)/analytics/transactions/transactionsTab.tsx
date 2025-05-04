@@ -19,20 +19,19 @@ const TransactionsTab = () => {
       <View style={styles.earningsContainer}>
         <View style={styles.earningsHeader}>
           <Text category="h5">Earnings</Text>
-          <Text category="p2" status="primary">See all</Text>
         </View>
         
+        <Text category="h2" style={styles.totalRevenue}>₱ 11,438.00</Text>
         <Text category="c1" appearance="hint" style={styles.totalRevenueLabel}>Total Revenue</Text>
-        <Text category="h2" style={styles.totalRevenue}>₱ 438.00</Text>
         
         <View style={styles.analyticsRow}>
           <View style={styles.analyticsCard}>
             <Text category="c1" appearance="hint">Average per week</Text>
-            <Text category="h6">₱ 617.00</Text>
+            <Text appearance="alternative" category="h6" style={styles.BoxValue}>₱ 617.00</Text>
           </View>
           <View style={styles.analyticsCard}>
             <Text category="c1" appearance="hint">Earning Growth</Text>
-            <Text category="h6">65%</Text>
+            <Text appearance="alternative" category="h6" style={styles.BoxValue}>65%</Text>
           </View>
         </View>
       </View>
@@ -72,10 +71,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   totalRevenueLabel: {
-    marginBottom: 4,
+    marginBottom: 16,
+    alignSelf: 'center',
   },
   totalRevenue: {
-    marginBottom: 16,
+    marginBottom: 4,
+    alignSelf: 'center',
   },
   analyticsRow: {
     flexDirection: 'row',
@@ -103,6 +104,9 @@ const styles = StyleSheet.create({
   transactionsList: {
     paddingBottom: 80,
   },
+  BoxValue: {
+  marginTop: 5,
+  }
 });
   
 export default TransactionsTab;
