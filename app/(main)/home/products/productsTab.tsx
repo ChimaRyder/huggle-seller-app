@@ -2,6 +2,7 @@
 import { Input, Button, Icon, Text, IconProps, IconElement } from '@ui-kitten/components';
 import { StyleSheet, View, FlatList } from 'react-native';
 import renderProductItem from './components/productItem';
+import { useRouter } from 'expo-router';
 
 const SearchIcon = (props: IconProps): IconElement => (
   <Icon {...props} name="search-outline" pack="eva" />
@@ -13,6 +14,8 @@ const FilterIcon = (props: IconProps): IconElement => (
 
 // Product Tab Component
 const ProductsTab = () => {
+  const router = useRouter();
+  
   // Sample product data
   const products = [
     { id: 1, name: 'Lorem', items: 5, rating: 5.0 },
@@ -38,6 +41,7 @@ const ProductsTab = () => {
           appearance="outline"
           size="small"
           accessoryLeft={(props) => <Icon {...props} name="plus-outline" pack="eva" />}
+          onPress={() => router.push('/(main)/home/products/createProduct')}
         >
         </Button>
       </View>
