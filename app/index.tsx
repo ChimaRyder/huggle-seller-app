@@ -37,8 +37,8 @@ export default function WelcomeScreen() {
           <View style={styles.overlay} />
           <Layout style={styles.container}>
             <View style={styles.contentContainer}>
-              <Text style={styles.headline}>Lorem ipsum dolor sit amet</Text>
-              <Text style={styles.subtext}>Consectetur adipiscing elit, sed do eiusmod.</Text>
+              <Text style={styles.headline}>Bring the vibes with Huggle</Text>
+              <Text style={styles.subtext}>Sell your goods while feeling good</Text>
             
             <View style={styles.buttonContainer}>
               <Button

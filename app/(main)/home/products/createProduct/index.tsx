@@ -112,7 +112,7 @@ const CreateProduct = () => {
             accessoryLeft={BackIcon}
             onPress={() => router.back()}
           />
-          <Text category="h5">Create a Product</Text>
+          <Text category="h5">Add Product</Text>
         </View>
 
         <Formik

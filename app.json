@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "food-ecommerce-app",
-    "slug": "food-ecommerce-app",
+    "name": "huggle-seller-app",
+    "slug": "huggle-seller-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
