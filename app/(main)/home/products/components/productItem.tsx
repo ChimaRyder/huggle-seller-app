@@ -1,12 +1,14 @@
 import { Card, Text, Button, Icon } from '@ui-kitten/components';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, ImageBackground } from 'react-native';
 
 const renderProductItem = ({ item }: { item: any }) => (
 <Card style={styles.productCard}>
-    <View style={styles.productImagePlaceholder}></View>
-    <Text category="s1">{item.name}</Text>
+    <View style={styles.productImagePlaceholder}>
+        <ImageBackground source={{ uri: item.thumbnail }} style={styles.productImage} />
+    </View>
+    <Text category="s1">{item.title.slice(0, 14)}...</Text>
     <View style={styles.productDetails}>
-    <Text category="c1">{item.items} items</Text>
+    <Text category="c1">{item.stock} items</Text>
     <View style={styles.ratingContainer}>
         <Icon name="star" pack="eva" width={12} height={12} fill="#FFC107" />
         <Text category="c1">{item.rating}</Text>
@@ -27,6 +29,9 @@ const styles = StyleSheet.create({
         backgroundColor: '#E4E9F2',
         borderRadius: 8,
         marginBottom: 8,
+    },
+    productImage: {
+        flex: 1,
     },
     productDetails: {
         flexDirection: 'row',
