@@ -29,7 +29,7 @@ export default function WelcomeScreen() {
   };
 
   return (
-    <ApplicationProvider {...eva} theme={eva.light}>
+    <>
         <ImageBackground 
           source={require('../assets/images/welcome-screen-background.jpg')} 
           style={styles.backgroundImage}
@@ -65,15 +65,13 @@ export default function WelcomeScreen() {
           </View>
         </Layout>
       </ImageBackground>
-    </ApplicationProvider>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   backgroundImage: {
     flex: 1,
-    width: '100%',
-    height: '100%',
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,

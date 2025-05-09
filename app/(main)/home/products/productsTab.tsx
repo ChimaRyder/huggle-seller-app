@@ -1,5 +1,5 @@
 
-import { Input, Button, Icon, Text, IconProps, IconElement } from '@ui-kitten/components';
+import { Input, Button, Icon, Text, IconProps, IconElement, ThemeType } from '@ui-kitten/components';
 import { StyleSheet, View, FlatList } from 'react-native';
 import renderProductItem from './components/productItem';
 import { useRouter } from 'expo-router';
@@ -18,9 +18,9 @@ const AlertIcon = (props: IconProps): IconElement => (
 );
 
 // Product Tab Component
-const ProductsTab = () => {
+const ProductsTab = ({ theme }: { theme: ThemeType }) => {
   const router = useRouter();
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState<Array<any>>([]);
   const [search, setSearch] = useState('');
   
   // Sample product data
@@ -61,7 +61,7 @@ const ProductsTab = () => {
       {products.length > 0 && (
         <FlatList
           data={products}
-          renderItem={renderProductItem}
+          renderItem={({item}) => renderProductItem({item, theme})}
           keyExtractor={(item) => item.id.toString()}
           numColumns={2}
           columnWrapperStyle={styles.productRow}

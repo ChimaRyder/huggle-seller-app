@@ -11,6 +11,8 @@ import { EvaIconsPack } from '@ui-kitten/eva-icons';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import mainTheme from '@/assets/themes/main-theme.json';
+import blueTheme from '@/assets/themes/blueTheme.json';
+import redTheme from '@/assets/themes/redTheme.json';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -34,11 +36,14 @@ export default function RootLayout() {
   return (
     <>
       <IconRegistry icons={EvaIconsPack} />
-      <ApplicationProvider {...eva} theme={colorScheme === 'dark' ? {...eva.dark, ...mainTheme} : {...eva.light, ...mainTheme} }>
+      <ApplicationProvider {...eva} theme={colorScheme === 'dark' ? {...eva.dark, ...redTheme} : {...eva.light, ...redTheme} }>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack screenOptions={{ headerShown: false }}>
+          <Stack screenOptions={{ headerShown: false, navigationBarHidden: true, statusBarHidden: false }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="(main)/index" />
+            <Stack.Screen name="(main)/home/products/createProduct/index" />
+            <Stack.Screen name="(main)/home/products/[product]" />
+            <Stack.Screen name="(main)/home/products/editProduct" />
             <Stack.Screen name="seller-registration/index" />
             <Stack.Screen name="+not-found" options={{ headerShown: true, title: 'Not Found' }} />
           </Stack>

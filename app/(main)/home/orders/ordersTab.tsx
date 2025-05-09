@@ -1,4 +1,4 @@
-import { Icon, Input, IconProps, IconElement } from '@ui-kitten/components';
+import { Icon, Input, IconProps, IconElement, ThemeType } from '@ui-kitten/components';
 import { StyleSheet, View, FlatList } from 'react-native';
 import renderOrderItem from './components/orderItem';
 
@@ -12,7 +12,7 @@ const FilterIcon = (props: IconProps): IconElement => (
 );
 
 // Orders Tab Component
-const OrdersTab = () => {
+const OrdersTab = ({ theme }: { theme: ThemeType }) => {
   // Sample order data
   const orders = [
     { 
@@ -54,7 +54,7 @@ const OrdersTab = () => {
       />
       <FlatList
         data={orders}
-        renderItem={renderOrderItem}
+        renderItem={({item}) => renderOrderItem({item, theme})}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.ordersList}
       />
