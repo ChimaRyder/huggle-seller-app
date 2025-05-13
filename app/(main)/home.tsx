@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet } from 'react-native';
-import { Layout, Text, Tab, TabBar, Icon, TopNavigation, TopNavigationAction } from '@ui-kitten/components';
+import { Layout, Text, Tab, TabBar, Icon, TopNavigation, TopNavigationAction, useTheme } from '@ui-kitten/components';
 import { IconProps, IconElement } from '@ui-kitten/components';
 
 import ProductsTab from './home/products/productsTab';
@@ -14,6 +14,7 @@ const BellIcon = (props: IconProps): IconElement => (
 
 export default function HomeScreen() {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const theme = useTheme();
   
   const renderRightActions = () => (
     <TopNavigationAction icon={BellIcon} />
@@ -22,7 +23,7 @@ export default function HomeScreen() {
   return ( 
     <Layout style={styles.container}>
       <TopNavigation
-        title={() => <Text category="h5">Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}!</Text>}
+        title={() => <Text category="h5">Good <Text status='primary' category='h5'>{new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}!</Text></Text>}
         alignment="start"
         accessoryRight={renderRightActions}
         style={styles.topNavigation}
@@ -35,12 +36,10 @@ export default function HomeScreen() {
       >
         <Tab title="Orders"/>
         <Tab title="Products"/>
-        {/* <Tab title="Promotions"/> */}
       </TabBar>
       
-      {selectedIndex === 0 && <OrdersTab />}
-      {selectedIndex === 1 && <ProductsTab />}
-      {/* {selectedIndex === 3 && <PromotionsTab />} */}
+      {selectedIndex === 0 && <OrdersTab theme={theme} />}
+      {selectedIndex === 1 && <ProductsTab theme={theme} />}
     </Layout>
   );
 }
@@ -48,10 +47,8 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
   },
   topNavigation: {
-    backgroundColor: '#fff',
     marginTop: 10,
     marginHorizontal: 5,
   },

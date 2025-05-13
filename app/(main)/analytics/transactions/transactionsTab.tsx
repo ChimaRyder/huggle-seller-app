@@ -1,5 +1,5 @@
 import { StyleSheet, View, FlatList } from 'react-native';
-import { Text } from '@ui-kitten/components';
+import { Text, Layout } from '@ui-kitten/components';
 import renderTransactionItem from './components/transactionItem';
 
 // Transactions Tab Component
@@ -16,7 +16,7 @@ const TransactionsTab = () => {
 
   return (
     <View style={styles.tabContent}>
-      <View style={styles.earningsContainer}>
+      <Layout level='2' style={styles.earningsContainer}>
         <View style={styles.earningsHeader}>
           <Text category="h5">Earnings</Text>
         </View>
@@ -25,18 +25,18 @@ const TransactionsTab = () => {
         <Text category="c1" appearance="hint" style={styles.totalRevenueLabel}>Total Revenue</Text>
         
         <View style={styles.analyticsRow}>
-          <View style={styles.analyticsCard}>
+          <Layout level='3' style={styles.analyticsCard}>
             <Text category="c1" appearance="hint">Average per week</Text>
-            <Text appearance="alternative" category="h6" style={styles.BoxValue}>₱ 617.00</Text>
-          </View>
-          <View style={styles.analyticsCard}>
+            <Text appearance="basic" category="h6" style={styles.BoxValue}>₱ 617.00</Text>
+          </Layout>
+          <Layout level='3' style={styles.analyticsCard}>
             <Text category="c1" appearance="hint">Earning Growth</Text>
-            <Text appearance="alternative" category="h6" style={styles.BoxValue}>65%</Text>
-          </View>
+            <Text appearance="basic" category="h6" style={styles.BoxValue}>65%</Text>
+          </Layout>
         </View>
-      </View>
+      </Layout>
       
-      <View style={styles.transactionsContainer}>
+      <Layout level='2' style={styles.transactionsContainer}>
         <View style={styles.transactionsHeader}>
           <Text category="h6">Transactions</Text>
           <Text category="p2" status="primary">See all</Text>
@@ -48,7 +48,7 @@ const TransactionsTab = () => {
           keyExtractor={(item) => item.id.toString()}
           contentContainerStyle={styles.transactionsList}
         />
-      </View>
+      </Layout>
     </View>
   );
 };
@@ -59,7 +59,6 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   earningsContainer: {
-    backgroundColor: '#fff',
     borderRadius: 8,
     padding: 16,
     marginBottom: 16,
@@ -85,13 +84,11 @@ const styles = StyleSheet.create({
   },
   analyticsCard: {
     flex: 1,
-    backgroundColor: '#0D2B47',
     borderRadius: 8,
     padding: 16,
   },
   transactionsContainer: {
     flex: 1,
-    backgroundColor: '#fff',
     borderRadius: 8,
     padding: 16,
   },

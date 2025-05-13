@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { StyleSheet, SafeAreaView } from 'react-native';
-import { BottomNavigation, BottomNavigationTab, Icon, IconElement, IconProps, ViewPager } from '@ui-kitten/components';
+import { StyleSheet } from 'react-native';
+import { BottomNavigation, BottomNavigationTab, Icon, IconElement, IconProps, ViewPager, Layout } from '@ui-kitten/components';
 import HomeScreen from './home';
 import AnalyticsScreen from './analytics';
 import ProfileScreen from './profile';
 import PromotionsScreen from './promotions';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const HomeIcon = (props: IconProps): IconElement => (
   <Icon
@@ -75,30 +76,32 @@ export default function BottomNav() {
 
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ViewPager
-        selectedIndex={selectedIndex}
-        onSelect={index => setSelectedIndex(index)}
-        style={styles.viewPager}
-      >
-        <HomeScreen />
-        <AnalyticsScreen />
-        <PromotionsScreen />
-        <ProfileScreen />
+    <Layout level='1' style={styles.layout}>
+      <SafeAreaView style={styles.container}>
+          <ViewPager
+            selectedIndex={selectedIndex}
+            onSelect={index => setSelectedIndex(index)}
+            style={styles.viewPager}
+          >
+            <HomeScreen />
+            <AnalyticsScreen />
+            <PromotionsScreen />
+            <ProfileScreen />
 
-      </ViewPager>
-      <BottomNavigation
-        selectedIndex={selectedIndex}
-        onSelect={index => setSelectedIndex(index)}
-        style={styles.bottomNavigation}
-        appearance="noIndicator"
-      >
-        <BottomNavigationTab icon={selectedIndex === 0 ? HomeFilledIcon : HomeIcon} />
-        <BottomNavigationTab icon={selectedIndex === 1 ? AnalyticsFilledIcon : AnalyticsIcon} />
-        <BottomNavigationTab icon={selectedIndex === 2 ? GiftFilledIcon : GiftIcon} />
-        <BottomNavigationTab icon={selectedIndex === 3 ? ProfileFilledIcon : ProfileIcon} />
-      </BottomNavigation>
-    </SafeAreaView>
+          </ViewPager>
+          <BottomNavigation
+            selectedIndex={selectedIndex}
+            onSelect={index => setSelectedIndex(index)}
+            style={styles.bottomNavigation}
+            appearance="noIndicator"
+          >
+            <BottomNavigationTab icon={selectedIndex === 0 ? HomeFilledIcon : HomeIcon} />
+            <BottomNavigationTab icon={selectedIndex === 1 ? AnalyticsFilledIcon : AnalyticsIcon} />
+            <BottomNavigationTab icon={selectedIndex === 2 ? GiftFilledIcon : GiftIcon} />
+            <BottomNavigationTab icon={selectedIndex === 3 ? ProfileFilledIcon : ProfileIcon} />
+          </BottomNavigation>
+      </SafeAreaView>
+    </Layout>
   );
 }
 
@@ -108,9 +111,11 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
   },
   viewPager: {
+    flex: 1,
+  },
+  layout: {
     flex: 1,
   },
 });

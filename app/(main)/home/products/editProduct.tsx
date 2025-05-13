@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { StyleSheet, View, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -14,13 +14,15 @@ import {
   IconProps,
   Card,
   Layout,
+  Spinner,
   TopNavigation,
   TopNavigationAction
 } from '@ui-kitten/components';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { IndexPath, Popover } from '@ui-kitten/components';
-import ImageUploader from '../components/ImageUploader';
+import ImageUploader from './components/ImageUploader';
+import { useLocalSearchParams } from 'expo-router';
 
 // Icons
 const BackIcon = (props: IconProps): IconElement => (
@@ -79,14 +81,14 @@ interface ProductFormValues {
   duration: Date;
 }
 
-// Create Product Screen
-const CreateProduct = () => {
+// Edit Product Screen
+const EditProduct = () => {
   const router = useRouter();
+  const { productId } = useLocalSearchParams();
   const [selectedIndex, setSelectedIndex] = useState<IndexPath | IndexPath[]>(new IndexPath(0));
   const [visible, setVisible] = useState(false);
-  
-  // Initial form values
-  const initialValues: ProductFormValues = {
+  const [loading, setLoading] = useState(false);
+  const [product, setProduct] = useState<ProductFormValues>({
     name: '',
     description: '',
     productType: '',
@@ -95,23 +97,47 @@ const CreateProduct = () => {
     amount: '',
     originalPrice: '',
     duration: new Date(),
+  });
+  
+  const getProduct = async () => {
+    setLoading(true);
+    const response = await fetch(`https://dummyjson.com/products/${productId}`);
+    const data = await response.json();
+    setProduct({
+      name: data.title,
+      description: data.description,
+      productType: 'Beverage',
+      coverImage: data.thumbnail,
+      additionalImages: [],
+      amount: ((data.price - (data.price * (data.discountPercentage / 100))).toFixed(2)).toString(),
+      originalPrice: data.price.toString(),
+      duration: new Date(data.meta.createdAt),
+    })
+    setLoading(false);
+    return data;
   };
+
+  useEffect(() => {
+    getProduct();
+  }, []);
 
   // Handle form submission
   const handleSubmit = (values: ProductFormValues) => {
     console.log('Submitted Product Details:', values);
   };
 
-  // Handle save as draft
+  // Handle cancel 
   const handleSaveAsDraft = () => {
-    console.log('Saved As Draft');
+    console.log('Canceled');
   };
 
   return (
+    <>
+    {!loading && (
     <Layout level='1' style={styles.container}>
       <SafeAreaView style={styles.container}>
         <TopNavigation
-          title={() => <Text category="h5">Add Product</Text>}
+          title={() => <Text category="h5">Edit Product</Text>}
           accessoryLeft={() => (
             <TopNavigationAction
               onPress={() => router.back()}
@@ -122,7 +148,7 @@ const CreateProduct = () => {
         <ScrollView >
 
         <Formik
-          initialValues={initialValues}
+          initialValues={product}
           validationSchema={ProductSchema}
           onSubmit={handleSubmit}
         >
@@ -283,17 +309,17 @@ const CreateProduct = () => {
                 <Button
                   style={styles.draftButton}
                   appearance="outline"
-                  status='primary'
+                  status='danger'
                   onPress={handleSaveAsDraft}
                 >
-                  Save draft
+                  Cancel 
                 </Button>
                 <Button
                   style={styles.publishButton}
                   status="success"
                   onPress={() => formikSubmit()}
                 >
-                  Publish now
+                  Update Product
                 </Button>
               </View>
             </View>
@@ -302,6 +328,14 @@ const CreateProduct = () => {
       </ScrollView>
     </SafeAreaView>
   </Layout>
+  )}
+
+  {loading && 
+  <View style={[styles.container, styles.loadingContainer]}>
+    <Spinner />
+  </View>
+  }
+  </>
   );
 };
 
@@ -395,6 +429,11 @@ const styles = StyleSheet.create({
   modalCard: {
     width: 250,
   },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });
 
-export default CreateProduct;
+export default EditProduct;
+

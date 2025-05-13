@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View, Image, TouchableOpacity, ScrollView, ImageBackground } from 'react-native';
-import { Layout, Text, Icon, Button, Avatar, TopNavigation, Divider } from '@ui-kitten/components';
+import { Layout, Text, Icon, Button, Avatar, TopNavigation, Divider, Menu, MenuItem } from '@ui-kitten/components';
 import { useRouter } from 'expo-router';
 import { IconProps, IconElement } from '@ui-kitten/components';
 
@@ -28,43 +28,43 @@ export default function ProfileScreen() {
 
   return (
     <Layout style={styles.container}>
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.profileContainer}>
-          <ImageBackground
-            style={styles.profileBackground}
-            source={require('../../assets/images/welcome-screen-background.jpg')}
+      <View style={styles.profileContainer}>
+        <ImageBackground
+          style={styles.profileBackground}
+          source={require('../../assets/images/welcome-screen-background.jpg')}
+        />
+        <View style={styles.profileContent}>
+          <Avatar
+            source={require('../../assets/images/profile-placeholder.jpg')}
+            style={styles.avatar}
+            size="giant"
           />
-          <View style={styles.profileContent}>
-            <Avatar
-              source={require('../../assets/images/profile-placeholder.jpg')}
-              style={styles.avatar}
-              size="giant"
-            />
-            <Text style={styles.storeName} category="h5">Rel & Frenz Store</Text>
-          </View>
+          <Text style={styles.storeName} category="h5" status="primary">SM Supermarket - Seaside</Text>
         </View>
+      </View>
 
-        <View style={styles.menuContainer}>
-          <TouchableOpacity style={styles.menuItem} onPress={navigateToReviews}>
-            <Text style={styles.menuItemText} category="s1">Review Summary</Text>
-            <ArrowIcon fill="#000" width={24} height={24} />
-          </TouchableOpacity>
+      <Layout level='2' style={styles.menuContainer}>
+        <Menu>
+          <MenuItem
+            title="Review Summary"
+            accessoryRight={ArrowIcon}
+            onPress={navigateToReviews}
+        />
+          <MenuItem
+            title="Settings"
+            accessoryRight={ArrowIcon}
+            onPress={navigateToSettings}
+          />
+        </Menu>
+      </Layout>
 
-          <TouchableOpacity style={styles.menuItem} onPress={navigateToSettings}>
-            <Text style={styles.menuItemText} category="s1">Settings</Text>
-            <ArrowIcon fill="#000" width={24} height={24} />
-          </TouchableOpacity>
-        </View>
-
-        <Button
-          style={styles.signOutButton}
-          status="danger"
-          appearance="outline"
-          onPress={handleSignOut}
-        >
-          Sign out
-        </Button>
-      </ScrollView>
+      <Button
+        style={styles.signOutButton}
+        status="danger"
+        onPress={handleSignOut}
+      >
+        Sign out
+      </Button>
     </Layout>
   );
 }
@@ -72,7 +72,6 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f7f9fc',
   },
   scrollView: {
     flex: 1,
@@ -102,31 +101,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   storeName: {
-    color: '#FF9800',
     fontWeight: 'bold',
     marginBottom: 10,
   },
   menuContainer: {
-    backgroundColor: '#fff',
     marginTop: 150,
-    paddingHorizontal: 16,
   },
-  menuItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  menuItemText: {
-    color: '#2E7D32',
-  },
-  signOutButton: {
+  signOutButton: { 
     marginHorizontal: 16,
     marginTop: 30,
     marginBottom: 20,
-    backgroundColor: '#FFE4E1',
-    borderColor: '#FF6B6B',
   },
 });
