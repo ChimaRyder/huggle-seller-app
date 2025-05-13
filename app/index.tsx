@@ -53,7 +53,7 @@ export default function WelcomeScreen() {
   // check if user is already signed in
   if (user) {
     // console.log("User is already signed in");
-    return <Redirect href="/(auth)" />;
+    // return <Redirect href="/(auth)" />;
   }
 
   const handleSignOut = async () => {

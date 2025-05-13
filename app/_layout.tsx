@@ -50,7 +50,11 @@ const RootLayout = () => {
       : { ...eva.light, ...mainTheme };
 
   return (
-    <SafeAreaProvider>
+    <ClerkProvider
+      publishableKey={publishableKey}
+      tokenCache={tokenCache}
+      __experimental_passkeys={passkeys}
+    >
       <IconRegistry icons={EvaIconsPack} />
       <ApplicationProvider
         {...eva}
@@ -83,25 +87,8 @@ const RootLayout = () => {
           </Stack>
           <StatusBar style="auto" />
         </ThemeProvider>
-        <ClerkProvider
-          publishableKey={publishableKey}
-          tokenCache={tokenCache}
-          __experimental_passkeys={passkeys}
-        >
-          <ThemeProvider
-            value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
-          >
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen
-                name="+not-found"
-                options={{ headerShown: true, title: "Not Found" }}
-              />
-            </Stack>
-            <StatusBar style="auto" />
-          </ThemeProvider>
-        </ClerkProvider>
       </ApplicationProvider>
-    </SafeAreaProvider>
+    </ClerkProvider>
   );
 };
 
