@@ -32,11 +32,7 @@ export const FormLayout: React.FC<FormLayoutProps> = ({
   const { currentStep } = useSellerRegistration();
 
   return (
-    <KeyboardAvoidingView
-      style={styles.keyboardAvoidingView}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <Layout style={styles.container}>
+    <Layout style={styles.container}>
         <ProgressIndicator />
 
         <ScrollView
@@ -75,12 +71,12 @@ export const FormLayout: React.FC<FormLayoutProps> = ({
             ]}
             onPress={onNext}
             disabled={isNextDisabled}
+            status="primary"
           >
             {isLastStep ? "Submit" : "Continue"}
           </Button>
         </View>
-      </Layout>
-    </KeyboardAvoidingView>
+    </Layout>
   );
 };
 
@@ -104,7 +100,6 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     marginBottom: 24,
-    color: "#8F9BB3",
   },
   formContainer: {
     marginTop: 16,
@@ -118,14 +113,10 @@ const styles = StyleSheet.create({
   backButton: {
     flex: 1,
     marginRight: 8,
-    backgroundColor: "#F8F8F8",
-    borderColor: "#548C2F",
   },
   nextButton: {
     flex: 1,
     marginLeft: 8,
-    backgroundColor: "#548C2F",
-    borderColor: "#548C2F",
   },
   fullWidthButton: {
     flex: 1,

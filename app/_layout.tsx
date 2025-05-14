@@ -19,7 +19,7 @@ import { useColorScheme } from "@/hooks/useColorScheme";
 import mainTheme from "@/assets/themes/main-theme.json";
 
 import { ClerkProvider } from "@clerk/clerk-expo";
-import { passkeys } from "@clerk/expo-passkeys";
+// import { passkeys } from "@clerk/expo-passkeys";
 import { tokenCache } from "../utils/cache";
 import blueTheme from "@/assets/themes/blueTheme.json";
 import redTheme from "@/assets/themes/redTheme.json";
@@ -50,13 +50,9 @@ const RootLayout = () => {
       : { ...eva.light, ...mainTheme };
 
   return (
-    <ClerkProvider
-      publishableKey={publishableKey}
-      tokenCache={tokenCache}
-      __experimental_passkeys={passkeys}
-    >
-      <IconRegistry icons={EvaIconsPack} />
-      <ApplicationProvider
+    <>
+    <IconRegistry icons={EvaIconsPack}/>
+    <ApplicationProvider
         {...eva}
         theme={
           colorScheme === "dark"
@@ -64,8 +60,13 @@ const RootLayout = () => {
             : { ...eva.light, ...redTheme }
         }
       >
-        <ThemeProvider
+      <ThemeProvider
           value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+      >
+        <ClerkProvider
+          publishableKey={publishableKey}
+          tokenCache={tokenCache}
+          // __experimental_passkeys={passkeys}
         >
           <Stack
             screenOptions={{
@@ -86,9 +87,10 @@ const RootLayout = () => {
             />
           </Stack>
           <StatusBar style="auto" />
-        </ThemeProvider>
-      </ApplicationProvider>
-    </ClerkProvider>
+        </ClerkProvider>
+      </ThemeProvider>
+    </ApplicationProvider>
+    </>
   );
 };
 

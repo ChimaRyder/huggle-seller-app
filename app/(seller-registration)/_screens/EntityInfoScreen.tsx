@@ -164,7 +164,6 @@ const styles = StyleSheet.create({
   infoContainer: {
     marginTop: 16,
     padding: 16,
-    backgroundColor: "#F7F9FC",
     borderRadius: 4,
   },
 });

@@ -9,7 +9,7 @@ import {
 import { useRouter } from "expo-router";
 import * as eva from "@eva-design/eva";
 import {
-  ApplicationProvider,
+  IconRegistry,
   Layout,
   Text,
   Button,
@@ -17,6 +17,7 @@ import {
   IconProps,
   IconElement,
 } from "@ui-kitten/components";
+import { EvaIconsPack } from "@ui-kitten/eva-icons";
 import { ClerkAPIError } from "@clerk/types";
 import { Redirect } from "expo-router";
 
@@ -27,6 +28,7 @@ import { useUser } from "@clerk/clerk-expo";
 import { useClerk } from "@clerk/clerk-expo";
 import * as SecureStore from "expo-secure-store";
 import axios from "axios";
+import Svg, { Circle } from "react-native-svg";
 
 export const useWarmUpBrowser = () => {
   useEffect(() => {
@@ -39,8 +41,11 @@ export const useWarmUpBrowser = () => {
 
 WebBrowser.maybeCompleteAuthSession();
 
-const FacebookIcon = () => null;
-const GoogleIcon = () => null;
+const FacebookIcon = (props: IconProps): IconElement => <Icon {...props} name="facebook"/>;
+
+const GoogleIcon = (props: IconProps): IconElement => {
+  return <Icon {...props} name="google" pack="eva" />;
+};
 
 export default function WelcomeScreen() {
   useWarmUpBrowser();
@@ -134,7 +139,11 @@ export default function WelcomeScreen() {
   };
 
   return (
-    <ApplicationProvider {...eva} theme={eva.light}>
+    <>
+      <ImageBackground 
+          source={require('../assets/images/welcome-screen-background.jpg')} 
+          style={styles.backgroundImage}
+      >
       <View style={styles.overlay} />
       <Layout style={styles.container}>
         <View style={styles.contentContainer}>
@@ -150,9 +159,7 @@ export default function WelcomeScreen() {
 
           <View style={styles.buttonContainer}>
             <Button
-              style={styles.facebookButton}
-              status="basic"
-              accessoryLeft={FacebookIcon}
+              status="danger"
               onPress={handleSignOut}
             >
               Sign Out
@@ -164,7 +171,6 @@ export default function WelcomeScreen() {
             >
               Continue with Facebook
             </Button>
-
             <Button
               style={styles.googleButton}
               status="basic"
@@ -175,12 +181,13 @@ export default function WelcomeScreen() {
             </Button>
           </View>
 
-          <Text style={styles.termsText}>
+          {/* <Text style={styles.termsText}>
             By signing up, you agree to our Terms and Conditions.
-          </Text>
+          </Text> */}
         </View>
       </Layout>
-    </ApplicationProvider>
+    </ImageBackground>
+    </>
   );
 }
 

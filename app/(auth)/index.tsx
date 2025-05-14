@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { useUser } from "@clerk/clerk-expo";
 import axios from "axios";
 import { useClerk } from "@clerk/clerk-expo";
-import { Text } from "@ui-kitten/components"; // Changed from react-native-svg for proper Text component
+import { Text, Spinner } from "@ui-kitten/components"; // Changed from react-native-svg for proper Text component
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -53,7 +53,7 @@ export default function AuthScreen() {
 
   const checkIfUserExists = async (userid: string) => {
     try {
-      const url = "http://10.0.2.2:5132/api/sellers/get";
+      const url = "https://huggle-backend-jh2l.onrender.com/api/sellers/get";
       setStatus("Connecting to server...");
       const response = await axios.get(`${url}/${userid}`, {
         headers: {
@@ -71,11 +71,7 @@ export default function AuthScreen() {
     <View style={styles.container}>
       {loading ? (
         <>
-          <ActivityIndicator
-            size="large"
-            color="#3b5998"
-            style={styles.spinner}
-          />
+          <Spinner />
           <Text style={styles.loadingText}>{status}</Text>
         </>
       ) : (

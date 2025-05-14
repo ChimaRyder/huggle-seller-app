@@ -6,6 +6,7 @@ import {
   Image,
   Platform,
   Alert,
+  ImageProps,
 } from "react-native";
 import {
   Select,
@@ -28,6 +29,12 @@ import {
   getDownloadURL,
 } from "firebase/storage";
 import { firebase } from "../../../fbconfig"; // Adjust path if needed
+
+const spinnerIndicator = (props : ImageProps) => (
+    <View style={[props.style, styles.spinnerContainer]}>
+      <Spinner size="small" />
+    </View>
+);
 
 const TaxInfoScreen = () => {
   const { formData, updateFormData, setCurrentStep } = useSellerRegistration();
@@ -355,7 +362,7 @@ const TaxInfoScreen = () => {
                 appearance="outline"
                 accessoryLeft={
                   idImageLoading
-                    ? (props) => <Spinner size="tiny" {...props} />
+                    ? spinnerIndicator
                     : undefined
                 }
                 onPress={() => handleUploadGovernmentId(setFieldValue)}
@@ -411,7 +418,7 @@ const TaxInfoScreen = () => {
                 appearance="outline"
                 accessoryLeft={
                   permitLoading
-                    ? (props) => <Spinner size="tiny" {...props} />
+                    ? spinnerIndicator
                     : undefined
                 }
                 onPress={() => handleUploadBusinessPermit(setFieldValue)}
@@ -495,6 +502,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#E8E8E8",
+  },
+  spinnerContainer: {
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
 

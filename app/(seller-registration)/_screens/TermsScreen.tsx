@@ -31,7 +31,7 @@ const TermsScreen = () => {
       console.log("Seller Registration Form Data:", dataToSend);
 
       // Make the API request
-      const url = "http://10.0.2.2:5132/api/sellers/create";
+      const url = "https://huggle-backend-jh2l.onrender.com/api/sellers/create";
       const response = await axios.post(url, dataToSend, {
         headers: {
           "Content-Type": "application/json;charset=UTF-8",
