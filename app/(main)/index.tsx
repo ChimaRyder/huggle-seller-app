@@ -6,6 +6,8 @@ import AnalyticsScreen from './analytics';
 import ProfileScreen from './profile';
 import PromotionsScreen from './promotions';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useUser } from '@clerk/clerk-expo';
+import { Redirect } from "expo-router";
 
 const HomeIcon = (props: IconProps): IconElement => (
   <Icon
@@ -73,6 +75,13 @@ const ProfileFilledIcon = (props: IconProps): IconElement => (
 
 export default function BottomNav() {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const {user} = useUser();
+
+  if (!user) {
+    return <Redirect href="/(login)" />;
+  }
+
+
 
 
   return (

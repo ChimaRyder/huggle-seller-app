@@ -4,13 +4,25 @@ import { useRouter } from "expo-router";
 import { useUser } from "@clerk/clerk-expo";
 import axios from "axios";
 import { useClerk } from "@clerk/clerk-expo";
-import { Text, Spinner } from "@ui-kitten/components"; // Changed from react-native-svg for proper Text component
+import { Text, Spinner, useTheme, Layout, Icon } from "@ui-kitten/components"; // Changed from react-native-svg for proper Text component
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from "react-native-reanimated";
+
 
 export default function AuthScreen() {
   const router = useRouter();
   const { user } = useUser();
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("Checking user information...");
+  const theme = useTheme();
+
+  // Animation setup
+  const scale = useSharedValue(1);
+  
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: scale.value }]
+    };
+  });
 
   useEffect(() => {
     const checkUserAndRedirect = async () => {
@@ -24,11 +36,11 @@ export default function AuthScreen() {
           if (exists === 200) {
             // console.log("User exists");
             setTimeout(() => {
-              router.replace("/(main)");
+              router.dismissTo("/(main)");
             }, 500); // Small delay for smoother transition
           } else {
             setTimeout(() => {
-              router.replace("/(seller-registration)");
+              router.dismissTo("/(seller-registration)");
             }, 500); // Small delay for smoother transition
           }
         } catch (error) {
@@ -51,6 +63,18 @@ export default function AuthScreen() {
     checkUserAndRedirect();
   }, [user, router]);
 
+  useEffect(() => {
+    // Start the pulsating animation
+    scale.value = withRepeat(
+      withTiming(1.2, { 
+        duration: 500, 
+        easing: Easing.inOut(Easing.ease) 
+      }),
+      -1, // Infinite repeat
+      true // Reverse
+    );
+  }, []);
+
   const checkIfUserExists = async (userid: string) => {
     try {
       const url = "https://huggle-backend-jh2l.onrender.com/api/sellers/get";
@@ -68,21 +92,30 @@ export default function AuthScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <Layout style={[styles.container, {backgroundColor: theme['color-primary-500']}]}>
       {loading ? (
         <>
-          <Spinner />
-          <Text style={styles.loadingText}>{status}</Text>
+          <Animated.View style={animatedStyle}>
+            <Icon
+              name="shopping-bag-outline"
+              style={{
+                width: 80,
+                height: 80,
+              }}
+              fill={theme['color-basic-100']}
+            />
+          </Animated.View>
+          {/* <Text category="s1" status="control" style={styles.loadingText}>{status}</Text> */}
         </>
       ) : (
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{status}</Text>
-          <Text style={styles.linkText} onPress={() => router.replace("/")}>
+          <Text category="s1" status="control" style={styles.errorText}>{status}</Text>
+          <Text category="h6" status="control" style={styles.linkText} onPress={() => router.replace("/")}>
             Return to Login
           </Text>
         </View>
       )}
-    </View>
+    </Layout>
   );
 }
 
@@ -91,29 +124,22 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
-    padding: 20,
   },
   spinner: {
     marginBottom: 20,
   },
   loadingText: {
-    fontSize: 18,
-    color: "#333",
     textAlign: "center",
+    marginTop: 20,
   },
   errorContainer: {
     alignItems: "center",
   },
   errorText: {
-    fontSize: 18,
-    color: "#333",
     textAlign: "center",
     marginBottom: 20,
   },
   linkText: {
-    fontSize: 16,
-    color: "#3b5998",
     textDecorationLine: "underline",
     marginTop: 20,
   },
