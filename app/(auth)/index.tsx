@@ -1,12 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { Alert, View, ActivityIndicator, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { useUser } from "@clerk/clerk-expo";
+import { useUser, useAuth } from "@clerk/clerk-expo";
 import axios from "axios";
 import { useClerk } from "@clerk/clerk-expo";
 import { Text, Spinner, useTheme, Layout, Icon } from "@ui-kitten/components"; // Changed from react-native-svg for proper Text component
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from "react-native-reanimated";
-
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  Easing,
+} from "react-native-reanimated";
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -14,13 +19,14 @@ export default function AuthScreen() {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("Checking user information...");
   const theme = useTheme();
+  const { getToken } = useAuth();
 
   // Animation setup
   const scale = useSharedValue(1);
-  
+
   const animatedStyle = useAnimatedStyle(() => {
     return {
-      transform: [{ scale: scale.value }]
+      transform: [{ scale: scale.value }],
     };
   });
 
@@ -66,9 +72,9 @@ export default function AuthScreen() {
   useEffect(() => {
     // Start the pulsating animation
     scale.value = withRepeat(
-      withTiming(1.2, { 
-        duration: 500, 
-        easing: Easing.inOut(Easing.ease) 
+      withTiming(1.2, {
+        duration: 500,
+        easing: Easing.inOut(Easing.ease),
       }),
       -1, // Infinite repeat
       true // Reverse
@@ -79,9 +85,12 @@ export default function AuthScreen() {
     try {
       const url = "https://huggle-backend-jh2l.onrender.com/api/sellers/get";
       setStatus("Connecting to server...");
+      // get token
+      const token = await getToken();
       const response = await axios.get(`${url}/${userid}`, {
         headers: {
           "Content-Type": "application/json;charset=UTF-8",
+          Authorization: `Bearer ${token}`,
         },
       });
       if (response.status === 200) {
@@ -92,7 +101,12 @@ export default function AuthScreen() {
   };
 
   return (
-    <Layout style={[styles.container, {backgroundColor: theme['color-primary-500']}]}>
+    <Layout
+      style={[
+        styles.container,
+        { backgroundColor: theme["color-primary-500"] },
+      ]}
+    >
       {loading ? (
         <>
           <Animated.View style={animatedStyle}>
@@ -102,15 +116,22 @@ export default function AuthScreen() {
                 width: 80,
                 height: 80,
               }}
-              fill={theme['color-basic-100']}
+              fill={theme["color-basic-100"]}
             />
           </Animated.View>
           {/* <Text category="s1" status="control" style={styles.loadingText}>{status}</Text> */}
         </>
       ) : (
         <View style={styles.errorContainer}>
-          <Text category="s1" status="control" style={styles.errorText}>{status}</Text>
-          <Text category="h6" status="control" style={styles.linkText} onPress={() => router.replace("/")}>
+          <Text category="s1" status="control" style={styles.errorText}>
+            {status}
+          </Text>
+          <Text
+            category="h6"
+            status="control"
+            style={styles.linkText}
+            onPress={() => router.replace("/")}
+          >
             Return to Login
           </Text>
         </View>
