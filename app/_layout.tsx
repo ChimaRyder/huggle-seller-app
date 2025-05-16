@@ -19,7 +19,6 @@ import { useColorScheme } from "@/hooks/useColorScheme";
 import mainTheme from "@/assets/themes/main-theme.json";
 
 import { ClerkProvider } from "@clerk/clerk-expo";
-import { passkeys } from "@clerk/expo-passkeys";
 import { tokenCache } from "../utils/cache";
 import blueTheme from "@/assets/themes/blueTheme.json";
 import redTheme from "@/assets/themes/redTheme.json";
@@ -50,11 +49,7 @@ const RootLayout = () => {
       : { ...eva.light, ...mainTheme };
 
   return (
-    <ClerkProvider
-      publishableKey={publishableKey}
-      tokenCache={tokenCache}
-      __experimental_passkeys={passkeys}
-    >
+    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
       <IconRegistry icons={EvaIconsPack} />
       <ApplicationProvider
         {...eva}

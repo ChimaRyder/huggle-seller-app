@@ -23,7 +23,7 @@ import { Redirect } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { isClerkAPIResponseError, useSSO } from "@clerk/clerk-expo";
 import * as AuthSession from "expo-auth-session";
-import { useUser } from "@clerk/clerk-expo";
+import { useUser, useAuth } from "@clerk/clerk-expo";
 import { useClerk } from "@clerk/clerk-expo";
 import * as SecureStore from "expo-secure-store";
 import axios from "axios";
@@ -49,10 +49,17 @@ export default function WelcomeScreen() {
   const router = useRouter();
   const { user } = useUser();
   const { signOut } = useClerk();
+  const { getToken } = useAuth();
+
+  const checklgn = async () => {
+    const token = await getToken();
+    console.log("Token:", token);
+  };
 
   // check if user is already signed in
   if (user) {
-    // console.log("User is already signed in");
+    console.log("User is already signed in");
+    checklgn();
     // return <Redirect href="/(auth)" />;
   }
 
