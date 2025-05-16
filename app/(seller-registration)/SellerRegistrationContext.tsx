@@ -26,6 +26,8 @@ export interface SellerRegistrationFormData {
   city: string;
   province: string;
   zipCode: string;
+  latitude?: number;
+  longitude?: number;
 
   // Tax Information
   governmentIdType?: string;
@@ -58,6 +60,8 @@ const initialFormData: SellerRegistrationFormData = {
   city: "",
   province: "Cebu",
   zipCode: "",
+  latitude: undefined,
+  longitude: undefined,
 
   // Tax Information
   governmentIdType: "",

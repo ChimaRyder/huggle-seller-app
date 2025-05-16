@@ -1,10 +1,19 @@
-import React from "react";
-import { StyleSheet } from "react-native";
-import { Input, Select, SelectItem, IndexPath } from "@ui-kitten/components";
+import React, { useState, useEffect } from "react";
+import { StyleSheet, View, Dimensions } from "react-native";
+import {
+  Input,
+  Select,
+  SelectItem,
+  IndexPath,
+  Button,
+  Text,
+} from "@ui-kitten/components";
 import { Formik } from "formik";
 import { FormLayout } from "../components/FormLayout";
 import { useSellerRegistration } from "../SellerRegistrationContext";
 import { addressInfoSchema } from "../../../utils/validationSchemas";
+import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import * as Location from "expo-location";
 
 const provinces = [
   "Ilocos Norte",
@@ -99,12 +108,35 @@ const provinces = [
 
 const AddressInfoScreen = () => {
   const { formData, updateFormData, setCurrentStep } = useSellerRegistration();
+  const [mapVisible, setMapVisible] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState({
+    latitude: 14.5995, // Default to Philippines
+    longitude: 120.9842,
+    latitudeDelta: 0.0922,
+    longitudeDelta: 0.0421,
+  });
+
+  // Request location permission on component mount
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === "granted") {
+        const location = await Location.getCurrentPositionAsync({});
+        setCurrentLocation({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          latitudeDelta: 0.0922,
+          longitudeDelta: 0.0421,
+        });
+      }
+    })();
+  }, []);
 
   const selectedProvinceIndex = formData.province
     ? new IndexPath(provinces.indexOf(formData.province))
     : new IndexPath(0);
 
-  const handleNext = (values: typeof formData) => {
+  const handleNext = (values) => {
     updateFormData(values);
     setCurrentStep(5);
   };
@@ -115,13 +147,11 @@ const AddressInfoScreen = () => {
 
   return (
     <Formik
-      // initialValues={{
-      //   address: formData.address,
-      //   city: formData.city,
-      //   state: formData.state,
-      //   zipCode: formData.zipCode,
-      // }}
-      initialValues={formData}
+      initialValues={{
+        ...formData,
+        latitude: formData.latitude || currentLocation.latitude,
+        longitude: formData.longitude || currentLocation.longitude,
+      }}
       validationSchema={addressInfoSchema}
       onSubmit={handleNext}
     >
@@ -143,67 +173,136 @@ const AddressInfoScreen = () => {
             !values.address ||
             !values.city ||
             !values.province ||
-            !values.zipCode
+            !values.zipCode ||
+            !values.latitude ||
+            !values.longitude
           }
         >
-          <Input
-            label="Registered Address"
-            placeholder="Enter your street address"
-            value={values.address}
-            onChangeText={handleChange("address")}
-            onBlur={handleBlur("address")}
-            caption={
-              touched.address && errors.address
-                ? errors.address
-                : "Please enter your complete street address including building/unit number"
-            }
-            status={touched.address && errors.address ? "danger" : "basic"}
-            style={styles.input}
-            multiline={true}
-            textStyle={{ minHeight: 64 }}
-          />
+          {mapVisible ? (
+            <View style={styles.mapContainer}>
+              <Text category="s1" style={styles.mapInstructions}>
+                Drag the marker to pinpoint your exact location
+              </Text>
+              <MapView
+                provider={PROVIDER_GOOGLE}
+                style={styles.map}
+                region={currentLocation}
+                onRegionChangeComplete={(region) => {
+                  setCurrentLocation(region);
+                  setFieldValue("latitude", region.latitude);
+                  setFieldValue("longitude", region.longitude);
+                }}
+              >
+                <Marker
+                  coordinate={{
+                    latitude: currentLocation.latitude,
+                    longitude: currentLocation.longitude,
+                  }}
+                  draggable
+                  onDragEnd={(e) => {
+                    setFieldValue(
+                      "latitude",
+                      e.nativeEvent.coordinate.latitude
+                    );
+                    setFieldValue(
+                      "longitude",
+                      e.nativeEvent.coordinate.longitude
+                    );
+                  }}
+                />
+              </MapView>
+              <Button
+                style={styles.mapButton}
+                onPress={() => setMapVisible(false)}
+                status="primary"
+              >
+                Confirm Location
+              </Button>
+            </View>
+          ) : (
+            <>
+              <Input
+                label="Registered Address"
+                placeholder="Enter your street address"
+                value={values.address}
+                onChangeText={handleChange("address")}
+                onBlur={handleBlur("address")}
+                caption={
+                  touched.address && errors.address
+                    ? errors.address
+                    : "Please enter your complete street address including building/unit number"
+                }
+                status={touched.address && errors.address ? "danger" : "basic"}
+                style={styles.input}
+                multiline={true}
+                textStyle={{ minHeight: 64 }}
+              />
 
-          <Input
-            label="City"
-            placeholder="Enter your city"
-            value={values.city}
-            onChangeText={handleChange("city")}
-            onBlur={handleBlur("city")}
-            caption={touched.city && errors.city ? errors.city : ""}
-            status={touched.city && errors.city ? "danger" : "basic"}
-            style={styles.input}
-          />
+              <Input
+                label="City"
+                placeholder="Enter your city"
+                value={values.city}
+                onChangeText={handleChange("city")}
+                onBlur={handleBlur("city")}
+                caption={touched.city && errors.city ? errors.city : ""}
+                status={touched.city && errors.city ? "danger" : "basic"}
+                style={styles.input}
+              />
 
-          <Select
-            label="Province"
-            placeholder="Select your province"
-            value={values.province}
-            selectedIndex={selectedProvinceIndex}
-            onSelect={(index) => {
-              const selectedIndex = index as IndexPath;
-              const selectedValue = provinces[selectedIndex.row];
-              setFieldValue("province", selectedValue);
-            }}
-            caption={touched.province && errors.province ? errors.province : ""}
-            status={touched.province && errors.province ? "danger" : "basic"}
-            style={styles.input}
-          >
-            {provinces.sort().map((province, index) => (
-              <SelectItem key={index} title={province} />
-            ))}
-          </Select>
+              <Select
+                label="Province"
+                placeholder="Select your province"
+                value={values.province}
+                selectedIndex={selectedProvinceIndex}
+                onSelect={(index) => {
+                  const selectedIndex = index as IndexPath;
+                  const selectedValue = provinces[selectedIndex.row];
+                  setFieldValue("province", selectedValue);
+                }}
+                caption={
+                  touched.province && errors.province ? errors.province : ""
+                }
+                status={
+                  touched.province && errors.province ? "danger" : "basic"
+                }
+                style={styles.input}
+              >
+                {provinces.sort().map((province, index) => (
+                  <SelectItem key={index} title={province} />
+                ))}
+              </Select>
 
-          <Input
-            label="Zip Code"
-            placeholder="Enter your zip code"
-            value={values.zipCode}
-            onChangeText={handleChange("zipCode")}
-            onBlur={handleBlur("zipCode")}
-            caption={touched.zipCode && errors.zipCode ? errors.zipCode : ""}
-            status={touched.zipCode && errors.zipCode ? "danger" : "basic"}
-            keyboardType="numeric"
-            style={styles.input}
-          />
+              <Input
+                label="Zip Code"
+                placeholder="Enter your zip code"
+                value={values.zipCode}
+                onChangeText={handleChange("zipCode")}
+                onBlur={handleBlur("zipCode")}
+                caption={
+                  touched.zipCode && errors.zipCode ? errors.zipCode : ""
+                }
+                status={touched.zipCode && errors.zipCode ? "danger" : "basic"}
+                keyboardType="numeric"
+                style={styles.input}
+              />
+
+              <Button
+                style={styles.mapPickerButton}
+                onPress={() => setMapVisible(true)}
+                status="info"
+                appearance="outline"
+              >
+                Pinpoint Your Location on Map
+              </Button>
+
+              {values.latitude && values.longitude && (
+                <Text category="c1" style={styles.coordinatesText}>
+                  Location coordinates set: {values.latitude.toFixed(6)},{" "}
+                  {values.longitude.toFixed(6)}
+                </Text>
+              )}
+            </>
+          )}
         </FormLayout>
       )}
     </Formik>
@@ -212,6 +311,30 @@ const AddressInfoScreen = () => {
 
 const styles = StyleSheet.create({
   input: {
+    marginBottom: 16,
+  },
+  mapContainer: {
+    height: 400,
+    width: "100%",
+    marginBottom: 16,
+  },
+  map: {
+    width: "100%",
+    height: 350,
+    borderRadius: 8,
+  },
+  mapButton: {
+    marginTop: 10,
+  },
+  mapPickerButton: {
+    marginBottom: 16,
+  },
+  mapInstructions: {
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  coordinatesText: {
+    textAlign: "center",
     marginBottom: 16,
   },
 });
