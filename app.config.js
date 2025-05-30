@@ -1,4 +1,7 @@
-{
+import dotenv from 'dotenv';
+dotenv.config();
+
+export default {
   "expo": {
     "name": "huggle-seller-app",
     "slug": "huggle-seller-app",
@@ -10,7 +13,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.chimaryder.foodecommerceapp"
+      "bundleIdentifier": "com.chimaryder.foodecommerceapp",
+      "config": {
+        "googleMapsApiKey": process.env.GOOGLE_MAPS_API_KEY
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +24,12 @@
         "backgroundColor": "#ffffff",
         "softwareKeyboardLayoutMode": "pan"
       },
-      "package": "com.chimaryder.foodecommerceapp"
+      "package": "com.chimaryder.foodecommerceapp",
+      "config": {
+        "googleMaps": {
+          "apiKey": process.env.GOOGLE_MAPS_API_KEY
+        }
+      }
     },
     "web": {
       "bundler": "metro",
@@ -37,7 +48,13 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to access your location."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

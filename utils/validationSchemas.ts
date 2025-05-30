@@ -33,6 +33,8 @@ export const addressInfoSchema = yup.object().shape({
   city: yup.string().required("City is required"),
   province: yup.string().required("Province is required"),
   zipCode: yup.string().required("Zip code is required"),
+  latitude: yup.number().required("Location coordinates are required"),
+  longitude: yup.number().required("Location coordinates are required"),
 });
 
 // Tax Information Schema
