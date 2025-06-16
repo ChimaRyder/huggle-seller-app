@@ -11,6 +11,7 @@ export const shopInfoSchema = yup.object().shape({
 export const businessInfoSchema = yup.object().shape({
   sellerType: yup.string().required("Entity type is required"),
   storeRegisteredName: yup.string().required("Registered name is required"),
+  sellerEmail: yup.string().required("Business email is required"),
   sellerPhone: yup.string().required("Business phone is required"),
 });
 

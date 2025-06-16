@@ -3,7 +3,7 @@ import { StyleSheet, View, Image, TouchableOpacity, ScrollView, ImageBackground,
 import { Layout, Text, Icon, Button, Avatar, TopNavigation, Divider, Menu, MenuItem, Spinner } from '@ui-kitten/components';
 import { useRouter } from 'expo-router';
 import { IconProps, IconElement } from '@ui-kitten/components';
-import { useClerk, useUser } from '@clerk/clerk-expo'; 
+import { useClerk, useUser, useAuth } from '@clerk/clerk-expo'; 
 import { Redirect } from "expo-router";
 import axios from 'axios';
 
@@ -22,12 +22,19 @@ export default function ProfileScreen() {
   const {signOut} = useClerk();
   const [loading, setLoading] = useState(false);
   const {user} = useUser();
+  const {getToken} = useAuth();
   const [profileDetails, setUser] = useState({});
 
   useEffect(() => {
     const getUser = async () => {
       try {
-        const response = await axios.get(`https://huggle-backend-jh2l.onrender.com/api/sellers/get/${user?.id}`);
+        const token = await getToken();
+        const response = await axios.get(`https://huggle-backend-jh2l.onrender.com/api/sellers/get/${user?.id}`, {
+          headers: {
+            "Content-Type": "application/json;charset=UTF-8",
+            Authorization: `Bearer ${token}`,
+          }
+        });
         setUser(response.data);
         console.log(response.data);
       } catch (error) {

@@ -23,6 +23,8 @@ import * as Yup from 'yup';
 import { IndexPath, Popover } from '@ui-kitten/components';
 import ImageUploader from './components/ImageUploader';
 import { useLocalSearchParams } from 'expo-router';
+import axios from 'axios';
+import { useAuth } from '@clerk/clerk-expo';
 
 // Icons
 const BackIcon = (props: IconProps): IconElement => (
@@ -35,6 +37,10 @@ const CalendarIcon = (props: IconProps): IconElement => (
 
 const InfoIcon = (props: IconProps): IconElement => (
   <Icon {...props} name="info-outline" pack="eva" />
+);
+
+const ExitIcon = (props: IconProps): IconElement => (
+  <Icon {...props} name="close" pack="eva" />
 );
 
 // Product Types
@@ -51,23 +57,27 @@ const ProductSchema = Yup.object().shape({
   productType: Yup.string().required('Product Type is required.'),
   coverImage: Yup.string().required('Cover Image is required.'),
   additionalImages: Yup.array().of(Yup.string()),
-  amount: Yup.number()
-    .required('Amount is required')
-    .positive('Amount must be positive'),
+  discountedPrice: Yup.number()
+    .required('Discounted Price is required')
+    .positive('Discounted Price must be positive'),
   originalPrice: Yup.number()
-    .required('Original price is required')
-    .positive('Original price must be positive')
+    .required('Original Price is required')
+    .positive('Original Price must be positive')
     .test(
-      'is-greater-than-amount',
+      'is-greater-than-discount',
       'Original price must be greater than the discounted price',
       function(value) {
-        const { amount } = this.parent;
-        return !amount || !value || parseFloat(String(value)) > parseFloat(String(amount));
+        const { discountedPrice } = this.parent;
+        return !discountedPrice || !value || parseFloat(String(value)) > parseFloat(String(discountedPrice));
       }
     ),
   duration: Yup.date()
     .required('Duration is required')
     .min(new Date(), 'Duration must be a future date'),
+  stock: Yup.number()
+    .required('Initial Stock is required')
+    .positive('Initial Stock must be positive'),
+  category: Yup.string(),
 });
 
 interface ProductFormValues {
@@ -76,17 +86,21 @@ interface ProductFormValues {
   productType: string;
   coverImage: string;
   additionalImages: string[];
-  amount: string;
-  originalPrice: string;
+  discountedPrice: number;
+  originalPrice: number;
   duration: Date;
+  stock: number;
+  category: string;
 }
 
 // Edit Product Screen
 const EditProduct = () => {
   const router = useRouter();
+  const {getToken} = useAuth();
   const { productId } = useLocalSearchParams();
   const [selectedIndex, setSelectedIndex] = useState<IndexPath | IndexPath[]>(new IndexPath(0));
   const [visible, setVisible] = useState(false);
+  const [category, setCategory] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [product, setProduct] = useState<ProductFormValues>({
     name: '',
@@ -94,25 +108,43 @@ const EditProduct = () => {
     productType: '',
     coverImage: '',
     additionalImages: [],
-    amount: '',
-    originalPrice: '',
+    discountedPrice: 0,
+    originalPrice: 0,
     duration: new Date(),
+    stock: 0,
+    category: '',
   });
+  const [storeID, setStoreID] = useState('');
+  const [productID, setProductID] = useState('');
   
   const getProduct = async () => {
     setLoading(true);
-    const response = await fetch(`https://dummyjson.com/products/${productId}`);
-    const data = await response.json();
+    const token = await getToken();
+    const response = await axios.get(`https://huggle-backend-jh2l.onrender.com/api/seller/products/${productId}`, {
+      headers: {
+        "Content-Type": "application/json;charset=UTF-8",
+        Authorization: `Bearer ${token}`,
+      }
+    });
+    console.log("received");
+    const data = response.data;
+    console.log(data);
     setProduct({
-      name: data.title,
+      name: data.name,
       description: data.description,
-      productType: 'Beverage',
-      coverImage: data.thumbnail,
-      additionalImages: [],
-      amount: ((data.price - (data.price * (data.discountPercentage / 100))).toFixed(2)).toString(),
-      originalPrice: data.price.toString(),
-      duration: new Date(data.meta.createdAt),
+      productType: data.productType,
+      coverImage: data.coverImage,
+      additionalImages: data.additionalImages,
+      discountedPrice: data.discountedPrice.toString(),
+      originalPrice: data.originalPrice.toString(),
+      duration : new Date(data.expirationDate),
+      stock: data.stock,
+      category: '',
     })
+    setSelectedIndex(new IndexPath(productTypes.indexOf(data.productType)));
+    setCategory(data.category);
+    setStoreID(data.storeId);
+    setProductID(data.id);
     setLoading(false);
     return data;
   };
@@ -122,8 +154,43 @@ const EditProduct = () => {
   }, []);
 
   // Handle form submission
-  const handleSubmit = (values: ProductFormValues) => {
-    console.log('Submitted Product Details:', values);
+  const handleSubmit = async (values: ProductFormValues) => {
+    const productData = {
+      id: productID,
+      name: values.name,
+      description: values.description,
+      productType: values.productType,
+      coverImage: values.coverImage,
+      additionalImages: values.additionalImages,
+      discountedPrice: parseFloat(values.discountedPrice.toString()),
+      originalPrice: parseFloat(values.originalPrice.toString()),
+      expirationDate: values.duration.toISOString(),
+      stock: values.stock,
+      category: category,
+      storeId: storeID,
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      rating: 0,
+      ratingCount: 0,
+    }
+  
+    console.log(productData);
+    const token = await getToken();
+    axios.put(`https://huggle-backend-jh2l.onrender.com/api/seller/products/update`, productData, {
+      headers: {
+        "Content-Type": "application/json;charset=UTF-8",
+        Authorization: `Bearer ${token}`,
+      }
+    })
+    .then(response => {
+      console.log('Product updated successfully:', response.data);
+      router.back();
+    })
+    .catch(error => {
+      console.error('Error updating product:', error.message);
+    });
+
   };
 
   // Handle cancel 
@@ -231,27 +298,47 @@ const EditProduct = () => {
               </View>
 
               <View style={styles.section}>
+                <Text category="h6" style={styles.sectionTitle}>Category</Text>
+                
+                <Text style={styles.label}>Keywords/Tags</Text>
+                <Input
+                  placeholder="Add a Keyword"
+                  value={values.category}
+                  onChangeText={handleChange('category')}
+                  onBlur={handleBlur('category')}
+                  style={styles.input}
+                  onSubmitEditing={() => {
+                    category.push(values.category);
+                    setFieldValue('category', '');
+                    values.category = '';
+                  }}
+                />
+                {touched.category && errors.category && (
+                  <Text style={styles.errorText}>{errors.category}</Text>
+                )}
+                <View style={styles.categories}>
+                  <Text style={styles.label}>Categories:</Text>
+                  {category.map((c, index) => 
+                  <Button style={styles.categoryText} 
+                  key={index} 
+                  status='primary' 
+                  size='tiny' 
+                  accessoryLeft={ExitIcon}
+                  onPress={() => {
+                    const newCategories = category.splice(0, index).concat(category.splice(index + 1));
+                    setCategory(newCategories);
+                  }}
+                  >{c}</Button>)}
+                </View>
+              </View>
+
+              <View style={styles.section}>
                 <Text category="h6" style={styles.sectionTitle}>Prices</Text>
                 
-                <Text style={styles.label}>Discounted Price</Text>
-                <Input
-                  placeholder="00.00"
-                  value={values.amount}
-                  onChangeText={handleChange('amount')}
-                  onBlur={handleBlur('amount')}
-                  keyboardType="numeric"
-                  accessoryLeft={(props) => <Text {...props}>₱</Text>}
-                  style={styles.input}
-                />
-                {touched.amount && errors.amount && (
-                  <Text style={styles.errorText}>{errors.amount}</Text>
-                )}
-
-
                 <Text style={styles.label}>Original Price</Text>
                 <Input
                   placeholder="00.00"
-                  value={values.originalPrice}
+                  value={values.originalPrice.toString() === '0' ? '' : values.originalPrice.toString()}
                   onChangeText={handleChange('originalPrice')}
                   onBlur={handleBlur('originalPrice')}
                   keyboardType="numeric"
@@ -262,14 +349,46 @@ const EditProduct = () => {
                   <Text style={styles.errorText}>{errors.originalPrice}</Text>
                 )}
 
+                <Text style={styles.label}>Discounted Price</Text>
+                <Input
+                  placeholder="00.00"
+                  value={values.discountedPrice.toString() === '0' ? '' : values.discountedPrice.toString()}
+                  onChangeText={handleChange('discountedPrice')}
+                  onBlur={handleBlur('discountedPrice')}
+                  keyboardType="numeric"
+                  accessoryLeft={(props) => <Text {...props}>₱</Text>}
+                  style={styles.input}
+                />
+                {touched.discountedPrice && errors.discountedPrice && (
+                  <Text style={styles.errorText}>{errors.discountedPrice}</Text>
+                )}
+
                 <Text style={[styles.discountText, styles.label]}>
-                  Price Reduction: ₱ {values.originalPrice && values.amount && (parseFloat(values.originalPrice) - parseFloat(values.amount)).toFixed(2)} 
-                  {isNaN(parseFloat(values.originalPrice) - parseFloat(values.amount)) && "00.00"}
+                  Price Reduction: ₱ {values.originalPrice && values.discountedPrice && (values.originalPrice - values.discountedPrice).toFixed(2)} 
+                  {isNaN(values.originalPrice - values.discountedPrice) && "00.00"}
                 </Text>
                 <Text style={[styles.discountText, styles.label]}>
-                  Discount: {values.originalPrice && values.amount && (((parseFloat(values.originalPrice) - parseFloat(values.amount)) / parseFloat(values.originalPrice)) * 100).toFixed(2)}
-                  {isNaN(parseFloat(values.originalPrice) - parseFloat(values.amount)) && "00.00"}%
+                  Discount: {values.originalPrice && values.discountedPrice && (((values.originalPrice - values.discountedPrice) / values.originalPrice) * 100).toFixed(2)}
+                  {isNaN(values.originalPrice - values.discountedPrice) && "00.00"}%
                 </Text>
+              </View>
+
+
+              <View style={styles.section}>
+                <Text category="h6" style={styles.sectionTitle}>Stock</Text>
+                
+                <Text style={styles.label}>Initial Stock</Text>
+                <Input
+                  placeholder="0"
+                  value={values.stock ? values.stock.toString() : ''}
+                  onChangeText={handleChange('stock')}
+                  onBlur={handleBlur('stock')}
+                  keyboardType="numeric"
+                  style={styles.input}
+                />
+                {touched.stock && errors.stock && (
+                  <Text style={styles.errorText}>{errors.stock}</Text>
+                )}
               </View>
 
               <View style={styles.section}>
@@ -309,17 +428,17 @@ const EditProduct = () => {
                 <Button
                   style={styles.draftButton}
                   appearance="outline"
-                  status='danger'
+                  status='primary'
                   onPress={handleSaveAsDraft}
                 >
-                  Cancel 
+                  Save draft
                 </Button>
                 <Button
                   style={styles.publishButton}
                   status="success"
                   onPress={() => formikSubmit()}
                 >
-                  Update Product
+                  Publish now
                 </Button>
               </View>
             </View>
@@ -432,6 +551,21 @@ const styles = StyleSheet.create({
   loadingContainer: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  categoryText: {
+    fontSize: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  categories: {
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 5,
+    marginBottom: 16,
   },
 });
 

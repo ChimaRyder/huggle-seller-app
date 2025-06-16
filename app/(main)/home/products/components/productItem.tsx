@@ -15,14 +15,14 @@ const renderProductItem = ({ item, theme }: { item: any, theme: ThemeType }) => 
         })}
         >
             <View style={styles.productImagePlaceholder}>
-                <ImageBackground source={{ uri: item.thumbnail }} style={styles.productImage} />
+                <ImageBackground source={{ uri: item.coverImage }} style={styles.productImage} />
             </View>
-            <Text category="s1">{item.title.slice(0, 14)}...</Text>
+            <Text category="s1">{item.name.length > 14 ? item.name.slice(0, 14) + '...' : item.name}</Text>
             <View style={styles.productDetails}>
-            <Text category="c1">{item.stock} items</Text>
+            <Text category="c1">{0} items</Text>
             <View style={styles.ratingContainer}>
                 <Icon name="star" pack="eva" width={12} height={12} fill="#FFC107" />
-                <Text category="c1">{item.rating}</Text>
+                <Text category="c1">{0}</Text>
             </View>
             </View>
         </Card>

@@ -46,7 +46,7 @@ export default function AuthScreen() {
             }, 500); // Small delay for smoother transition
           } else {
             setTimeout(() => {
-              router.dismissTo("/(seller-registration)");
+              router.dismissTo("/(seller-registration)"); // TODO: add popup in case user wants to switch accounts
             }, 500); // Small delay for smoother transition
           }
         } catch (error) {
@@ -83,20 +83,16 @@ export default function AuthScreen() {
 
   const checkIfUserExists = async (userid: string) => {
     try {
-      const url = "https://huggle-backend-jh2l.onrender.com/api/sellers/get";
       setStatus("Connecting to server...");
-      // get token
-      const token = await getToken();
-      const response = await axios.get(`${url}/${userid}`, {
-        headers: {
-          "Content-Type": "application/json;charset=UTF-8",
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (response.status === 200) {
-        console.log("User exists");
-        return response.status;
+
+      const hasAccount = user?.publicMetadata;1
+
+      if (hasAccount) {
+        return 200;
+      } else {
+        return 404;
       }
+
     } catch (error) {}
   };
 

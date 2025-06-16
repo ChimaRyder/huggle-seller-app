@@ -4,6 +4,9 @@ import { StyleSheet, View, FlatList } from 'react-native';
 import renderProductItem from './components/productItem';
 import { useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
+import axios from 'axios';
+import { useAuth, useUser } from '@clerk/clerk-expo';
+
 
 
 const SearchIcon = (props: IconProps): IconElement => (
@@ -22,12 +25,26 @@ const ProductsTab = ({ theme }: { theme: ThemeType }) => {
   const router = useRouter();
   const [products, setProducts] = useState<Array<any>>([]);
   const [search, setSearch] = useState('');
+  const {getToken} = useAuth();
+  const {user} = useUser();
   
   // Sample product data
   const fetchProducts = async () => {
-    const response = await fetch(`https://dummyjson.com/products/search?q=${search}`);
-    const data = await response.json();
+    try {
+    console.log("running");
+    const token = await getToken({template: "seller_app"});
+    const response = await axios.get(`https://huggle-backend-jh2l.onrender.com/api/seller/products/?Name=${search}`, {
+      headers: {
+        "Content-Type": "application/json;charset=UTF-8",
+        Authorization: `Bearer ${token}`,
+      }
+    });
+    const data = response.data;
+    console.log(data);
     setProducts(data.products);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const onSubmit = (event : {nativeEvent: {text: string}}) => {

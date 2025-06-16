@@ -3,19 +3,16 @@ import { StyleSheet, View, ScrollView, Image } from 'react-native';
 import { Layout, Text, Icon, Button, TopNavigation, TopNavigationAction, Divider, Spinner, IconProps, IconElement } from '@ui-kitten/components';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import axios from 'axios';
+import { useAuth } from '@clerk/clerk-expo';
 
 // Product interface, will change depending on what to receive once API is in
 interface Product {
   id: number;
-  title: string;
-  price: number;
+  name: string;
+  discountedPrice: number;
   description: string;
-  thumbnail: string;
-  reviews: {
-    reviewerName: string;
-    rating: number;
-    comment: string;
-  }[];
+  coverImage: string;
 }
 
 // Icons
@@ -34,14 +31,21 @@ const StarIcon = (props: IconProps): IconElement => (
 export default function ProductPage() {
   const router = useRouter();
   const { product: productId } = useLocalSearchParams();
-  const [product, setProduct] = useState<Product>({id: 0, title: '', price: 0.00, description: '', thumbnail: '', reviews: []});
+  const [product, setProduct] = useState<Product>({id: 0, name: '', discountedPrice: 0.00, description: '', coverImage: ''});
   const [loading, setLoading] = useState(false);
+  const {getToken} = useAuth();
   
   // Find the product based on the ID
   const getProduct = async () => {
     setLoading(true);
-    const response = await fetch(`https://dummyjson.com/products/${productId}`);
-    const data = await response.json();
+    const token = await getToken();
+    const response = await axios.get(`https://huggle-backend-jh2l.onrender.com/api/seller/products/${productId}`, {
+      headers: {
+        "Content-Type": "application/json;charset=UTF-8",
+        Authorization: `Bearer ${token}`,
+      }
+    });
+    const data = response.data;
     setProduct(data);
     setLoading(false);
     return data;
@@ -80,15 +84,15 @@ export default function ProductPage() {
         <ScrollView style={styles.scrollView}>
           <View style={styles.imageContainer}>
             <Image 
-              source={{ uri: product.thumbnail }} 
+              source={{ uri: product.coverImage }} 
               style={styles.productImage}
               resizeMode="cover"
             />
           </View>
           
           <View style={styles.contentContainer}>
-            <Text category='h4' style={styles.productTitle}>{product.title}</Text>
-            <Text category='h5' status='primary' style={styles.productPrice}>{product.price}</Text>
+            <Text category='h4' style={styles.productTitle}>{product.name}</Text>
+            <Text category='h5' status='primary' style={styles.productPrice}>{product.discountedPrice.toFixed(2)}</Text>
             
             <View style={styles.section}>
               <Text category='h6'>Description</Text>
@@ -98,7 +102,7 @@ export default function ProductPage() {
             <View style={styles.section}>
               <Text category='h6'>Reviews</Text>
               
-              {product.reviews.map((review, index) => (
+              {/* {product.reviews.map((review, index) => (
                 <View key={index} style={styles.reviewItem}>
                   <Text category='s1' style={styles.reviewerName}>{review.reviewerName}</Text>
                   <Text appearance='hint'>{review.comment}</Text>
@@ -107,7 +111,7 @@ export default function ProductPage() {
                     <Text category='c1'>{review.rating}</Text>
                   </View>
                 </View>
-              ))}
+              ))} */}
             </View>
           </View>
         </ScrollView>

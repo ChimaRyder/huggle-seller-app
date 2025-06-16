@@ -109,7 +109,7 @@ const BusinessInfoScreen = () => {
           <Input
             label="Business Email"
             placeholder="Enter your business email"
-            value={user?.primaryEmailAddress?.emailAddress}
+            value={values.sellerEmail}
             onChangeText={handleChange("sellerEmail")}
             onBlur={handleBlur("sellerEmail")}
             caption={
@@ -123,7 +123,6 @@ const BusinessInfoScreen = () => {
             keyboardType="email-address"
             autoCapitalize="none"
             style={styles.input}
-            disabled={true}
           />
 
           <Input

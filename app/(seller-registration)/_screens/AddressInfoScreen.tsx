@@ -178,12 +178,13 @@ const AddressInfoScreen = () => {
             !values.longitude
           }
         >
-          {mapVisible ? (
+
+
             <View style={styles.mapContainer}>
-              <Text category="s1" style={styles.mapInstructions}>
-                Drag the marker to pinpoint your exact location
-              </Text>
-              <MapView
+                <Text category="c2" appearance="hint" style={styles.mapLabel}>
+                  Set Location
+                </Text>
+                <MapView
                 provider={PROVIDER_GOOGLE}
                 style={styles.map}
                 region={currentLocation}
@@ -211,98 +212,78 @@ const AddressInfoScreen = () => {
                   }}
                 />
               </MapView>
-              <Button
-                style={styles.mapButton}
-                onPress={() => setMapVisible(false)}
-                status="primary"
-              >
-                Confirm Location
-              </Button>
+              <Text category="c1" appearance="hint" style={styles.mapInstructions}>
+                Drag the marker to pinpoint your exact location
+              </Text>
             </View>
-          ) : (
-            <>
-              <Input
-                label="Registered Address"
-                placeholder="Enter your street address"
-                value={values.address}
-                onChangeText={handleChange("address")}
-                onBlur={handleBlur("address")}
-                caption={
-                  touched.address && errors.address
-                    ? errors.address
-                    : "Please enter your complete street address including building/unit number"
-                }
-                status={touched.address && errors.address ? "danger" : "basic"}
-                style={styles.input}
-                multiline={true}
-                textStyle={{ minHeight: 64 }}
-              />
 
-              <Input
-                label="City"
-                placeholder="Enter your city"
-                value={values.city}
-                onChangeText={handleChange("city")}
-                onBlur={handleBlur("city")}
-                caption={touched.city && errors.city ? errors.city : ""}
-                status={touched.city && errors.city ? "danger" : "basic"}
-                style={styles.input}
-              />
+            <Input
+              label="Registered Address"
+              placeholder="Enter your street address"
+              value={values.address}
+              onChangeText={handleChange("address")}
+              onBlur={handleBlur("address")}
+              caption={
+                touched.address && errors.address
+                  ? errors.address
+                  : "Please enter your complete street address including building/unit number"
+              }
+              status={touched.address && errors.address ? "danger" : "basic"}
+              style={styles.input}
+              multiline={true}
+              textStyle={{ minHeight: 64 }}
+            />
 
-              <Select
-                label="Province"
-                placeholder="Select your province"
-                value={values.province}
-                selectedIndex={selectedProvinceIndex}
-                onSelect={(index) => {
-                  const selectedIndex = index as IndexPath;
-                  const selectedValue = provinces[selectedIndex.row];
-                  setFieldValue("province", selectedValue);
-                }}
-                caption={
-                  touched.province && errors.province ? errors.province : ""
-                }
-                status={
-                  touched.province && errors.province ? "danger" : "basic"
-                }
-                style={styles.input}
-              >
-                {provinces.sort().map((province, index) => (
-                  <SelectItem key={index} title={province} />
-                ))}
-              </Select>
+            <Input
+              label="City"
+              placeholder="Enter your city"
+              value={values.city}
+              onChangeText={handleChange("city")}
+              onBlur={handleBlur("city")}
+              caption={touched.city && errors.city ? errors.city : ""}
+              status={touched.city && errors.city ? "danger" : "basic"}
+              style={styles.input}
+            />
 
-              <Input
-                label="Zip Code"
-                placeholder="Enter your zip code"
-                value={values.zipCode}
-                onChangeText={handleChange("zipCode")}
-                onBlur={handleBlur("zipCode")}
-                caption={
-                  touched.zipCode && errors.zipCode ? errors.zipCode : ""
-                }
-                status={touched.zipCode && errors.zipCode ? "danger" : "basic"}
-                keyboardType="numeric"
-                style={styles.input}
-              />
+            <Select
+              label="Province"
+              placeholder="Select your province"
+              value={values.province}
+              selectedIndex={selectedProvinceIndex}
+              onSelect={(index) => {
+                const selectedIndex = index as IndexPath;
+                const selectedValue = provinces[selectedIndex.row];
+                setFieldValue("province", selectedValue);
+              }}
+              caption={
+                touched.province && errors.province ? errors.province : ""
+              }
+              status={
+                touched.province && errors.province ? "danger" : "basic"
+              }
+              style={styles.input}
+            >
+              {provinces.sort().map((province, index) => (
+                <SelectItem key={index} title={province} />
+              ))}
+            </Select>
 
-              <Button
-                style={styles.mapPickerButton}
-                onPress={() => setMapVisible(true)}
-                status="info"
-                appearance="outline"
-              >
-                Pinpoint Your Location on Map
-              </Button>
+            <Input
+              label="Zip Code"
+              placeholder="Enter your zip code"
+              value={values.zipCode}
+              onChangeText={handleChange("zipCode")}
+              onBlur={handleBlur("zipCode")}
+              caption={
+                touched.zipCode && errors.zipCode ? errors.zipCode : ""
+              }
+              status={touched.zipCode && errors.zipCode ? "danger" : "basic"}
+              keyboardType="numeric"
+              style={styles.input}
+            />
 
-              {values.latitude && values.longitude && (
-                <Text category="c1" style={styles.coordinatesText}>
-                  Location coordinates set: {values.latitude.toFixed(6)},{" "}
-                  {values.longitude.toFixed(6)}
-                </Text>
-              )}
-            </>
-          )}
+            
+            
         </FormLayout>
       )}
     </Formik>
@@ -330,13 +311,18 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   mapInstructions: {
-    marginBottom: 8,
+    marginVertical: 8,
     textAlign: "center",
   },
   coordinatesText: {
     textAlign: "center",
     marginBottom: 16,
   },
+  mapLabel: {
+    marginBottom: 8,
+    fontWeight: "bold",
+    textAlign: "center",
+  }
 });
 
 export default AddressInfoScreen;
