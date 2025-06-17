@@ -195,7 +195,7 @@ const EditProduct = () => {
       )
       .then((response) => {
         console.log("Product updated successfully:", response.data);
-        router.back();
+        router.dismissTo("/(main)/home");
       })
       .catch((error) => {
         console.error("Error updating product:", error.message);

@@ -149,7 +149,7 @@ const CreateProduct = () => {
       )
       .then((response) => {
         console.log("Product created successfully:", response.data);
-        router.back();
+        router.dismissTo("/(main)/home");
       })
       .catch((error) => {
         console.error("Error creating product:", error);
