@@ -23,6 +23,7 @@ import { ClerkProvider } from "@clerk/clerk-expo";
 import { tokenCache } from "../utils/cache";
 import blueTheme from "@/assets/themes/blueTheme.json";
 import redTheme from "@/assets/themes/redTheme.json";
+import Toast from "react-native-toast-message";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -90,6 +91,7 @@ const RootLayout = () => {
         </ClerkProvider>
       </ThemeProvider>
     </ApplicationProvider>
+    <Toast />
     </>
   );
 };

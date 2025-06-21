@@ -23,6 +23,7 @@ import { IndexPath, Popover } from "@ui-kitten/components";
 import ImageUploader from "../components/ImageUploader";
 import axios from "axios";
 import { useAuth, useUser } from "@clerk/clerk-expo";
+import { showToast } from "@/components/Toast";
 
 // Icons
 const BackIcon = (props: IconProps): IconElement => (
@@ -149,10 +150,12 @@ const CreateProduct = () => {
       )
       .then((response) => {
         console.log("Product created successfully:", response.data);
-        router.dismissTo("/(main)/home");
+        router.dismissTo("/(main)");
+        showToast('success', 'Product Created!', `${productData.name} has been created successfully.`);
       })
       .catch((error) => {
         console.error("Error creating product:", error);
+        showToast('error', 'Uh oh!', `Something went wrong while creating the product. Please try again.`);
       });
   };
 

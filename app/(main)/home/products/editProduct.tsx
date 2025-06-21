@@ -25,6 +25,7 @@ import ImageUploader from "./components/ImageUploader";
 import { useLocalSearchParams } from "expo-router";
 import axios from "axios";
 import { useAuth } from "@clerk/clerk-expo";
+import { showToast } from "@/components/Toast";
 
 // Icons
 const BackIcon = (props: IconProps): IconElement => (
@@ -195,16 +196,18 @@ const EditProduct = () => {
       )
       .then((response) => {
         console.log("Product updated successfully:", response.data);
-        router.dismissTo("/(main)/home");
+        router.dismissTo("/(main)");
+        showToast('success', 'Product Updated!', `${productData.name} has been updated successfully.`);
       })
       .catch((error) => {
         console.error("Error updating product:", error.message);
+        showToast('error', 'Uh oh!', `Something went wrong while updating the product. Please try again.`);
       });
   };
 
   // Handle cancel
-  const handleSaveAsDraft = () => {
-    console.log("Canceled");
+  const handleUnlist = () => {
+    console.log("Unlisted"); // TODO: Add unlist function
   };
 
   return (
@@ -513,19 +516,18 @@ const EditProduct = () => {
 
                     <View style={styles.buttonContainer}>
                       <Button
-                        style={styles.draftButton}
-                        appearance="outline"
-                        status="primary"
-                        onPress={handleSaveAsDraft}
+                        style={styles.unlistButton}
+                        status="danger"
+                        onPress={handleUnlist}
                       >
-                        Save draft
+                        Unlist
                       </Button>
                       <Button
                         style={styles.publishButton}
                         status="success"
                         onPress={() => formikSubmit()}
                       >
-                        Publish now
+                        Update
                       </Button>
                     </View>
                   </View>
@@ -616,7 +618,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: 16,
   },
-  draftButton: {
+  unlistButton: {
     flex: 1,
     marginRight: 8,
   },
