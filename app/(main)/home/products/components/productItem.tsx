@@ -19,10 +19,10 @@ const renderProductItem = ({ item, theme }: { item: any, theme: ThemeType }) => 
             </View>
             <Text category="s1">{item.name.length > 14 ? item.name.slice(0, 14) + '...' : item.name}</Text>
             <View style={styles.productDetails}>
-            <Text category="c1">{0} items</Text>
+            <Text category="c1">{item.stock} {item.stock > 1 ? 'items' : 'item'}</Text>
             <View style={styles.ratingContainer}>
                 <Icon name="star" pack="eva" width={12} height={12} fill="#FFC107" />
-                <Text category="c1">{0}</Text>
+                <Text category="c1">{item.rating}</Text>
             </View>
             </View>
         </Card>

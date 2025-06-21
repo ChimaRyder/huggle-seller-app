@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, ScrollView, Image } from 'react-native';
-import { Layout, Text, Icon, Button, TopNavigation, TopNavigationAction, Divider, Spinner, IconProps, IconElement } from '@ui-kitten/components';
+import { Layout, Text, Icon, Button, TopNavigation, TopNavigationAction, Divider, Spinner, IconProps, IconElement, ViewPager, useTheme } from '@ui-kitten/components';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import axios from 'axios';
@@ -13,6 +13,8 @@ interface Product {
   discountedPrice: number;
   description: string;
   coverImage: string;
+  additionalImages: string[];
+  category: string[];
 }
 
 // Icons
@@ -24,6 +26,10 @@ const EditIcon = (props: IconProps): IconElement => (
   <Icon {...props} name="edit-2-outline" />
 );
 
+const DeleteIcon = (props: IconProps): IconElement => (
+  <Icon {...props} name="trash-2-outline" />
+);
+
 const StarIcon = (props: IconProps): IconElement => (
   <Icon {...props} name="star" fill="#FFC107" />
 );
@@ -31,9 +37,11 @@ const StarIcon = (props: IconProps): IconElement => (
 export default function ProductPage() {
   const router = useRouter();
   const { product: productId } = useLocalSearchParams();
-  const [product, setProduct] = useState<Product>({id: 0, name: '', discountedPrice: 0.00, description: '', coverImage: ''});
+  const [product, setProduct] = useState<Product>({id: 0, name: '', discountedPrice: 0.00, description: '', coverImage: '', additionalImages: [], category: []});
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const {getToken} = useAuth();
+  const theme = useTheme();
   
   // Find the product based on the ID
   const getProduct = async () => {
@@ -70,6 +78,23 @@ export default function ProductPage() {
     <TopNavigationAction icon={BackIcon} onPress={navigateBack} />
   );
 
+  const renderImageIndicators = () => {
+    const totalImages = 1 + (product.additionalImages?.length || 0);
+    return (
+      <View style={styles.indicatorContainer}>
+        {Array.from({ length: totalImages }).map((_, index) => (
+          <View
+            key={index}
+            style={[
+              styles.indicator,
+              selectedIndex === index && styles.activeIndicator,
+            ]}
+          />
+        ))}
+      </View>
+    );
+  };
+
   return (
     <>
     {!loading && (
@@ -81,17 +106,40 @@ export default function ProductPage() {
         />
         <Divider />
         
+        <View style={styles.imageContainer}>
+          <ViewPager
+            selectedIndex={selectedIndex}
+            onSelect={index => setSelectedIndex(index)}
+            style={styles.viewPager}
+          >
+            {[
+              <View key="cover">
+                <Image 
+                  source={{ uri: product.coverImage }} 
+                  style={styles.productImage}
+                  resizeMode="cover"
+                />
+              </View>,
+              ...(product.additionalImages?.map((imageUri, index) => (
+                <View key={`additional-${index}`}>
+                  <Image 
+                    source={{ uri: imageUri }} 
+                    style={styles.productImage}
+                    resizeMode="cover"
+                  />
+                </View>
+              )) || [])
+            ]}
+          </ViewPager>
+          {renderImageIndicators()}
+        </View>
+
         <ScrollView style={styles.scrollView}>
-          <View style={styles.imageContainer}>
-            <Image 
-              source={{ uri: product.coverImage }} 
-              style={styles.productImage}
-              resizeMode="cover"
-            />
-          </View>
+          
           
           <View style={styles.contentContainer}>
             <Text category='h4' style={styles.productTitle}>{product.name}</Text>
+            
             <Text category='h5' status='primary' style={styles.productPrice}>{product.discountedPrice.toFixed(2)}</Text>
             
             <View style={styles.section}>
@@ -113,14 +161,32 @@ export default function ProductPage() {
                 </View>
               ))} */}
             </View>
+
+            <View style={styles.section}>
+              <Text category='h6'>Categories</Text>
+
+              <View style={styles.categoryContainer}>
+                {product.category.map((category, index) => <Text key={index} category='c1' appearance='alternative' style={[styles.categoryText, {backgroundColor: theme['color-primary-500']}]}>{category}</Text>)}
+              </View>
+            </View>
           </View>
         </ScrollView>
+
+        <Button 
+          style={styles.deleteButton} 
+          onPress={() => {console.log('delete')}} // TODO: Add delete function
+          activeOpacity={0.7}
+          accessoryLeft={<DeleteIcon/>}
+          status='danger'
+        >
+        </Button>
         
         <Button 
           style={styles.editButton} 
           onPress={navigateToEdit}
           activeOpacity={0.7}
           accessoryLeft={<EditIcon/>}
+          status='info'
         >
         </Button>
       </SafeAreaView>
@@ -200,8 +266,61 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
   },
+  deleteButton: {
+    position: 'absolute',
+    bottom: 24,
+    left: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
   loadingContainer: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  viewPager: {
+    width: '100%',
+    height: '100%',
+  },
+  indicatorContainer: {
+    position: 'absolute',
+    bottom: 16,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  indicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  activeIndicator: {
+    backgroundColor: '#FFFFFF',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  categoryContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 5,
+    marginVertical: 8,
+  },
+  categoryText: {
+    backgroundColor: '#F7F9FC',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 5,
   },
 });

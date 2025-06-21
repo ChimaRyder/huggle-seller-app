@@ -1,5 +1,4 @@
-
-import { Input, Button, Icon, Text, IconProps, IconElement, ThemeType } from '@ui-kitten/components';
+import { Input, Button, Icon, Text, IconProps, IconElement, ThemeType, Modal, Radio, RadioGroup } from '@ui-kitten/components';
 import { StyleSheet, View, FlatList } from 'react-native';
 import renderProductItem from './components/productItem';
 import { useRouter } from 'expo-router';
@@ -12,9 +11,7 @@ import { useAuth, useUser } from '@clerk/clerk-expo';
 const SearchIcon = (props: IconProps): IconElement => (
   <Icon {...props} name="search-outline" pack="eva" />
 );
-const FilterIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="options-2-outline" pack="eva" onPress={() => console.log('Filter pressed')} />
-);
+
 
 const AlertIcon = (props: IconProps): IconElement => (
   <Icon {...props} name="alert-circle-outline" pack="eva" />
@@ -25,23 +22,34 @@ const ProductsTab = ({ theme }: { theme: ThemeType }) => {
   const router = useRouter();
   const [products, setProducts] = useState<Array<any>>([]);
   const [search, setSearch] = useState('');
+  const [filterVisible, setFilterVisible] = useState(false);
+  const [filters, setFilters] = useState({
+    status: 'active', // 'active', 'inactive'
+    expired: 'not-expired' // 'expired', 'not-expired'
+  });
   const {getToken} = useAuth();
   const {user} = useUser();
+
+  const FilterIcon = (props: IconProps): IconElement => (
+    <Icon {...props} name="options-2-outline" pack="eva" onPress={() => setFilterVisible(true)} />
+  );
+
+  // TODO: Implement filtering logic for status and expiration
   
   // Sample product data
   const fetchProducts = async () => {
     try {
-    console.log("running");
-    const token = await getToken({template: "seller_app"});
-    const response = await axios.get(`https://huggle-backend-jh2l.onrender.com/api/seller/products/?Name=${search}`, {
-      headers: {
-        "Content-Type": "application/json;charset=UTF-8",
-        Authorization: `Bearer ${token}`,
-      }
-    });
-    const data = response.data;
-    console.log(data);
-    setProducts(data.products);
+      console.log("running");
+      const token = await getToken({template: "seller_app"});
+      const response = await axios.get(`https://huggle-backend-jh2l.onrender.com/api/seller/products/?Name=${search}`, {
+        headers: {
+          "Content-Type": "application/json;charset=UTF-8",
+          Authorization: `Bearer ${token}`,
+        }
+      });
+      const data = response.data;
+      console.log(data);
+      setProducts(data.products);
     } catch (error) {
       console.error(error);
     }
@@ -53,10 +61,71 @@ const ProductsTab = ({ theme }: { theme: ThemeType }) => {
 
   useEffect(() => {
     fetchProducts();
-  }, [search]);
+  }, [search, filters]);
+
+  const renderFilterModal = () => (
+    <Modal
+      visible={filterVisible}
+      backdropStyle={styles.backdrop}
+      onBackdropPress={() => setFilterVisible(false)}
+    >
+      <View style={[styles.modalContainer, { backgroundColor: theme['background-basic-color-1'] }]}>
+        <Text category="h6" style={styles.modalTitle}>Filters</Text>
+        
+        <View style={styles.filterSection}>
+          <Text category="s1" style={styles.filterLabel}>Product Status</Text>
+          <RadioGroup
+            selectedIndex={['active', 'inactive'].indexOf(filters.status)}
+            onChange={index => {
+              const statusOptions = ['active', 'inactive'];
+              setFilters(prev => ({ ...prev, status: statusOptions[index] }));
+            }}
+          >
+            <Radio>Active Only</Radio>
+            <Radio>Inactive Only</Radio>
+          </RadioGroup>
+        </View>
+
+        <View style={styles.filterSection}>
+          <Text category="s1" style={styles.filterLabel}>Expiration Status</Text>
+          <RadioGroup
+            selectedIndex={['expired', 'not-expired'].indexOf(filters.expired)}
+            onChange={index => {
+              const expiredOptions = ['expired', 'not-expired'];
+              setFilters(prev => ({ ...prev, expired: expiredOptions[index] }));
+            }}
+          >
+            <Radio>Expired Only</Radio>
+            <Radio>Not Expired</Radio>
+          </RadioGroup>
+        </View>
+
+        <View style={styles.modalButtons}>
+          <Button
+            status="basic"
+            onPress={() => setFilterVisible(false)}
+            style={styles.modalButton}
+          >
+            Cancel
+          </Button>
+          <Button
+            status="primary"
+            onPress={() => {
+              setFilterVisible(false);
+              console.log(filters);
+            }}
+            style={styles.modalButton}
+          >
+            Apply
+          </Button>
+        </View>
+      </View>
+    </Modal>
+  );
 
   return (
     <View style={styles.tabContent}>
+      {renderFilterModal()}
       
       <View style={styles.basketHeader}>
         <Input
@@ -138,6 +207,33 @@ const styles = StyleSheet.create({
     ErrorAddProductButton: {
         borderRadius: 5,
         marginTop: 16,
+    },
+    backdrop: {
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    modalContainer: {
+        padding: 20,
+        borderRadius: 8,
+        maxWidth: 400,
+    },
+    modalTitle: {
+        marginBottom: 20,
+        textAlign: 'center',
+    },
+    filterSection: {
+        marginBottom: 20,
+    },
+    filterLabel: {
+        marginBottom: 10,
+    },
+    modalButtons: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 10,
+        marginTop: 20,
+    },
+    modalButton: {
+        minWidth: 80,
     },
 });
 
