@@ -85,7 +85,7 @@ export default function AuthScreen() {
     try {
       setStatus("Connecting to server...");
 
-      const hasAccount = user?.publicMetadata;1
+      const hasAccount = user?.publicMetadata.storeId;
 
       if (hasAccount) {
         return 200;

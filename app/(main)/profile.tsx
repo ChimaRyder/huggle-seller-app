@@ -28,8 +28,9 @@ export default function ProfileScreen() {
   useEffect(() => {
     const getUser = async () => {
       try {
-        const token = await getToken();
-        const response = await axios.get(`https://huggle-backend-jh2l.onrender.com/api/sellers/get/${user?.id}`, {
+        const token = await getToken({template: "seller_app"});
+        console.log(user?.publicMetadata.storeId);
+        const response = await axios.get(`https://huggle-backend-jh2l.onrender.com/api/stores/${user?.publicMetadata.storeId}`, {
           headers: {
             "Content-Type": "application/json;charset=UTF-8",
             Authorization: `Bearer ${token}`,
