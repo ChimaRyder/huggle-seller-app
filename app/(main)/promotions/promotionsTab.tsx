@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import PromotionPost from './components/promotionPost';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import axios from 'axios';
+import { showToast } from '@/components/Toast';
 
 // Icons
 const SearchIcon = (props: IconProps): IconElement => (
@@ -60,6 +61,7 @@ const PromotionsTab = () => {
           }
         });
         console.log(response.data);
+        showToast('success','Success','Post deleted successfully.');
         fetchPosts();
       } 
       },
@@ -79,7 +81,7 @@ const PromotionsTab = () => {
   // Fetch Posts function
   const fetchPosts = async () => {
     const token = await getToken({template: "seller_app"});
-    const response = await axios.get(`https://huggle-backend-jh2l.onrender.com/api/seller/posts/search`, {
+    const response = await axios.get(`https://huggle-backend-jh2l.onrender.com/api/seller/posts/search?StoreId=${user?.publicMetadata?.storeId}`, {
       headers: {
         "Content-Type": "application/json;charset=UTF-8",
         Authorization: `Bearer ${token}`,
