@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { Text, Button, Icon, IconProps, IconElement, ThemeType, OverflowMenu, MenuItem } from '@ui-kitten/components';
+import { Text, Button, Icon, IconProps, IconElement, ThemeType, OverflowMenu, MenuItem, Layout, useTheme, ViewPager } from '@ui-kitten/components';
 
 // Icons
 const MoreIcon = (props: IconProps): IconElement => (
@@ -18,23 +18,26 @@ const AnalyticsIcon = (props: IconProps): IconElement => (
 interface Post {
   id: number;
   content: string;
-  images: string[];
+  imageUrls: string[];
   createdAt: string;
   updatedAt: string;
-  likes?: number;
-  views?: number;
+  storeId: string;
+  interactions: number;
 }
 
 interface PromotionPostProps {
   post: Post;
   onEdit: () => void;
   onDelete: () => void;
-  theme?: ThemeType;
+  store: any;
 }
 
-const PromotionPost = ({ post, onEdit, onDelete, theme }: PromotionPostProps) => {
+const PromotionPost = ({ post, onEdit, onDelete, store }: PromotionPostProps) => {
+  const theme = useTheme();
   const [menuVisible, setMenuVisible] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
+  // Date formatter
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -46,41 +49,49 @@ const PromotionPost = ({ post, onEdit, onDelete, theme }: PromotionPostProps) =>
     return date.toLocaleDateString();
   };
 
+  // Render images with ViewPager
   const renderImages = () => {
-    if (!post.images || post.images.length === 0) return null;
-
-    if (post.images.length === 1) {
-      return (
-        <Image
-          source={{ uri: post.images[0] }}
-          style={styles.singleImage}
-          resizeMode="cover"
-        />
-      );
-    }
+    if (!post.imageUrls || post.imageUrls.length === 0) return null;
 
     return (
-      <View style={styles.imageGrid}>
-        {post.images.slice(0, 3).map((image, index) => (
-          <Image
-            key={index}
-            source={{ uri: image }}
-            style={[
-              styles.gridImage,
-              index === 2 && post.images.length > 3 && styles.lastImage
-            ]}
-            resizeMode="cover"
-          />
-        ))}
-        {post.images.length > 3 && (
-          <View style={styles.imageOverlay}>
-            <Text style={styles.overlayText}>+{post.images.length - 3}</Text>
-          </View>
-        )}
+      <View style={styles.imageContainer}>
+        <ViewPager
+          selectedIndex={selectedImageIndex}
+          onSelect={index => setSelectedImageIndex(index)}
+          style={styles.viewPager}
+        >
+          {post.imageUrls.map((image, index) => (
+            <View key={index}>
+              <Image
+                source={{ uri: image }}
+                style={styles.carouselImage}
+                resizeMode="cover"
+              />
+            </View>
+          ))}
+        </ViewPager>
+        {post.imageUrls.length > 1 && renderImageIndicators()}
       </View>
     );
   };
 
+  // Render image indicators
+  const renderImageIndicators = () => (
+    <View style={styles.indicatorContainer}>
+      {post.imageUrls.map((_, index) => (
+        <View
+          key={index}
+          style={[
+            styles.indicator,
+            index === selectedImageIndex && styles.activeIndicator,
+            {backgroundColor: theme[index === selectedImageIndex ? 'color-basic-100' : 'color-basic-500']}
+          ]}
+        />
+      ))}
+    </View>
+  );
+
+  // Dropdown Menu
   const renderMenu = () => (
     <OverflowMenu
       anchor={() => (
@@ -111,15 +122,15 @@ const PromotionPost = ({ post, onEdit, onDelete, theme }: PromotionPostProps) =>
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: theme?.['background-basic-color-1'] || '#FFFFFF' }]}>
+    <Layout level="2" style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>S</Text>
-          </View>
+          <Layout level="4" style={styles.avatar}>
+            <Text category="s1" appearance="hint" style={styles.avatarText}>{store?.name?.charAt(0)}</Text>
+          </Layout>
           <View style={styles.headerInfo}>
-            <Text category="s1" style={styles.username}>Your Store</Text>
+            <Text category="s1" style={styles.username}>{store?.name}</Text>
             <Text category="c1" appearance="hint">{formatDate(post.createdAt)}</Text>
           </View>
         </View>
@@ -134,24 +145,22 @@ const PromotionPost = ({ post, onEdit, onDelete, theme }: PromotionPostProps) =>
       {/* Images */}
       {renderImages()}
 
-      {/* Actions */}
-      <View style={styles.actions}>
-        <View style={styles.actionButtons}>
-          <View style={styles.actionItem}>
-            <HeartIcon width={20} height={20} fill="#FF3B30" />
-            <Text category="c1" style={styles.actionText}>
-              {post.likes || 0}
-            </Text>
-          </View>
-          <View style={styles.actionItem}>
-            <AnalyticsIcon width={20} height={20} fill="#8F9BB3" />
-            <Text category="c1" style={styles.actionText}>
-              {post.views || 0}
-            </Text>
-          </View>
+      {/* Insights */}
+      <View style={[styles.insights, {borderTopColor: theme['color-basic-500']}]}>
+        <View style={styles.insightItem}>
+          <HeartIcon width={25} height={25} fill={theme['color-primary-500']} />
+          <Text category="s2" status='primary' style={styles.actionText}>
+            {post.interactions}
+          </Text>
+        </View>
+        <View style={styles.insightItem}>
+          <AnalyticsIcon width={25} height={25} fill={theme['color-primary-500']} />
+          <Text category="s2" status='primary' style={styles.actionText}>
+            {post.interactions}
+          </Text>
         </View>
       </View>
-    </View>
+    </Layout>
   );
 };
 
@@ -159,13 +168,13 @@ const styles = StyleSheet.create({
   container: {
     marginBottom: 16,
     borderRadius: 12,
-    overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 15,
   },
   headerLeft: {
     display: 'flex',
@@ -176,15 +185,12 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#E4E9F2',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
   },
   avatarText: {
-    fontSize: 14,
     fontWeight: '600',
-    color: '#8F9BB3',
   },
   headerInfo: {
   },
@@ -195,63 +201,66 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   content: {
-    paddingBottom: 12,
+    paddingHorizontal: 10,
+    paddingBottom: 10,
   },
   postText: {
     fontSize: 14,
     lineHeight: 20,
   },
-  singleImage: {
-    width: '100%',
-    height: 300,
-  },
-  imageGrid: {
-    flexDirection: 'row',
-    height: 200,
-  },
-  gridImage: {
-    flex: 1,
-    height: '100%',
-  },
-  lastImage: {
+  imageContainer: {
+    height: 400,
+    margin: 10,
+    borderRadius: 15,
+    overflow: 'hidden',
     position: 'relative',
   },
-  imageOverlay: {
+  viewPager: {
+    width: '100%',
+    height: '100%',
+  },
+  carouselImage: {
+    width: '100%',
+    height: '100%',
+  },
+  indicatorContainer: {
     position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
+    bottom: 16,
     left: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    right: 0,
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 8,
   },
-  overlayText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
+  indicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  actions: {
+  activeIndicator: {
+    backgroundColor: '#FFFFFF',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  insights: {
+    display: 'flex',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
+    gap: 10,
     paddingVertical: 12,
-    marginTop: 12,
+    marginHorizontal: 10,
+    marginTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F7F9FC',
   },
-  actionButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 20,
-  },
-  actionItem: {
+  insightItem: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   actionText: {
     marginLeft: 4,
-    color: '#8F9BB3',
   },
 });
 

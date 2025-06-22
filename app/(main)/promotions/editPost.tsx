@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, ScrollView, Alert } from 'react-native';
-import { Layout, Text, Button, TopNavigation, TopNavigationAction, Icon, IconProps, IconElement, Input } from '@ui-kitten/components';
+import { Layout, Text, Button, TopNavigation, TopNavigationAction, Icon, IconProps, IconElement, Input, Spinner } from '@ui-kitten/components';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import axios from 'axios';
+import { useAuth } from '@clerk/clerk-expo';
+import ImageUploader from '../home/products/components/ImageUploader';
+import { showToast } from '@/components/Toast';
 
 // Icons
 const BackIcon = (props: IconProps): IconElement => (
@@ -13,40 +17,6 @@ const DeleteIcon = (props: IconProps): IconElement => (
   <Icon {...props} name="trash-2-outline" pack="eva" />
 );
 
-// Placeholder data for editing
-const placeholderPosts = [
-  {
-    id: 1,
-    content: "🎉 Special offer! Get 20% off on all fresh vegetables this week. Don't miss out on these amazing deals! #FreshFood #Discount",
-    images: [
-      "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500",
-      "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=500"
-    ],
-    createdAt: "2024-01-15T10:30:00Z",
-    updatedAt: "2024-01-15T10:30:00Z"
-  },
-  {
-    id: 2,
-    content: "New organic fruits just arrived! Fresh from the farm to your table. Order now and get free delivery on orders above $50.",
-    images: [
-      "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=500"
-    ],
-    createdAt: "2024-01-14T15:45:00Z",
-    updatedAt: "2024-01-14T15:45:00Z"
-  },
-  {
-    id: 3,
-    content: "Weekend special: Buy 2 get 1 free on all bakery items! Perfect for your family breakfast. 🥐🥖",
-    images: [
-      "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=500",
-      "https://images.unsplash.com/photo-1555507036-ab794f4ade2a?w=500",
-      "https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=500"
-    ],
-    createdAt: "2024-01-13T09:20:00Z",
-    updatedAt: "2024-01-13T09:20:00Z"
-  }
-];
-
 const EditPostScreen = () => {
   const router = useRouter();
   const { postId } = useLocalSearchParams();
@@ -54,14 +24,26 @@ const EditPostScreen = () => {
   const [images, setImages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const { getToken } = useAuth();
 
   useEffect(() => {
     // Find the post to edit
-    const post = placeholderPosts.find(p => p.id === Number(postId));
-    if (post) {
+    const fetchPost = async () => {
+      const token = await getToken({template: 'seller_app'});
+      const response = await axios.get(`https://huggle-backend-jh2l.onrender.com/api/seller/posts/${postId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const post = response.data;
+
+      console.log(post);
       setContent(post.content);
-      setImages(post.images);
-    }
+      setImages(post.imageUrls);
+    };
+    console.log(postId);
+    fetchPost();
   }, [postId]);
 
   const navigateBack = () => {
@@ -80,20 +62,26 @@ const EditPostScreen = () => {
 
     setIsSubmitting(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      const updatedPost = {
-        id: Number(postId),
+    try {
+      const token = await getToken({template: 'seller_app'});
+      const response = await axios.put(`https://huggle-backend-jh2l.onrender.com/api/seller/posts/${postId}`, {
         content: content.trim(),
-        images: images,
-        createdAt: "2024-01-15T10:30:00Z", // Keep original
-        updatedAt: new Date().toISOString()
-      };
-      
-      console.log('Updating post:', updatedPost);
+        imageUrls: images
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      console.log(response.data);
       setIsSubmitting(false);
+      showToast('success','Success','Post updated successfully.');
       router.back();
-    }, 1000);
+    } catch (error) {
+      console.error(error);
+      setIsSubmitting(false);
+      showToast('error','Error','Failed to update post.');
+    }
   };
 
   const handleDelete = () => {
@@ -160,17 +148,21 @@ const EditPostScreen = () => {
               <View style={styles.imageGrid}>
                 {images.map((image, index) => (
                   <View key={index} style={styles.imageContainer}>
-                    <View style={styles.imagePreview}>
-                      <Text style={styles.imageText}>Image {index + 1}</Text>
-                    </View>
+                    <ImageUploader
+                      image={image}
+                      onImageSelected={handleImageSelected}
+                      style={styles.imageUploader}
+                    />
                   </View>
                 ))}
                 
                 {images.length < 5 && (
                   <View style={styles.imageContainer}>
-                    <View style={styles.addImageButton}>
-                      <Text style={styles.addImageText}>+ Add Image</Text>
-                    </View>
+                    <ImageUploader
+                      image=""
+                      onImageSelected={handleImageSelected}
+                      style={styles.imageUploader}
+                    />
                   </View>
                 )}
               </View>
@@ -182,20 +174,10 @@ const EditPostScreen = () => {
         <View style={styles.footer}>
           <View style={styles.buttonRow}>
             <Button
-              style={[styles.actionButton, styles.deleteButton]}
-              status="danger"
-              onPress={handleDelete}
-              disabled={isDeleting}
-              accessoryLeft={isDeleting ? undefined : DeleteIcon}
-            >
-              {isDeleting ? 'Deleting...' : 'Delete'}
-            </Button>
-            
-            <Button
               style={[styles.actionButton, styles.updateButton]}
               onPress={handleUpdate}
               disabled={!content.trim() || isSubmitting}
-              accessoryLeft={isSubmitting ? undefined : (props) => (
+              accessoryLeft={isSubmitting ? () => <Spinner /> : (props) => (
                 <Icon {...props} name="checkmark-outline" pack="eva" />
               )}
             >
@@ -290,6 +272,10 @@ const styles = StyleSheet.create({
   },
   updateButton: {
     // Additional styling if needed
+  },
+  imageUploader: {
+    width: '100%',
+    height: '100%',
   },
 });
 

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
-import { Text, Input, Button, Icon, IconProps, IconElement, ThemeType } from '@ui-kitten/components';
+import { View, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
+import { Text, Input, Button, Icon, IconProps, IconElement } from '@ui-kitten/components';
 import { useRouter } from 'expo-router';
 import PromotionPost from './components/promotionPost';
+import { useAuth, useUser } from '@clerk/clerk-expo';
+import axios from 'axios';
 
 // Icons
 const SearchIcon = (props: IconProps): IconElement => (
@@ -17,99 +19,99 @@ const AlertIcon = (props: IconProps): IconElement => (
   <Icon {...props} name="alert-circle-outline" pack="eva" />
 );
 
-// Placeholder data for posts
-const placeholderPosts = [
-  {
-    id: 1,
-    content: "🎉 Special offer! Get 20% off on all fresh vegetables this week. Don't miss out on these amazing deals! #FreshFood #Discount",
-    images: [
-      "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500",
-      "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=500"
-    ],
-    createdAt: "2024-01-15T10:30:00Z",
-    updatedAt: "2024-01-15T10:30:00Z",
-    likes: 24,
-    views: 156
-  },
-  {
-    id: 2,
-    content: "New organic fruits just arrived! Fresh from the farm to your table. Order now and get free delivery on orders above $50.",
-    images: [
-      "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=500"
-    ],
-    createdAt: "2024-01-14T15:45:00Z",
-    updatedAt: "2024-01-14T15:45:00Z",
-    likes: 18,
-    views: 89
-  },
-  {
-    id: 3,
-    content: "Weekend special: Buy 2 get 1 free on all bakery items! Perfect for your family breakfast. 🥐🥖",
-    images: [
-      "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=500",
-      "https://images.unsplash.com/photo-1555507036-ab794f4ade2a?w=500",
-      "https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=500"
-    ],
-    createdAt: "2024-01-13T09:20:00Z",
-    updatedAt: "2024-01-13T09:20:00Z",
-    likes: 42,
-    views: 203
-  }
-];
-
-interface PromotionsTabProps {
-  theme?: ThemeType;
-}
-
-const PromotionsTab = ({ theme }: PromotionsTabProps) => {
+const PromotionsTab = () => {
   const router = useRouter();
-  const [posts, setPosts] = useState(placeholderPosts);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filteredPosts, setFilteredPosts] = useState(placeholderPosts);
+  const [posts, setPosts] = useState([]);
+  const {getToken} = useAuth();
+  const {user} = useUser();
+  const [store, setStore] = useState(null);
 
+  // Load Posts
   useEffect(() => {
-    const filtered = posts.filter(post =>
-      post.content.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    setFilteredPosts(filtered);
-  }, [searchQuery, posts]);
+    fetchPosts();
+    fetchStore();
+  }, []);
 
+  // Route push to add post
   const handleAddPost = () => {
-    router.push('/(main)/promotions/createPost' as any);
+    router.push('/(main)/promotions/createPost');
   };
 
+  // Route push to edit post
   const handleEditPost = (postId: number) => {
     router.push({
-      pathname: '/(main)/promotions/editPost' as any,
+      pathname: '/(main)/promotions/editPost',
       params: { postId: postId.toString() }
     });
   };
 
+  // Route push to delete post
   const handleDeletePost = (postId: number) => {
-    console.log('Deleting post with ID:', postId);
-    setPosts(currentPosts => currentPosts.filter(post => post.id !== postId));
+    Alert.alert('Delete Post', 'Are you sure you want to delete this post?', [
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+      { text: 'Delete', onPress: async () => {
+        const token = await getToken({template: 'seller_app'});
+        const response = await axios.delete(`https://huggle-backend-jh2l.onrender.com/api/seller/posts/${postId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        console.log(response.data);
+        fetchPosts();
+      } 
+      },
+    ]);
   };
 
+  // Post Item render
   const renderPost = ({ item }: { item: any }) => (
     <PromotionPost
       post={item}
+      store={store}
       onEdit={() => handleEditPost(item.id)}
       onDelete={() => handleDeletePost(item.id)}
-      theme={theme}
     />
   );
+
+  // Fetch Posts function
+  const fetchPosts = async () => {
+    const token = await getToken({template: "seller_app"});
+    const response = await axios.get(`https://huggle-backend-jh2l.onrender.com/api/seller/posts/search`, {
+      headers: {
+        "Content-Type": "application/json;charset=UTF-8",
+        Authorization: `Bearer ${token}`,
+      }
+    });
+    console.log(response.data.posts);
+    setPosts(response.data.posts);
+  }
+
+  // Fetch Store function
+  const fetchStore = async () => {
+    const token = await getToken({template: "seller_app"});
+    const response = await axios.get(`https://huggle-backend-jh2l.onrender.com/api/stores/${user?.publicMetadata?.storeId}`, {
+      headers: {
+        "Content-Type": "application/json;charset=UTF-8",
+        Authorization: `Bearer ${token}`,
+      }
+    });
+    console.log(response.data);
+    setStore(response.data);
+  }
+
 
   return (
     <View style={styles.container}>
       {/* Header with Search and Add Button */}
       <View style={styles.header}>
-        <Input
-          placeholder="Search posts..."
-          accessoryLeft={SearchIcon}
-          style={styles.searchInput}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
+        <Text category="h5">
+          Posts
+        {/* TODO: Add filter button */}
+        </Text>
+        
         <Button
           style={styles.addButton}
           appearance="outline"
@@ -120,9 +122,9 @@ const PromotionsTab = ({ theme }: PromotionsTabProps) => {
       </View>
 
       {/* Posts List */}
-      {filteredPosts.length > 0 ? (
+      {posts.length > 0 ? (
         <FlatList
-          data={filteredPosts}
+          data={posts}
           renderItem={renderPost}
           keyExtractor={(item) => item.id.toString()}
           showsVerticalScrollIndicator={false}
@@ -132,10 +134,10 @@ const PromotionsTab = ({ theme }: PromotionsTabProps) => {
         <View style={styles.emptyContainer}>
           <AlertIcon style={styles.emptyIcon} fill="#C5CEE0" />
           <Text style={styles.emptyTitle} appearance="hint">
-            {searchQuery ? 'No posts found' : 'No posts yet'}
+            No Posts Found
           </Text>
           <Text style={styles.emptySubtitle} appearance="hint">
-            {searchQuery ? 'Try adjusting your search' : 'Create your first promotional post'}
+            Promote your products by creating a post.
           </Text>
           <Button
             status="primary"
@@ -159,6 +161,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 8,
     marginBottom: 16,
   },
