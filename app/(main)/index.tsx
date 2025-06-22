@@ -91,6 +91,7 @@ export default function BottomNav() {
             selectedIndex={selectedIndex}
             onSelect={index => setSelectedIndex(index)}
             style={styles.viewPager}
+            swipeEnabled={false}
           >
             <HomeScreen />
             <AnalyticsScreen />
