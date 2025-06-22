@@ -20,10 +20,10 @@ const DeleteIcon = (props: IconProps): IconElement => (
 const EditPostScreen = () => {
   const router = useRouter();
   const { postId } = useLocalSearchParams();
+  const [post, setPost] = useState<any>(null);
   const [content, setContent] = useState('');
   const [images, setImages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const { getToken } = useAuth();
 
   useEffect(() => {
@@ -41,6 +41,7 @@ const EditPostScreen = () => {
       console.log(post);
       setContent(post.content);
       setImages(post.imageUrls);
+      setPost(post);
     };
     console.log(postId);
     fetchPost();
@@ -63,11 +64,15 @@ const EditPostScreen = () => {
     setIsSubmitting(true);
     
     try {
-      const token = await getToken({template: 'seller_app'});
-      const response = await axios.put(`https://huggle-backend-jh2l.onrender.com/api/seller/posts/${postId}`, {
+      const updatedPost = {
+        ...post,
         content: content.trim(),
-        imageUrls: images
-      }, {
+        imageUrls: images,
+      }
+      console.log(updatedPost);
+
+      const token = await getToken({template: 'seller_app'});
+      const response = await axios.put(`https://huggle-backend-jh2l.onrender.com/api/seller/posts/${postId}`, updatedPost, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -82,33 +87,6 @@ const EditPostScreen = () => {
       setIsSubmitting(false);
       showToast('error','Error','Failed to update post.');
     }
-  };
-
-  const handleDelete = () => {
-    Alert.alert(
-      "Delete Post",
-      "Are you sure you want to delete this post? This action cannot be undone.",
-      [
-        {
-          text: "Cancel",
-          style: "cancel"
-        },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            setIsDeleting(true);
-            
-            // Simulate API call
-            setTimeout(() => {
-              console.log('Deleting post with ID:', postId);
-              setIsDeleting(false);
-              router.back();
-            }, 1000);
-          }
-        }
-      ]
-    );
   };
 
   const renderBackAction = () => (
