@@ -21,6 +21,7 @@ import { Formik } from "formik";
 import * as Yup from "yup";
 import { IndexPath, Popover } from "@ui-kitten/components";
 import ImageUploader from "../components/ImageUploader";
+import CategorySelector from "@/components/CategorySelector";
 import axios from "axios";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { showToast } from "@/components/Toast";
@@ -76,7 +77,8 @@ const ProductSchema = Yup.object().shape({
   stock: Yup.number()
     .required("Initial Stock is required")
     .positive("Initial Stock must be positive"),
-  category: Yup.string(),
+  category: Yup.string().required("Category is required."),
+  subcategory: Yup.string(),
 });
 
 interface ProductFormValues {
@@ -90,6 +92,7 @@ interface ProductFormValues {
   duration: Date;
   stock: number;
   category: string;
+  subcategory: string;
 }
 
 // Create Product Screen
@@ -99,7 +102,8 @@ const CreateProduct = () => {
     new IndexPath(0)
   );
   const [visible, setVisible] = useState(false);
-  const [category, setCategory] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string>("");
   const { getToken } = useAuth();
   const { user } = useUser();
 
@@ -115,6 +119,7 @@ const CreateProduct = () => {
     duration: new Date(),
     stock: 0,
     category: "",
+    subcategory: "",
   };
 
   // Handle form submission
@@ -129,7 +134,8 @@ const CreateProduct = () => {
       originalPrice: parseFloat(values.originalPrice.toString()),
       expirationDate: values.duration.toISOString(),
       stock: values.stock,
-      category: category,
+      category: selectedCategory,
+      subcategory: selectedSubcategory,
       storeId: user?.publicMetadata.storeId,
     };
     console.log(productData);
@@ -289,42 +295,15 @@ const CreateProduct = () => {
                     Category
                   </Text>
 
-                  <Text style={styles.label}>Keywords/Tags</Text>
-                  <Input
-                    placeholder="Add a Keyword"
-                    value={values.category}
-                    onChangeText={handleChange("category")}
-                    onBlur={handleBlur("category")}
-                    style={styles.input}
-                    onSubmitEditing={() => {
-                      category.push(values.category);
-                      setFieldValue("category", "");
-                      values.category = "";
-                    }}
+                  <CategorySelector
+                    selectedCategory={selectedCategory}
+                    selectedSubcategory={selectedSubcategory}
+                    onCategoryChange={setSelectedCategory}
+                    onSubcategoryChange={setSelectedSubcategory}
                   />
-                  {touched.category && errors.category && (
+                  {!selectedCategory && touched.category && errors.category && (
                     <Text style={styles.errorText}>{errors.category}</Text>
                   )}
-                  <View style={styles.categories}>
-                    <Text style={styles.label}>Categories:</Text>
-                    {category.map((c, index) => (
-                      <Button
-                        style={styles.categoryText}
-                        key={index}
-                        status="primary"
-                        size="tiny"
-                        accessoryLeft={ExitIcon}
-                        onPress={() => {
-                          const newCategories = category
-                            .splice(0, index)
-                            .concat(category.splice(index + 1));
-                          setCategory(newCategories);
-                        }}
-                      >
-                        {c}
-                      </Button>
-                    ))}
-                  </View>
                 </View>
 
                 <View style={styles.section}>
@@ -403,7 +382,9 @@ const CreateProduct = () => {
                   <Text style={styles.label}>Initial Stock</Text>
                   <Input
                     placeholder="0"
-                    value={values.stock ? values.stock.toString() : ""}
+                    value={
+                      values.stock.toString() === "0" ? "" : values.stock.toString()
+                    }
                     onChangeText={handleChange("stock")}
                     onBlur={handleBlur("stock")}
                     keyboardType="numeric"
@@ -417,41 +398,15 @@ const CreateProduct = () => {
                 <View style={styles.section}>
                   <Text category="h6" style={styles.sectionTitle}>
                     Duration
-                    <Popover
-                      anchor={() => (
-                        <Button
-                          appearance="ghost"
-                          size="small"
-                          status="primary"
-                          onPress={() => setVisible(!visible)}
-                          style={styles.durationButton}
-                          accessoryLeft={InfoIcon}
-                        ></Button>
-                      )}
-                      visible={visible}
-                      onBackdropPress={() => setVisible(false)}
-                      placement={"bottom start"}
-                    >
-                      <Card disabled={true} style={styles.modalCard}>
-                        <Text style={styles.modalText}>
-                          The duration is the time period during which the
-                          product will be available for purchase.
-                        </Text>
-                      </Card>
-                    </Popover>
                   </Text>
 
-                  <View style={styles.durationRow}>
-                    <Text style={styles.label}>Time Duration</Text>
-                  </View>
-
+                  <Text style={styles.label}>Expiration Date</Text>
                   <Datepicker
+                    placeholder="Select Date"
                     date={values.duration}
-                    onSelect={(date) => setFieldValue("duration", date)}
-                    accessoryRight={CalendarIcon}
-                    placeholder="MM/DD/YYYY HH:MM:SS"
+                    onSelect={(nextDate) => setFieldValue("duration", nextDate)}
+                    accessoryLeft={CalendarIcon}
                     style={styles.input}
-                    min={new Date()}
                   />
                   {touched.duration && errors.duration && (
                     <Text style={styles.errorText}>{errors.duration}</Text>
@@ -460,19 +415,18 @@ const CreateProduct = () => {
 
                 <View style={styles.buttonContainer}>
                   <Button
-                    style={styles.draftButton}
-                    appearance="outline"
-                    status="primary"
-                    onPress={handleSaveAsDraft}
+                    style={styles.button}
+                    onPress={() => formikSubmit()}
+                    disabled={!selectedCategory}
                   >
-                    Save draft
+                    Create Product
                   </Button>
                   <Button
-                    style={styles.publishButton}
-                    status="success"
-                    onPress={() => formikSubmit()}
+                    style={[styles.button, styles.draftButton]}
+                    onPress={handleSaveAsDraft}
+                    status="basic"
                   >
-                    Publish now
+                    Save as Draft
                   </Button>
                 </View>
               </View>
@@ -488,106 +442,51 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
   formContainer: {
     padding: 16,
   },
   section: {
     marginBottom: 24,
-    borderRadius: 8,
-    padding: 16,
   },
   sectionTitle: {
     marginBottom: 16,
+    fontWeight: "bold",
   },
   label: {
-    fontSize: 14,
-    fontWeight: "600",
     marginBottom: 8,
+    fontWeight: "600",
   },
   input: {
     marginBottom: 16,
   },
   errorText: {
-    color: "#FF3D71",
+    color: "#FF3B30",
     fontSize: 12,
-    marginTop: -12,
-    marginBottom: 16,
+    marginBottom: 8,
   },
   coverImageUploader: {
-    width: "100%",
-    height: 150,
     marginBottom: 16,
   },
   additionalImagesContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 16,
   },
   additionalImageUploader: {
-    width: "30%",
-    height: 80,
+    flex: 1,
+    marginHorizontal: 4,
   },
   discountText: {
-    color: "#548C2F",
-  },
-  durationRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  ongoingText: {
-    fontSize: 12,
-    color: "#8F9BB3",
-    backgroundColor: "#EDF1F7",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    color: "#34C759",
+    marginBottom: 4,
   },
   buttonContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 16,
+    marginTop: 24,
+  },
+  button: {
+    marginBottom: 12,
   },
   draftButton: {
-    flex: 1,
-    marginRight: 8,
-  },
-  publishButton: {
-    flex: 1,
-    marginLeft: 8,
-  },
-  durationButton: {
-    borderRadius: 40,
-    width: 25,
-    height: 25,
-  },
-  modalText: {
-    fontSize: 11,
-  },
-  modalCard: {
-    width: 250,
-  },
-  categoryText: {
-    fontSize: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  categories: {
-    display: "flex",
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 5,
-    marginBottom: 16,
+    backgroundColor: "#F2F2F7",
   },
 });
 

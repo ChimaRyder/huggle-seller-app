@@ -22,6 +22,7 @@ import { Formik } from "formik";
 import * as Yup from "yup";
 import { IndexPath, Popover } from "@ui-kitten/components";
 import ImageUploader from "./components/ImageUploader";
+import CategorySelector from "@/components/CategorySelector";
 import { useLocalSearchParams } from "expo-router";
 import axios from "axios";
 import { useAuth } from "@clerk/clerk-expo";
@@ -78,7 +79,8 @@ const ProductSchema = Yup.object().shape({
   stock: Yup.number()
     .required("Initial Stock is required")
     .positive("Initial Stock must be positive"),
-  category: Yup.string(),
+  category: Yup.string().required("Category is required."),
+  subcategory: Yup.string(),
 });
 
 interface ProductFormValues {
@@ -92,6 +94,7 @@ interface ProductFormValues {
   duration: Date;
   stock: number;
   category: string;
+  subcategory: string;
 }
 
 // Edit Product Screen
@@ -103,7 +106,8 @@ const EditProduct = () => {
     new IndexPath(0)
   );
   const [visible, setVisible] = useState(false);
-  const [category, setCategory] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [product, setProduct] = useState<ProductFormValues>({
     name: "",
@@ -116,6 +120,7 @@ const EditProduct = () => {
     duration: new Date(),
     stock: 0,
     category: "",
+    subcategory: "",
   });
   const [storeID, setStoreID] = useState("");
   const [productID, setProductID] = useState("");
@@ -145,10 +150,12 @@ const EditProduct = () => {
       originalPrice: data.originalPrice.toString(),
       duration: new Date(data.expirationDate),
       stock: data.stock,
-      category: "",
+      category: data.category || "",
+      subcategory: data.subcategory || "",
     });
     setSelectedIndex(new IndexPath(productTypes.indexOf(data.productType)));
-    setCategory(data.category);
+    setSelectedCategory(data.category || "");
+    setSelectedSubcategory(data.subcategory || "");
     setStoreID(data.storeId);
     setProductID(data.id);
     setLoading(false);
@@ -172,7 +179,8 @@ const EditProduct = () => {
       originalPrice: parseFloat(values.originalPrice.toString()),
       expirationDate: values.duration.toISOString(),
       stock: values.stock,
-      category: category,
+      category: selectedCategory,
+      subcategory: selectedSubcategory,
       storeId: storeID,
       isActive: true,
       createdAt: new Date().toISOString(),
@@ -200,7 +208,7 @@ const EditProduct = () => {
         showToast('success', 'Product Updated!', `${productData.name} has been updated successfully.`);
       })
       .catch((error) => {
-        console.error("Error updating product:", error.message);
+        console.error("Error updating product:", error);
         showToast('error', 'Uh oh!', `Something went wrong while updating the product. Please try again.`);
       });
   };
@@ -343,42 +351,15 @@ const EditProduct = () => {
                         Category
                       </Text>
 
-                      <Text style={styles.label}>Keywords/Tags</Text>
-                      <Input
-                        placeholder="Add a Keyword"
-                        value={values.category}
-                        onChangeText={handleChange("category")}
-                        onBlur={handleBlur("category")}
-                        style={styles.input}
-                        onSubmitEditing={() => {
-                          category.push(values.category);
-                          setFieldValue("category", "");
-                          values.category = "";
-                        }}
+                      <CategorySelector
+                        selectedCategory={selectedCategory}
+                        selectedSubcategory={selectedSubcategory}
+                        onCategoryChange={setSelectedCategory}
+                        onSubcategoryChange={setSelectedSubcategory}
                       />
-                      {touched.category && errors.category && (
+                      {!selectedCategory && touched.category && errors.category && (
                         <Text style={styles.errorText}>{errors.category}</Text>
                       )}
-                      <View style={styles.categories}>
-                        <Text style={styles.label}>Categories:</Text>
-                        {category.map((c, index) => (
-                          <Button
-                            style={styles.categoryText}
-                            key={index}
-                            status="primary"
-                            size="tiny"
-                            accessoryLeft={ExitIcon}
-                            onPress={() => {
-                              const newCategories = category
-                                .splice(0, index)
-                                .concat(category.splice(index + 1));
-                              setCategory(newCategories);
-                            }}
-                          >
-                            {c}
-                          </Button>
-                        ))}
-                      </View>
                     </View>
 
                     <View style={styles.section}>
