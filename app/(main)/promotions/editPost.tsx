@@ -39,7 +39,7 @@ const EditPostScreen = () => {
       setImages(post.imageUrls);
       setPost(post);
     };
-    console.log(postId);
+
     fetchPost();
   }, [postId]);
 
