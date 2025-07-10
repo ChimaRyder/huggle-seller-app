@@ -7,6 +7,7 @@ import axios from 'axios';
 import { useAuth } from '@clerk/clerk-expo';
 import ImageUploader from '../home/products/components/ImageUploader';
 import { showToast } from '@/components/Toast';
+import { getPostbyID, updatePost } from '@/utils/Controllers/PromotionController';
 
 // Icons
 const BackIcon = (props: IconProps): IconElement => (
@@ -30,15 +31,10 @@ const EditPostScreen = () => {
     // Find the post to edit
     const fetchPost = async () => {
       const token = await getToken({template: 'seller_app'});
-      const response = await axios.get(`https://huggle-backend-jh2l.onrender.com/api/seller/posts/${postId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await getPostbyID(postId as string, token ?? "");
 
       const post = response.data;
 
-      console.log(post);
       setContent(post.content);
       setImages(post.imageUrls);
       setPost(post);
@@ -69,16 +65,10 @@ const EditPostScreen = () => {
         content: content.trim(),
         imageUrls: images,
       }
-      console.log(updatedPost);
 
       const token = await getToken({template: 'seller_app'});
-      const response = await axios.put(`https://huggle-backend-jh2l.onrender.com/api/seller/posts/${postId}`, updatedPost, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await updatePost(updatedPost, token ?? "");
 
-      console.log(response.data);
       setIsSubmitting(false);
       showToast('success','Success','Post updated successfully.');
       router.back();

@@ -7,6 +7,7 @@ import ImageUploader from '../home/products/components/ImageUploader';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import axios from 'axios';
 import { showToast } from '@/components/Toast';
+import { createPost } from '@/utils/Controllers/PromotionController';
 
 // Icons
 const BackIcon = (props: IconProps): IconElement => (
@@ -36,33 +37,26 @@ const CreatePostScreen = () => {
     }
 
     setIsSubmitting(true);
-    
-    // Simulate API call
 
     const post = {
-      storeId: user?.publicMetadata.storeId,
+      storeId: user?.publicMetadata.storeId as string,
       content: content,
       imageUrls: images,
     }
 
-    const token = await getToken({template: 'seller_app'});
-    console.log(token);
-    console.log(post);
-    axios.post('https://huggle-backend-jh2l.onrender.com/api/seller/posts', post, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    }).then((res) => {
-      console.log(res.data);
+    try {
+      const token = await getToken({template: 'seller_app'});
+      const response = await createPost(post, token ?? "");
+
       showToast('success', 'Success', 'Post created successfully.');
-    }).catch((err) => {
-      console.log(err);
-      showToast('error', 'Error', 'Failed to create post.');
-    }).finally(() => {
+
       setIsSubmitting(false);
       router.dismissTo('/(main)');
-    });
-    
+    } catch(error) {
+      console.error(error);
+      showToast('error', 'Error', 'Failed to create post.');
+    }
+
   };
 
   const renderBackAction = () => (
