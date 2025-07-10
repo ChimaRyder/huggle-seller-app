@@ -24,6 +24,7 @@ import ImageUploader from "../components/ImageUploader";
 import axios from "axios";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { showToast } from "@/components/Toast";
+import { createProduct } from "@/utils/Controllers/ProductController";
 
 // Icons
 const BackIcon = (props: IconProps): IconElement => (
@@ -130,33 +131,23 @@ const CreateProduct = () => {
       expirationDate: values.duration.toISOString(),
       stock: values.stock,
       category: category,
-      storeId: user?.publicMetadata.storeId,
+      storeId: user?.publicMetadata.storeId as string,
     };
-    console.log(productData);
 
     // Save to database
     const token = await getToken({ template: "seller_app" });
-    console.log(token);
-    axios
-      .post(
-        "https://huggle-backend-jh2l.onrender.com/api/seller/products/",
-        productData,
-        {
-          headers: {
-            "Content-Type": "application/json;charset=UTF-8",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      )
-      .then((response) => {
-        console.log("Product created successfully:", response.data);
-        router.dismissTo("/(main)");
-        showToast('success', 'Product Created!', `${productData.name} has been created successfully.`);
-      })
-      .catch((error) => {
-        console.error("Error creating product:", error);
-        showToast('error', 'Uh oh!', `Something went wrong while creating the product. Please try again.`);
-      });
+
+    try {
+      const response = await createProduct(productData, token ?? "");
+
+      console.log("Product created successfully:", response.data);
+      router.dismissTo("/(main)");
+      showToast('success', 'Product Created!', `${productData.name} has been created successfully.`);
+    } catch (error) {
+      console.error("Error creating product:", error);
+      showToast('error', 'Uh oh!', `Something went wrong while creating the product. Please try again.`);
+    }
+
   };
 
   // Handle save as draft

@@ -5,6 +5,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import axios from 'axios';
 import { useAuth } from '@clerk/clerk-expo';
+import { getProductbyID } from '@/utils/Controllers/ProductController';
 
 // Product interface, will change depending on what to receive once API is in
 interface Product {
@@ -47,12 +48,8 @@ export default function ProductPage() {
   const getProduct = async () => {
     setLoading(true);
     const token = await getToken();
-    const response = await axios.get(`https://huggle-backend-jh2l.onrender.com/api/seller/products/${productId}`, {
-      headers: {
-        "Content-Type": "application/json;charset=UTF-8",
-        Authorization: `Bearer ${token}`,
-      }
-    });
+    const response = await getProductbyID(productId as string, token ?? "");
+
     const data = response.data;
     setProduct(data);
     setLoading(false);

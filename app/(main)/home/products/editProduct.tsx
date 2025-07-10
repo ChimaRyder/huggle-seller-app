@@ -26,6 +26,8 @@ import { useLocalSearchParams } from "expo-router";
 import axios from "axios";
 import { useAuth } from "@clerk/clerk-expo";
 import { showToast } from "@/components/Toast";
+import React from "react";
+import { getProductbyID, Product, updateProduct } from "@/utils/Controllers/ProductController";
 
 // Icons
 const BackIcon = (props: IconProps): IconElement => (
@@ -94,6 +96,13 @@ interface ProductFormValues {
   category: string;
 }
 
+interface Metadata {
+  storeId : string,
+  id : string,
+  createdAt : string,
+  isActive : boolean,
+}
+
 // Edit Product Screen
 const EditProduct = () => {
   const router = useRouter();
@@ -103,9 +112,10 @@ const EditProduct = () => {
     new IndexPath(0)
   );
   const [visible, setVisible] = useState(false);
+  const [metadata, setMetadata] = useState<Metadata>();
   const [category, setCategory] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [product, setProduct] = useState<ProductFormValues>({
+  const [form, setForm] = useState<ProductFormValues>({
     name: "",
     description: "",
     productType: "",
@@ -123,19 +133,11 @@ const EditProduct = () => {
   const getProduct = async () => {
     setLoading(true);
     const token = await getToken({ template: "seller_app" });
-    const response = await axios.get(
-      `https://huggle-backend-jh2l.onrender.com/api/seller/products/${productId}`,
-      {
-        headers: {
-          "Content-Type": "application/json;charset=UTF-8",
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-    console.log("received");
+    const response = await getProductbyID(productId as string, token ?? "");
+
     const data = response.data;
-    console.log(data);
-    setProduct({
+
+    setForm({
       name: data.name,
       description: data.description,
       productType: data.productType,
@@ -147,10 +149,14 @@ const EditProduct = () => {
       stock: data.stock,
       category: "",
     });
+
     setSelectedIndex(new IndexPath(productTypes.indexOf(data.productType)));
     setCategory(data.category);
-    setStoreID(data.storeId);
-    setProductID(data.id);
+
+    // setStoreID(data.storeId);
+    // setProductID(data.id);
+    setMetadata(data);
+
     setLoading(false);
     return data;
   };
@@ -162,7 +168,7 @@ const EditProduct = () => {
   // Handle form submission
   const handleSubmit = async (values: ProductFormValues) => {
     const productData = {
-      id: productID,
+      id: metadata?.id ?? "",
       name: values.name,
       description: values.description,
       productType: values.productType,
@@ -173,36 +179,42 @@ const EditProduct = () => {
       expirationDate: values.duration.toISOString(),
       stock: values.stock,
       category: category,
-      storeId: storeID,
-      isActive: true,
-      createdAt: new Date().toISOString(),
+      storeId: metadata?.storeId ?? "",
+      isActive: metadata?.isActive ?? true,
+      createdAt: metadata?.createdAt ?? new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       rating: 0,
       ratingCount: 0,
     };
 
-    console.log(productData);
     const token = await getToken({ template: "seller_app" });
-    axios
-      .put(
-        `https://huggle-backend-jh2l.onrender.com/api/seller/products/update`,
-        productData,
-        {
-          headers: {
-            "Content-Type": "application/json;charset=UTF-8",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      )
-      .then((response) => {
-        console.log("Product updated successfully:", response.data);
-        router.dismissTo("/(main)");
-        showToast('success', 'Product Updated!', `${productData.name} has been updated successfully.`);
-      })
-      .catch((error) => {
-        console.error("Error updating product:", error.message);
-        showToast('error', 'Uh oh!', `Something went wrong while updating the product. Please try again.`);
-      });
+    try {
+      const response = await updateProduct(productData, token ?? "");
+
+      console.log("Product updated successfully:", response.data);
+      router.dismissTo("/(main)");
+      showToast('success', 'Product Updated!', `${productData.name} has been updated successfully.`);
+    } catch(error) {
+      console.error("Error updating product:", error);
+      showToast('error', 'Uh oh!', `Something went wrong while updating the product. Please try again.`);
+    }
+
+    // axios
+    //   .put(
+    //     `https://huggle-backend-jh2l.onrender.com/api/seller/products/update`,
+    //     productData,
+    //     {
+    //       headers: {
+    //         "Content-Type": "application/json;charset=UTF-8",
+    //         Authorization: `Bearer ${token}`,
+    //       },
+    //     }
+    //   )
+    //   .then((response) => {
+        
+    //   })
+    //   .catch((error) => {
+    //   });
   };
 
   // Handle cancel
@@ -226,7 +238,7 @@ const EditProduct = () => {
             />
             <ScrollView>
               <Formik
-                initialValues={product}
+                initialValues={form}
                 validationSchema={ProductSchema}
                 onSubmit={handleSubmit}
               >

@@ -5,7 +5,8 @@ import { useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth, useUser } from '@clerk/clerk-expo';
-
+import { getAllProducts } from '@/utils/Controllers/ProductController';
+import { showToast } from "@/components/Toast";
 
 
 const SearchIcon = (props: IconProps): IconElement => (
@@ -39,19 +40,14 @@ const ProductsTab = ({ theme }: { theme: ThemeType }) => {
   // Sample product data
   const fetchProducts = async () => {
     try {
-      console.log("running");
       const token = await getToken({template: "seller_app"});
-      const response = await axios.get(`https://huggle-backend-jh2l.onrender.com/api/seller/products/?Name=${search}`, {
-        headers: {
-          "Content-Type": "application/json;charset=UTF-8",
-          Authorization: `Bearer ${token}`,
-        }
-      });
+      const response = await getAllProducts(search, token ?? "");
+
       const data = response.data;
-      console.log(data);
       setProducts(data.products);
     } catch (error) {
-      console.error(error);
+      console.error("Error getting products: ", error);
+      showToast('error', 'Uh oh!', `Something went wrong while getting your products. Please try again.`);
     }
   };
 
