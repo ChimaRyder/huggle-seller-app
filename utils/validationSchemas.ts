@@ -1,10 +1,27 @@
 import * as yup from "yup";
 
+const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
 // Shop Information Schema
 export const shopInfoSchema = yup.object().shape({
   storeName: yup.string().required("Shop name is required"),
   storeDescription: yup.string().required("Shop description is required"),
   storeCategory: yup.string().required("Shop category is required"),
+  businessHours: yup.array().of(
+    yup.object().shape({
+      isOpen: yup.boolean().required(),
+      openTime: yup.string().when('isOpen', (isOpen, schema) =>
+        isOpen
+          ? schema.required('Opening time required').matches(timeRegex, 'Invalid time format')
+          : schema.notRequired()
+      ),
+      closeTime: yup.string().when('isOpen', (isOpen, schema) =>
+        isOpen
+          ? schema.required('Closing time required').matches(timeRegex, 'Invalid time format')
+          : schema.notRequired()
+      ),
+    })
+  ).length(7, 'Must have 7 days'),
 });
 
 // Business Information Schema

@@ -1,26 +1,31 @@
 import React, { createContext, use, useContext, useState } from "react";
 import { useUser } from "@clerk/clerk-expo";
 
-// Define the shape of our seller registration form data
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+export interface BusinessHourDay {
+  isOpen: boolean;
+  openTime?: string;
+  closeTime?: string;
+}
+
 export interface SellerRegistrationFormData {
   // Shop Information
   storeName: string;
   storeDescription: string;
   storeCategory: string;
-
+  businessHours: BusinessHourDay[];
   // Business Information
   sellerType: string;
   storeRegisteredName: string;
   sellerEmail: string;
   sellerPhone: string;
-
   // Entity Information
   firstName: string;
   lastName: string;
   middleName?: string;
   suffix?: string;
   businessName?: string;
-
   // Address Information
   address: string;
   city: string;
@@ -28,7 +33,6 @@ export interface SellerRegistrationFormData {
   zipCode: string;
   latitude?: number;
   longitude?: number;
-
   // Tax Information
   governmentIdType?: string;
   governmentIdImage?: string;
@@ -41,20 +45,22 @@ const initialFormData: SellerRegistrationFormData = {
   storeName: "",
   storeDescription: "",
   storeCategory: "Restaurant",
-
+  businessHours: DAYS.map((day, idx) => ({
+    isOpen: idx < 5, // Mon-Fri open, Sat/Sun closed
+    openTime: idx < 5 ? '09:00' : undefined,
+    closeTime: idx < 5 ? '17:00' : undefined,
+  })),
   // Business Information
   sellerType: "Sole Proprietorship",
   storeRegisteredName: "",
   sellerEmail: "",
   sellerPhone: "",
-
   // Entity Information
   firstName: "",
   lastName: "",
   middleName: "",
   suffix: "",
   businessName: "",
-
   // Address Information
   address: "",
   city: "",
@@ -62,7 +68,6 @@ const initialFormData: SellerRegistrationFormData = {
   zipCode: "",
   latitude: undefined,
   longitude: undefined,
-
   // Tax Information
   governmentIdType: "",
   governmentIdImage: "",

@@ -1,10 +1,11 @@
 import React from "react";
-import { StyleSheet } from "react-native";
-import { Input, Select, SelectItem, IndexPath } from "@ui-kitten/components";
+import { StyleSheet, View, Platform } from "react-native";
+import { Input, Select, SelectItem, IndexPath, Button, Text } from "@ui-kitten/components";
 import { Formik } from "formik";
 import { FormLayout } from "../components/FormLayout";
 import { useSellerRegistration } from "../SellerRegistrationContext";
 import { shopInfoSchema } from "../../../utils/validationSchemas";
+import BusinessHoursPicker from '../components/BusinessHoursPicker';
 
 const shopCategories = ["Restaurant", "Grocery", "Market", "Store"];
 
@@ -14,6 +15,17 @@ const ShopInfoScreen = () => {
   const selectedCategoryIndex = formData.storeCategory
     ? new IndexPath(shopCategories.indexOf(formData.storeCategory))
     : new IndexPath(0);
+
+  // State for time pickers
+  const [showOpenPicker, setShowOpenPicker] = React.useState(false);
+  const [showClosePicker, setShowClosePicker] = React.useState(false);
+
+  // Helper to format time
+  const formatTime = (dateString: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
 
   const handleNext = (values: typeof formData) => {
     updateFormData(values);
@@ -42,7 +54,8 @@ const ShopInfoScreen = () => {
           isNextDisabled={
             !values.storeName ||
             !values.storeDescription ||
-            !values.storeCategory
+            !values.storeCategory ||
+            !values.businessHours
           }
         >
           <Input
@@ -78,6 +91,17 @@ const ShopInfoScreen = () => {
             textStyle={{ minHeight: 64 }}
             style={styles.input}
           />
+
+          <Text appearance="hint" style={{ marginBottom: 4, fontWeight: 'bold' }}>Business Hours</Text>
+          <BusinessHoursPicker
+            value={values.businessHours}
+            onChange={val => setFieldValue('businessHours', val)}
+            errors={errors.businessHours}
+            touched={touched.businessHours}
+          />
+          {typeof errors.businessHours === 'string' && (
+            <Text appearance="hint" status="danger" style={{ color: '#FF3D71', marginBottom: 8 }}>{errors.businessHours}</Text>
+          )}
 
           <Select
             label="Shop Category"
