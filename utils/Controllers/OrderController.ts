@@ -34,10 +34,11 @@ const getOrderbyID = async (orderId : string, token : string) => {
     return response;
 }
 
-const updatePost = async (token : string) => {
+const updateOrder = async (token : string, order : Order) => {
     const response = await axios
       .put(
-        `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/orders`,
+        `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/orders/${order.id}`,
+        order,
         {
           headers: {
             "Content-Type": "application/json;charset=UTF-8",
@@ -60,4 +61,4 @@ const deletePost = async(postId : number, token : string) => {
     return response;
 }
 
-export {Order, getAllOrders, getOrderbyID};
+export {Order, getAllOrders, getOrderbyID, updateOrder};
