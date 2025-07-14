@@ -1,16 +1,13 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { Layout, Text, Icon, TopNavigation, TopNavigationAction, useTheme } from '@ui-kitten/components';
-import { IconProps, IconElement } from '@ui-kitten/components';
+import { Layout, Text, TopNavigation, TopNavigationAction, Icon, IconProps, IconElement, useTheme } from '@ui-kitten/components';
+import OrdersTabsNavigation from './orders/OrdersTabsNavigation';
 
-import ProductsTab from './home/products/productsTab';
-
-// Icons for the tabs
 const BellIcon = (props: IconProps): IconElement => (
   <Icon {...props} name="bell-outline" pack="eva" />
 );
 
-export default function HomeScreen() {
+export default function OrdersScreen() {
   const theme = useTheme();
   
   const renderRightActions = () => (
@@ -20,13 +17,12 @@ export default function HomeScreen() {
   return ( 
     <Layout style={styles.container}>
       <TopNavigation
-        title={() => <Text category="h5">Good <Text status='primary' category='h5'>{new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}!</Text></Text>}
+        title={() => <Text category="h5">Orders</Text>}
         alignment="start"
         accessoryRight={renderRightActions}
         style={styles.topNavigation}
       />
-      
-      <ProductsTab theme={theme} />
+      <OrdersTabsNavigation />
     </Layout>
   );
 }
@@ -39,4 +35,4 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginHorizontal: 5,
   },
-});
+}); 

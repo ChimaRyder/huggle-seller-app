@@ -1,14 +1,18 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   StyleSheet,
   View,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  Alert,
 } from "react-native";
 import { Layout, Text, Button } from "@ui-kitten/components";
 import { ProgressIndicator } from "./ProgressIndicator";
 import { useSellerRegistration } from "../SellerRegistrationContext";
+import { useClerk } from "@clerk/clerk-expo";
+import { useRouter } from "expo-router";
 
 interface FormLayoutProps {
   title: string;
@@ -30,6 +34,31 @@ export const FormLayout: React.FC<FormLayoutProps> = ({
   isNextDisabled = false,
 }) => {
   const { currentStep } = useSellerRegistration();
+  const { signOut } = useClerk();
+  const router = useRouter();
+  const [showExitModal, setShowExitModal] = useState(false);
+
+  const handleBackPress = () => {
+    if (currentStep === 1) {
+      setShowExitModal(true);
+    } else if (onBack) {
+      onBack();
+    }
+  };
+
+  const handleExitConfirm = async () => {
+    try {
+      await signOut();
+      router.replace("/(login)");
+    } catch (error) {
+      console.error("Error signing out:", error);
+      Alert.alert("Error", "Failed to sign out. Please try again.");
+    }
+  };
+
+  const handleExitCancel = () => {
+    setShowExitModal(false);
+  };
 
   return (
     <Layout style={styles.container}>
@@ -53,14 +82,14 @@ export const FormLayout: React.FC<FormLayoutProps> = ({
         </ScrollView>
 
         <View style={styles.buttonContainer}>
-          {currentStep > 1 && onBack && (
+          {(currentStep > 1 || currentStep === 1) && (
             <Button
               appearance="outline"
               style={styles.backButton}
-              onPress={onBack}
+              onPress={handleBackPress}
               status="basic"
             >
-              Back
+              {currentStep === 1 ? "Exit" : "Back"}
             </Button>
           )}
 
@@ -76,6 +105,42 @@ export const FormLayout: React.FC<FormLayoutProps> = ({
             {isLastStep ? "Submit" : "Continue"}
           </Button>
         </View>
+
+        {/* Exit Confirmation Modal */}
+        <Modal
+          visible={showExitModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={handleExitCancel}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text category="h6" style={styles.modalTitle}>
+                Exit Seller Registration?
+              </Text>
+              <Text style={styles.modalText}>
+                Are you sure you want to exit? Any unsaved information will be lost.
+              </Text>
+              <View style={styles.modalButtons}>
+                <Button
+                  appearance="outline"
+                  style={styles.modalButton}
+                  onPress={handleExitCancel}
+                  status="basic"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  style={styles.modalButton}
+                  onPress={handleExitConfirm}
+                  status="danger"
+                >
+                  Exit
+                </Button>
+              </View>
+            </View>
+          </View>
+        </Modal>
     </Layout>
   );
 };
@@ -121,6 +186,36 @@ const styles = StyleSheet.create({
   fullWidthButton: {
     flex: 1,
     marginLeft: 0,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 20,
+    margin: 20,
+    minWidth: 300,
+  },
+  modalTitle: {
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalText: {
+    marginBottom: 20,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
   },
 });
 

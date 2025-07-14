@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { BottomNavigation, BottomNavigationTab, Icon, IconElement, IconProps, ViewPager, Layout } from '@ui-kitten/components';
 import HomeScreen from './home';
+import OrdersScreen from './orders';
 import AnalyticsScreen from './analytics';
 import ProfileScreen from './profile';
 import PromotionsScreen from './promotions';
@@ -21,6 +22,22 @@ const HomeFilledIcon = (props: IconProps): IconElement => (
   <Icon
     {...props}
     name="shopping-bag"
+    pack="eva"
+  />
+);
+
+const OrdersIcon = (props: IconProps): IconElement => (
+  <Icon
+    {...props}
+    name="file-text-outline"
+    pack="eva"
+  />
+);
+
+const OrdersFilledIcon = (props: IconProps): IconElement => (
+  <Icon
+    {...props}
+    name="file-text"
     pack="eva"
   />
 );
@@ -94,6 +111,7 @@ export default function BottomNav() {
             swipeEnabled={false}
           >
             <HomeScreen />
+            <OrdersScreen />
             <AnalyticsScreen />
             <PromotionsScreen />
             <ProfileScreen />
@@ -106,9 +124,10 @@ export default function BottomNav() {
             appearance="noIndicator"
           >
             <BottomNavigationTab icon={selectedIndex === 0 ? HomeFilledIcon : HomeIcon} />
-            <BottomNavigationTab icon={selectedIndex === 1 ? AnalyticsFilledIcon : AnalyticsIcon} />
-            <BottomNavigationTab icon={selectedIndex === 2 ? GiftFilledIcon : GiftIcon} />
-            <BottomNavigationTab icon={selectedIndex === 3 ? ProfileFilledIcon : ProfileIcon} />
+            <BottomNavigationTab icon={selectedIndex === 1 ? OrdersFilledIcon : OrdersIcon} />
+            <BottomNavigationTab icon={selectedIndex === 2 ? AnalyticsFilledIcon : AnalyticsIcon} />
+            <BottomNavigationTab icon={selectedIndex === 3 ? GiftFilledIcon : GiftIcon} />
+            <BottomNavigationTab icon={selectedIndex === 4 ? ProfileFilledIcon : ProfileIcon} />
           </BottomNavigation>
       </SafeAreaView>
     </Layout>
