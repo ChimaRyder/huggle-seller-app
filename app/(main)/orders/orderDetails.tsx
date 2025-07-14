@@ -108,11 +108,26 @@ export default function OrderDetailsScreen() {
     try {
       const token = await getToken({template: "seller_app"});
 
+      console.log(status);
       const orderResponse = await updateOrder(token ?? "", {...order, status});
       
       console.log("Order accepted:", orderResponse.data);
       router.dismissTo("/(main)");
-      showToast('success', 'Order Accepted!', `${Date.parse(order.createdAt.toString()).toString(36).toUpperCase()} has been updated successfully.`);
+    
+      switch (status) {
+        case 1:
+          showToast('success', 'Order Accepted!', `#${Date.parse(order.createdAt.toString()).toString(36).toUpperCase()} has been updated successfully.`);
+          break;
+        case 2:
+          showToast('success', 'Order Notified!', `#${Date.parse(order.createdAt.toString()).toString(36).toUpperCase()} has been notified for pickup.`);
+          break;
+        case 3:
+          showToast('success', 'Order Completed!', `#${Date.parse(order.createdAt.toString()).toString(36).toUpperCase()} has been completed.`);
+          break;
+        case 4:
+          showToast('success', 'Order Canceled', `#${Date.parse(order.createdAt.toString()).toString(36).toUpperCase()} has been canceled.`);
+          break;
+      }
     } catch (error) {
       console.error("Error updating order: ", error);
       showToast('error', 'Uh Oh', `Something went wrong with updating the order. Please try again.`);
@@ -168,11 +183,24 @@ export default function OrderDetailsScreen() {
             />
             <Divider style={{ marginVertical: 8 }} />
             <View style={styles.row}><Text category="s1">Total Price:</Text><Text category="h6" status='primary'>₱ {order.totalPrice.toFixed(2)}</Text></View>
+            
             {/* Accept/Reject buttons if status is 0 */}
             {order.status === 0 && (
               <View style={styles.actionRow}>
                 <Button status="danger" style={styles.actionButton} onPress={() => handleStatusUpdate(ORDER_STATUSES.indexOf('Canceled'))}>Reject</Button>
                 <Button status="success" style={styles.actionButton} onPress={()=> handleStatusUpdate(ORDER_STATUSES.indexOf('Confirmed'))}>Accept</Button>
+              </View>
+            )}
+
+            {order.status === 1 && (
+              <View style={styles.actionRow}>
+                <Button status="success" style={styles.actionButton} onPress={()=> handleStatusUpdate(ORDER_STATUSES.indexOf('Ready For Pickup'))}>Ready Order For Pickup</Button>
+              </View>
+            )}
+
+            {order.status === 2 && (
+              <View style={styles.actionRow}>
+                <Button status="success" style={styles.actionButton} onPress={()=> handleStatusUpdate(ORDER_STATUSES.indexOf('Completed'))}>Complete Order</Button>
               </View>
             )}
         </SafeAreaView>
@@ -184,7 +212,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: 'white',
   },
   header: {
     marginBottom: 8,
