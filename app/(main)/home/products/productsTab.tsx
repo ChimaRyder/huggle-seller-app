@@ -1,8 +1,8 @@
 import { Input, Button, Icon, Text, IconProps, IconElement, ThemeType, Modal, Radio, RadioGroup } from '@ui-kitten/components';
 import { StyleSheet, View, FlatList } from 'react-native';
 import renderProductItem from './components/productItem';
-import { useRouter } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { getAllProducts } from '@/utils/Controllers/ProductController';
@@ -55,9 +55,16 @@ const ProductsTab = ({ theme }: { theme: ThemeType }) => {
     setSearch(event.nativeEvent.text);
   };
 
-  useEffect(() => {
-    fetchProducts();
-  }, [search, filters]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchProducts();
+
+      return () => {
+        console.log("product list not focused");
+      }
+    }, [search, filters])
+  )
+  
 
   const renderFilterModal = () => (
     <Modal

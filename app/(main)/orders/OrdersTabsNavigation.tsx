@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View, FlatList, ScrollView } from 'react-native';
 import { Tab, TabBar, useTheme } from '@ui-kitten/components';
 import renderOrderItem from './components/orderItem';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Order, getAllOrders } from '@/utils/Controllers/OrderController';
 import { useAuth } from '@clerk/clerk-expo';
 import OrderItem from './components/orderItem';
@@ -15,69 +15,10 @@ const ORDER_STATUSES = [
   'Canceled',
 ];
 
-// Placeholder orders data
-const ORDERS = [
-  {
-    id: 'ORD-1001',
-    date: 'YESTERDAY, 8:20 AM',
-    price: '₱290',
-    status: 'Pending',
-    buyerName: 'Adrian Pangilinan',
-    products: [
-      { name: 'Sunrise Starter Bundle', price: '₱200' },
-      { name: 'Egg Sandwich', price: '₱90' },
-    ],
-    total: '₱290',
-  },
-  {
-    id: 'ORD-1002',
-    date: 'MARCH 19, 2025',
-    price: '₱150',
-    status: 'Completed',
-    buyerName: 'Adrian Pangilinan',
-    products: [
-      { name: 'Chop & Drop Bundle', price: '₱150' },
-    ],
-    total: '₱150',
-  },
-  {
-    id: 'ORD-1003',
-    date: 'MARCH 17, 2025',
-    price: '₱700',
-    status: 'Ready For Pickup',
-    buyerName: 'Adrian Pangilinan',
-    products: [
-      { name: 'Choco Moist Cake', price: '₱700' },
-    ],
-    total: '₱700',
-  },
-  {
-    id: 'ORD-1004',
-    date: 'MARCH 16, 2025',
-    price: '₱500',
-    status: 'Confirmed',
-    buyerName: 'Jane Doe',
-    products: [
-      { name: 'Fruit Basket', price: '₱500' },
-    ],
-    total: '₱500',
-  },
-  {
-    id: 'ORD-1005',
-    date: 'MARCH 15, 2025',
-    price: '₱350',
-    status: 'Canceled',
-    buyerName: 'John Smith',
-    products: [
-      { name: 'Veggie Platter', price: '₱350' },
-    ],
-    total: '₱350',
-  },
-];
-
 export default function OrdersTabsNavigation() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [orders, setOrders] = useState<Array<Order>>([]);
+  const params = useLocalSearchParams();
   const theme = useTheme();
   const router = useRouter();
   const {getToken} = useAuth();
@@ -98,9 +39,18 @@ export default function OrdersTabsNavigation() {
     }
   }
 
-  useEffect(() => {
-    getOrders();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      console.log("focused");
+      getOrders();
+
+      return () => {
+        console.log("not focused");
+      }
+    }, [])
+  )
+
+
 
   return (
     <View style={{display: "flex", gap: 10}}>

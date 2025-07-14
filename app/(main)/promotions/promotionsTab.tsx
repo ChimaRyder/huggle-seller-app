@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
 import { Text, Input, Button, Icon, IconProps, IconElement } from '@ui-kitten/components';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import PromotionPost from './components/promotionPost';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import axios from 'axios';
@@ -29,10 +29,17 @@ const PromotionsTab = () => {
   const [store, setStore] = useState(null);
 
   // Load Posts
-  useEffect(() => {
-    fetchPosts();
-    fetchStore();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchPosts();
+      fetchStore();
+
+      return () => {
+        console.log("promotions not focused");
+      };
+    }, [])
+  )
+  
 
   // Route push to add post
   const handleAddPost = () => {
