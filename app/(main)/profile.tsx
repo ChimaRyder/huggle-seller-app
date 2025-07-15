@@ -1,20 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, View, Image, TouchableOpacity, ScrollView, ImageBackground, ImageProps } from 'react-native';
 import { Layout, Text, Icon, Button, Avatar, TopNavigation, Divider, Menu, MenuItem, Spinner } from '@ui-kitten/components';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { IconProps, IconElement } from '@ui-kitten/components';
 import { useClerk, useUser, useAuth } from '@clerk/clerk-expo'; 
 import { Redirect } from "expo-router";
 import axios from 'axios';
+import { getStore, Store } from '@/utils/Controllers/StoreController';
 
 const ArrowIcon = (props: IconProps): IconElement => (
   <Icon {...props} name="chevron-right-outline" pack="eva" />
-);
-
-const spinnerIcon = (props: ImageProps) => (
-  <View style={[props.style, styles.spinnerContainer]}>
-    <Spinner size="small" status="control"/>
-  </View>
 );
 
 export default function ProfileScreen() {
@@ -23,27 +18,30 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(false);
   const {user} = useUser();
   const {getToken} = useAuth();
-  const [profileDetails, setUser] = useState({});
+  const [profileDetails, setUser] = useState<Store>({} as Store);
 
-  useEffect(() => {
-    const getUser = async () => {
-      try {
-        const token = await getToken({template: "seller_app"});
-        console.log(user?.publicMetadata.storeId);
-        const response = await axios.get(`https://huggle-backend-jh2l.onrender.com/api/stores/${user?.publicMetadata.storeId}`, {
-          headers: {
-            "Content-Type": "application/json;charset=UTF-8",
-            Authorization: `Bearer ${token}`,
-          }
-        });
-        setUser(response.data);
-        console.log(response.data);
-      } catch (error) {
-        console.error(error);
-      } 
-    }; 
-    getUser();
-  }, []);
+  useFocusEffect(
+     useCallback(() => {
+      getUser();
+
+      return () => {
+        console.log("profile not focused");
+      }
+     }, [])
+  );
+
+  const getUser = async () => {
+    try {
+      const token = await getToken({template: "seller_app"});
+      const response = await getStore(user?.publicMetadata.storeId as string, token ?? "");
+
+      setUser(response.data);
+    } catch (error) {
+      console.error("Error getting store: ", error);
+    } 
+  };
+
+  
 
   const navigateToReviews = () => {
     router.push('/(main)/profile/reviewsSummary');
@@ -76,15 +74,15 @@ export default function ProfileScreen() {
       <View style={styles.profileContainer}>
         <ImageBackground
           style={styles.profileBackground}
-          source={require('../../assets/images/welcome-screen-background.jpg')}
+          source={profileDetails?.storeCoverUrl ? {uri: profileDetails.storeCoverUrl} : require('../../assets/images/welcome-screen-background.jpg')}
         />
         <View style={styles.profileContent}>
           <Avatar
-            source={require('../../assets/images/profile-placeholder.jpg')}
+            source={profileDetails?.storeImageUrl ? {uri: profileDetails.storeImageUrl} : require('../../assets/images/profile-placeholder.jpg')}
             style={styles.avatar}
             size="giant"
           />
-          <Text style={styles.storeName} category="h5" status="primary">SM Supermarket - Seaside</Text>
+          <Text style={styles.storeName} category="h5" status="primary">{ profileDetails?.name }</Text>
         </View>
       </View>
 
@@ -107,7 +105,7 @@ export default function ProfileScreen() {
         style={styles.signOutButton}
         status="danger"
         onPress={handleSignOut}
-        accessoryLeft={loading ? spinnerIcon : undefined}
+        accessoryLeft={loading ? () => <Spinner size="small" status="control"/> : undefined}
       >
         Sign out
       </Button>

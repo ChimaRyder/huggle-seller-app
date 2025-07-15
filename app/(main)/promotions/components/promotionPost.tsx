@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { Text, Button, Icon, IconProps, IconElement, ThemeType, OverflowMenu, MenuItem, Layout, useTheme, ViewPager } from '@ui-kitten/components';
+import { Text, Button, Icon, IconProps, IconElement, ThemeType, OverflowMenu, MenuItem, Layout, useTheme, ViewPager, Avatar } from '@ui-kitten/components';
 
 // Icons
 const MoreIcon = (props: IconProps): IconElement => (
@@ -46,7 +46,17 @@ const PromotionPost = ({ post, onEdit, onDelete, store }: PromotionPostProps) =>
     if (diffInHours < 1) return 'Just now';
     if (diffInHours < 24) return `${diffInHours}h ago`;
     if (diffInHours < 48) return 'Yesterday';
-    return date.toLocaleDateString();
+    return date.toLocaleString(
+      'en-PH',
+      {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        hour12: true,
+        minute: "2-digit"
+      }
+    );
   };
 
   // Render images with ViewPager
@@ -126,9 +136,7 @@ const PromotionPost = ({ post, onEdit, onDelete, store }: PromotionPostProps) =>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Layout level="4" style={styles.avatar}>
-            <Text category="s1" appearance="hint" style={styles.avatarText}>{store?.name?.charAt(0)}</Text>
-          </Layout>
+          <Avatar source={store?.storeImageUrl ? {uri: store.storeImageUrl} : require('../../../../assets/images/profile-placeholder.jpg')}/>
           <View style={styles.headerInfo}>
             <Text category="s1" style={styles.username}>{store?.name}</Text>
             <Text category="c1" appearance="hint">{formatDate(post.createdAt)}</Text>
@@ -180,6 +188,7 @@ const styles = StyleSheet.create({
     display: 'flex',
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8
   },
   avatar: {
     width: 32,
@@ -193,6 +202,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   headerInfo: {
+    gap: 3
   },
   username: {
     fontWeight: '600',

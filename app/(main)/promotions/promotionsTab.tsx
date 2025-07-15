@@ -7,6 +7,7 @@ import { useAuth, useUser } from '@clerk/clerk-expo';
 import axios from 'axios';
 import { showToast } from '@/components/Toast';
 import { deletePost, getAllPosts } from '@/utils/Controllers/PromotionController';
+import { getStore, Store } from '@/utils/Controllers/StoreController';
 
 // Icons
 const SearchIcon = (props: IconProps): IconElement => (
@@ -26,7 +27,7 @@ const PromotionsTab = () => {
   const [posts, setPosts] = useState([]);
   const {getToken} = useAuth();
   const {user} = useUser();
-  const [store, setStore] = useState(null);
+  const [store, setStore] = useState<Store>({} as Store);
 
   // Load Posts
   useFocusEffect(
@@ -84,23 +85,26 @@ const PromotionsTab = () => {
 
   // Fetch Posts function
   const fetchPosts = async () => {
-    const token = await getToken({template: "seller_app"});
-    const response = await getAllPosts(user?.publicMetadata.storeId as string, token ?? "");
-    
-    setPosts(response.data.posts);
+    try {
+      const token = await getToken({template: "seller_app"});
+      const response = await getAllPosts(user?.publicMetadata.storeId as string, token ?? "");
+      
+      setPosts(response.data.posts);
+    } catch(error) {
+      console.error('Error getting posts:', error);
+    }
   }
 
   // Fetch Store function
   const fetchStore = async () => {
-    const token = await getToken({template: "seller_app"});
-    const response = await axios.get(`https://huggle-backend-jh2l.onrender.com/api/stores/${user?.publicMetadata?.storeId}`, {
-      headers: {
-        "Content-Type": "application/json;charset=UTF-8",
-        Authorization: `Bearer ${token}`,
-      }
-    });
-    console.log(response.data);
-    setStore(response.data);
+    try {
+      const token = await getToken({template: "seller_app"});
+      const response = await getStore(user?.publicMetadata.storeId as string, token ?? "");
+      
+      setStore(response.data);
+    } catch (error) {
+      console.error('Error getting store:', error);
+    }
   }
 
 
