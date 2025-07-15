@@ -1,6 +1,6 @@
 import React from 'react';
-import { StyleSheet, View, TouchableOpacity, ScrollView, Switch } from 'react-native';
-import { Layout, Text, Icon, TopNavigation, Divider } from '@ui-kitten/components';
+import { StyleSheet, View, ScrollView } from 'react-native';
+import { Layout, Text, Icon, TopNavigation, Divider, Menu, MenuItem, Toggle, useTheme } from '@ui-kitten/components';
 import { useRouter } from 'expo-router';
 import { IconProps, IconElement } from '@ui-kitten/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +15,7 @@ const ArrowIcon = (props: IconProps): IconElement => (
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const theme = useTheme();
   const [pushNotifications, setPushNotifications] = React.useState(true);
   const [darkMode, setDarkMode] = React.useState(false);
 
@@ -47,111 +48,94 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <TopNavigation
-        title="Settings"
-        alignment="center"
-        accessoryLeft={() => (
-          <TouchableOpacity onPress={navigateBack} style={styles.backButton}>
-            <BackIcon fill="#000" width={24} height={24} />
-          </TouchableOpacity>
-        )}
-        style={styles.topNavigation}
-      />
-      <Divider />
-
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.sectionContainer}>
-          <Text category="h6" style={styles.sectionTitle}>Account Settings</Text>
-          
-          <TouchableOpacity style={styles.menuItem} onPress={navigateToEditProfile}>
-            <Text category="s1">Edit profile</Text>
-            <ArrowIcon fill="#000" width={24} height={24} />
-          </TouchableOpacity>
-          
-          <View style={styles.menuItem}>
-            <Text category="s1">Push notifications</Text>
-            <Switch
-              value={pushNotifications}
-              onValueChange={setPushNotifications}
-              trackColor={{ false: '#D3D3D3', true: '#4CAF50' }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-          
-          <View style={styles.menuItem}>
-            <Text category="s1">Dark mode</Text>
-            <Switch
-              value={darkMode}
-              onValueChange={setDarkMode}
-              trackColor={{ false: '#D3D3D3', true: '#4CAF50' }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-          
-          <TouchableOpacity style={styles.menuItem} onPress={navigateToPermissions}>
-            <Text category="s1">Permissions</Text>
-            <ArrowIcon fill="#000" width={24} height={24} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.sectionContainer}>
-          <Text category="h6" style={styles.sectionTitle}>More</Text>
-          
-          <TouchableOpacity style={styles.menuItem} onPress={navigateToAboutUs}>
-            <Text category="s1">About us</Text>
-            <ArrowIcon fill="#000" width={24} height={24} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.menuItem} onPress={navigateToPrivacyPolicy}>
-            <Text category="s1">Privacy policy</Text>
-            <ArrowIcon fill="#000" width={24} height={24} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.menuItem} onPress={navigateToTermsAndConditions}>
-            <Text category="s1">Terms and conditions</Text>
-            <ArrowIcon fill="#000" width={24} height={24} />
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+    <Layout style={{ flex: 1 }} level="1">
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        <TopNavigation
+          title="Settings"
+          alignment="center"
+          accessoryLeft={() => (
+            <View style={styles.backButton}>
+              <BackIcon width={24} height={24} fill={theme['color-basic-100']} onPress={navigateBack} />
+            </View>
+          )}
+          style={styles.topNavigation}
+        />
+        <Divider />
+        <ScrollView style={{ flex: 1 }}>
+          <Layout style={styles.sectionLayout} level="1">
+            <Text category="h6" style={styles.sectionTitle}>Account Settings</Text>
+            <Menu style={styles.menu}>
+              <MenuItem
+                title='Edit profile'
+                accessoryRight={ArrowIcon}
+                onPress={navigateToEditProfile}
+              />
+              <MenuItem
+                title="Push Notifications"
+                accessoryRight={() => <Toggle checked={pushNotifications} onChange={setPushNotifications} style={styles.toggle}/>}
+              />
+              <MenuItem
+                title="Dark Mode"
+                accessoryRight={() => <Toggle checked={darkMode} onChange={setDarkMode} style={styles.toggle} />}
+              />
+              <MenuItem
+                title='Permissions'
+                accessoryRight={ArrowIcon}
+                onPress={navigateToPermissions}
+              />
+            </Menu>
+          </Layout>
+          <Layout style={styles.sectionLayout} level="1">
+            <Text category="h6" style={styles.sectionTitle}>More</Text>
+            <Menu style={styles.menu}>
+              <MenuItem
+                title='About us'
+                accessoryRight={ArrowIcon}
+                onPress={navigateToAboutUs}
+              />
+              <MenuItem
+                title='Privacy policy'
+                accessoryRight={ArrowIcon}
+                onPress={navigateToPrivacyPolicy}
+              />
+              <MenuItem
+                title='Terms and conditions'
+                accessoryRight={ArrowIcon}
+                onPress={navigateToTermsAndConditions}
+              />
+            </Menu>
+          </Layout>
+        </ScrollView>
+      </SafeAreaView>
+    </Layout>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f7f9fc',
   },
-  topNavigation: {
-    backgroundColor: '#fff',
-  },
+  topNavigation: {},
   backButton: {
     padding: 8,
   },
   scrollView: {
     flex: 1,
   },
-  sectionContainer: {
-    marginTop: 16,
-    paddingHorizontal: 16,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    paddingVertical: 8,
+  sectionLayout: {
+    gap: 10,
+    padding: 15,
+    paddingTop: 20,
   },
   sectionTitle: {
-    marginVertical: 12,
-    fontWeight: '400',
-    color: '#888',
+    paddingHorizontal: 10
   },
-  menuItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+  menu: {
+    marginHorizontal: 0,
+    marginBottom: 8,
+    borderRadius: 8,
+  },
+  toggle: {
+    marginLeft: 8,
   },
 });
