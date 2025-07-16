@@ -61,7 +61,7 @@ export default function SettingsScreen() {
           style={styles.topNavigation}
         />
         <Divider />
-        <ScrollView style={{ flex: 1 }}>
+        <View style={{ flex: 1 }}>
           <Layout style={styles.sectionLayout} level="1">
             <Text category="h6" style={styles.sectionTitle}>Account Settings</Text>
             <Menu style={styles.menu}>
@@ -105,7 +105,7 @@ export default function SettingsScreen() {
               />
             </Menu>
           </Layout>
-        </ScrollView>
+        </View>
       </SafeAreaView>
     </Layout>
   );

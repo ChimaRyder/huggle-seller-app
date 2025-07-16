@@ -1,10 +1,35 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, TouchableOpacity, ScrollView, Modal } from 'react-native';
-import { Layout, Text, Icon, TopNavigation, Divider, Avatar, Button, Input } from '@ui-kitten/components';
-import { useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
+import { StyleSheet, View, ScrollView, Dimensions } from 'react-native';
+import { Layout, Text, Icon, TopNavigation, Divider, Button, Input, Select, SelectItem, Toggle, useTheme, IndexPath } from '@ui-kitten/components';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { IconProps, IconElement } from '@ui-kitten/components';
-import DetailItem from './components/detailItem';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ImageUploader from '../home/products/components/ImageUploader';
+import BusinessHoursPicker from '../../(seller-registration)/components/BusinessHoursPicker';
+import { useAuth, useUser } from '@clerk/clerk-expo';
+import { getStore, updateStore } from '@/utils/Controllers/StoreController';
+import { showToast } from '@/components/Toast';
+
+const shopCategories = ["Restaurant", "Grocery", "Market", "Store"];
+
+const initialStore = {
+  id: '',
+  sellerId: '',
+  name: '',
+  storeDescription: '',
+  storeImageUrl: '',
+  storeCoverUrl: '',
+  storeCategory: '',
+  tags: [],
+  businessHours: Array(7).fill({ isOpen: false, openTime: '', closeTime: '' }),
+  isClosedOverride: false,
+  address: '',
+  city: '',
+  province: '',
+  zipCode: '',
+  latitude: 0,
+  longitude: 0,
+};
 
 const BackIcon = (props: IconProps): IconElement => (
   <Icon {...props} name="arrow-back" pack="eva" />
@@ -12,236 +37,222 @@ const BackIcon = (props: IconProps): IconElement => (
 
 export default function ShopDetailsScreen() {
   const router = useRouter();
-  const [modalVisible, setModalVisible] = useState(false);
-  const [currentEditField, setCurrentEditField] = useState('');
-  const [currentEditValue, setCurrentEditValue] = useState('');
-  
-  // Shop details state
-  const [shopDetails, setShopDetails] = useState({
-    shopName: 'Dante Alejandro',
-    address: 'Dante Alejandro | 639658327483\n181K Elizabeth Pond St.\nCamputhaw, Cebu City\nVisayas, Cebu 6015',
-    email: 'danteshop@gmail.com',
-    password: '••••••••••••••••••',
-    mobile: '+639279587387'
-  });
+  const theme = useTheme();
+  const {getToken} = useAuth();
+  const {user} = useUser();
+  const [store, setStore] = useState(initialStore);
+  const [saving, setSaving] = useState(false);
 
-  const navigateBack = () => {
-    router.back();
+  const handleChange = (field: string, value: any) => {
+    setStore(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleEditPress = (field: string, value: string) => {
-    setCurrentEditField(field);
-    setCurrentEditValue(value === '••••••••••••••••••' ? '' : value);
-    setModalVisible(true);
+  const handleSave = async () => {
+    setSaving(true);
+
+    try {
+      const token = await getToken({template: "seller_app"});
+      const response = await updateStore(store, token ?? "");
+
+      showToast('success', 'Store Updated!', "Your store details have been updated.");
+    } catch (error) {
+      console.log("Error updating store: ", error);
+      showToast('error', 'Uh Oh!', "An error occured while updating the store. Please try again later.");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleSaveEdit = () => {
-    setShopDetails({
-      ...shopDetails,
-      [currentEditField]: currentEditValue
-    });
-    setModalVisible(false);
-  };
+  const coverHeight = 180;
+  const avatarSize = 100;
 
-  const renderEditModal = () => {
-    const fieldLabels = {
-      shopName: 'Shop Name',
-      address: 'Pick Up Address',
-      email: 'Email',
-      password: 'Password',
-      mobile: 'Mobile No.'
-    };
+  // For Select
+  const selectedCategoryIndex = store.storeCategory
+    ? new IndexPath(shopCategories.indexOf(store.storeCategory))
+    : undefined;
 
-    return (
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text category="h6" style={styles.modalTitle}>
-              Edit {fieldLabels[currentEditField as keyof typeof fieldLabels]}
-            </Text>
-            
-            <Input
-              style={styles.modalInput}
-              value={currentEditValue}
-              onChangeText={setCurrentEditValue}
-              placeholder={`Enter ${fieldLabels[currentEditField as keyof typeof fieldLabels]}`}
-              secureTextEntry={currentEditField === 'password'}
-              multiline={currentEditField === 'address'}
-              textStyle={currentEditField === 'address' ? { minHeight: 80 } : {}}
-            />
-            
-            <View style={styles.modalButtons}>
-              <Button
-                appearance="outline"
-                status="basic"
-                style={styles.modalButton}
-                onPress={() => setModalVisible(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                style={styles.modalButton}
-                status="success"
-                onPress={handleSaveEdit}
-              >
-                Save
-              </Button>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    );
-  };
+  const getStoreDetails = async () => {
+    try {
+      const token = await getToken({template: "seller_app"});
+      const response = await getStore(user?.publicMetadata.storeId as string, token ?? "");
+
+      setStore(response.data);
+      console.log(response.data);
+    } catch(error) {
+      console.error('Error getting store: ', error);
+    }
+  }
+
+  useFocusEffect(
+    useCallback(() => {
+      getStoreDetails();
+
+      return () => {
+        console.log("shop details not focused");
+      }
+    }, [])
+  )
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <TopNavigation
-        title="Shop Details"
-        alignment="center"
-        accessoryLeft={() => (
-          <TouchableOpacity onPress={navigateBack} style={styles.backButton}>
-            <BackIcon fill="#000" width={24} height={24} />
-          </TouchableOpacity>
-        )}
-        style={styles.topNavigation}
-      />
-      <Divider />
-
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.profileContainer}>
-          <Avatar
-            source={require('../../../assets/images/profile-placeholder.jpg')}
-            style={styles.avatar}
-            size="giant"
-          />
-        </View>
-
-        <View style={styles.detailsContainer}>
-          <Text category="h6" style={styles.sectionTitle}>Profile Details</Text>
-          
-          <DetailItem 
-            label="Shop Name" 
-            value={shopDetails.shopName} 
-            onEditPress={() => handleEditPress('shopName', shopDetails.shopName)} 
-          />
-          
-          <DetailItem 
-            label="Pick Up Address" 
-            value={shopDetails.address} 
-            onEditPress={() => handleEditPress('address', shopDetails.address)} 
-          />
-          
-          <DetailItem 
-            label="Email" 
-            value={shopDetails.email} 
-            onEditPress={() => handleEditPress('email', shopDetails.email)} 
-          />
-          
-          <DetailItem 
-            label="Password" 
-            value={shopDetails.password} 
-            onEditPress={() => handleEditPress('password', shopDetails.password)} 
-          />
-          
-          <DetailItem 
-            label="Mobile No." 
-            value={shopDetails.mobile} 
-            onEditPress={() => handleEditPress('mobile', shopDetails.mobile)} 
-          />
-          
-          <Text category="h6" style={[styles.sectionTitle, styles.linkedTitle]}>Linked Accounts</Text>
-          
-          <Button
-            style={styles.googleButton}
-            status="success"
-            disabled
-          >
-            Linked with Google
-          </Button>
-        </View>
-      </ScrollView>
-      
-      {renderEditModal()}
-    </SafeAreaView>
+    <Layout style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <TopNavigation
+          title="Shop Details"
+          alignment="center"
+          accessoryLeft={() => (
+            <View style={styles.backButton}>
+              <BackIcon fill={theme['color-basic-100']} width={24} height={24} onPress={() => router.back()} />
+            </View>
+          )}
+          style={styles.topNavigation}
+        />
+        <Divider />
+        <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 32 }}>
+          {/* Cover Photo */}
+          <View style={{ position: 'relative', width: '100%', height: coverHeight, marginBottom: avatarSize / 2 }}>
+            <ImageUploader
+              image={store.storeCoverUrl}
+              onImageSelected={(uri: string) => handleChange('storeCoverUrl', uri)}
+              style={{ width: '100%', height: coverHeight }}
+            />
+            {/* Profile Image (Avatar) overlayed */}
+            <View style={{ position: 'absolute', left: Dimensions.get('window').width / 2 - avatarSize / 2, bottom: -avatarSize / 2, zIndex: 2 }}>
+              <ImageUploader
+                image={store.storeImageUrl}
+                onImageSelected={(uri: string) => handleChange('storeImageUrl', uri)}
+                style={{ width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2, borderWidth: 3, borderColor: theme['background-basic-color-1'], backgroundColor: theme['background-basic-color-2'] }}
+              />
+            </View>
+          </View>
+          <View style={styles.formContainer}>
+            <Input
+              label="Shop Name"
+              placeholder="Enter shop name"
+              value={store.name}
+              onChangeText={(val: string) => handleChange('name', val)}
+              style={styles.input}
+            />
+            <Input
+              label="Shop Description"
+              placeholder="Enter shop description"
+              value={store.storeDescription}
+              onChangeText={(val: string) => handleChange('storeDescription', val)}
+              multiline
+              textStyle={{ minHeight: 64 }}
+              style={styles.input}
+            />
+            <Select
+              label="Shop Category"
+              placeholder="Select category"
+              value={store.storeCategory}
+              selectedIndex={selectedCategoryIndex}
+              onSelect={(index: IndexPath | IndexPath[]) => {
+                const idx = Array.isArray(index) ? index[0] : index;
+                handleChange('storeCategory', shopCategories[idx.row]);
+              }}
+              style={styles.input}
+            >
+              {shopCategories.map((cat, idx) => <SelectItem key={cat} title={cat} />)}
+            </Select>
+            {/* <Input
+              label="Tags (comma separated)"
+              placeholder="e.g. vegan, organic, bakery"
+              value={store.tags.join(', ')}
+              onChangeText={(val: string) => handleChange('tags', val.split(',').map(t => t.trim()))}
+              style={styles.input}
+            /> */}
+            <Text category="label" style={{ marginBottom: 4, marginTop: 8 }}>Business Hours</Text>
+            <BusinessHoursPicker
+              value={store.businessHours}
+              onChange={val => handleChange('businessHours', val)}
+            />
+            <Toggle
+              checked={store.isClosedOverride}
+              onChange={(checked: boolean) => handleChange('isClosedOverride', checked)}
+              style={[styles.input, {alignSelf: "flex-start"}]}
+            >
+              Temporarily Close Shop
+            </Toggle>
+            <Input
+              label="Address"
+              placeholder="Enter address"
+              value={store.address}
+              onChangeText={(val: string) => handleChange('address', val)}
+              style={styles.input}
+            />
+            <Input
+              label="City"
+              placeholder="Enter city"
+              value={store.city}
+              onChangeText={(val: string) => handleChange('city', val)}
+              style={styles.input}
+            />
+            <Input
+              label="Province"
+              placeholder="Enter province"
+              value={store.province}
+              onChangeText={(val: string) => handleChange('province', val)}
+              style={styles.input}
+            />
+            <Input
+              label="Zip Code"
+              placeholder="Enter zip code"
+              value={store.zipCode}
+              onChangeText={(val: string) => handleChange('zipCode', val)}
+              style={styles.input}
+            />
+            {/* <Input
+              label="Latitude"
+              placeholder="Latitude"
+              value={store.latitude.toString()}
+              onChangeText={(val: string) => handleChange('latitude', parseFloat(val) || 0)}
+              keyboardType="numeric"
+              style={styles.input}
+            />
+            <Input
+              label="Longitude"
+              placeholder="Longitude"
+              value={store.longitude.toString()}
+              onChangeText={(val: string) => handleChange('longitude', parseFloat(val) || 0)}
+              keyboardType="numeric"
+              style={styles.input}
+            /> */}
+            <Button
+              style={styles.saveButton}
+              status="success"
+              onPress={handleSave}
+              disabled={saving}
+            >
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </Layout>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f7f9fc',
   },
-  topNavigation: {
-    backgroundColor: '#fff',
-  },
+  topNavigation: {},
   backButton: {
     padding: 8,
   },
   scrollView: {
     flex: 1,
   },
-  profileContainer: {
-    alignItems: 'center',
-    paddingVertical: 20,
-    backgroundColor: '#fff',
-  },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-  },
-  detailsContainer: {
+  formContainer: {
     paddingHorizontal: 16,
-    backgroundColor: '#fff',
-    marginTop: 16,
+    marginTop: 30,
+    display: "flex",
+    flexDirection: "column",
+    gap: 15,
   },
-  sectionTitle: {
-    marginVertical: 16,
-    fontWeight: 'bold',
-  },
-  linkedTitle: {
+  input: {},
+  saveButton: {
     marginTop: 24,
-  },
-  googleButton: {
-    marginVertical: 16,
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    width: '80%',
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  modalTitle: {
-    marginBottom: 16,
-  },
-  modalInput: {
-    marginBottom: 16,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  modalButton: {
-    flex: 1,
-    marginHorizontal: 5,
+    marginBottom: 32,
   },
 });

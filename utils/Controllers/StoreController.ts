@@ -38,4 +38,20 @@ const getStore = async (storeId : string, token : string) => {
     return response;
 }
 
-export {Store, getStore};
+const updateStore = async (store: Store, token : string) => {
+    console.log(token);
+    console.log(store);
+    const response = await axios.put(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/stores/${store.id}`,
+        store,
+        {
+          headers: {
+            "Content-Type": "application/json;charset=UTF-8",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+    )
+
+    return response;
+}
+
+export {Store, getStore, updateStore};

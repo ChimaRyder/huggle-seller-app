@@ -6,12 +6,14 @@ import { FormLayout } from "../components/FormLayout";
 import { useSellerRegistration } from "../SellerRegistrationContext";
 import { useRouter } from "expo-router";
 import axios from "axios";
-import { useUser } from "@clerk/clerk-expo"; // Add this import
+import { useAuth, useUser } from "@clerk/clerk-expo"; // Add this import
+import { createSeller } from "@/utils/Controllers/SellerController";
 
 const TermsScreen = () => {
   const { formData, updateFormData, setCurrentStep } = useSellerRegistration();
   const router = useRouter();
   const { user } = useUser(); // Get user from Clerk
+  const {getToken} = useAuth();
 
   const handleSubmit = async (values: typeof formData) => {
     try {
@@ -19,24 +21,19 @@ const TermsScreen = () => {
       updateFormData(values);
 
       // Add the user ID from Clerk to the values
-      const dataToSend = {
+      const seller = {
         ...formData,
         ...values,
         id: user?.id, // Add the user ID from Clerk
       };
 
-      console.log(dataToSend);
-
       // Log the complete form data to the console
-      console.log("Seller Registration Form Data:", dataToSend);
+      console.log("Seller Registration Form Data:", seller);
 
       // Make the API request
-      const url = "https://huggle-backend-jh2l.onrender.com/api/sellers/create";
-      const response = await axios.post(url, dataToSend, {
-        headers: {
-          "Content-Type": "application/json;charset=UTF-8",
-        },
-      });
+      const token = await getToken({template: "seller_app"});
+      console.log(token);
+      const response = await createSeller(seller, token ?? "");
 
       // Handle the response
       if (response.status === 201) {

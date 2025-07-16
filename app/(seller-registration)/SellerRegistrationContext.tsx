@@ -47,8 +47,8 @@ const initialFormData: SellerRegistrationFormData = {
   storeCategory: "Restaurant",
   businessHours: DAYS.map((day, idx) => ({
     isOpen: idx < 5, // Mon-Fri open, Sat/Sun closed
-    openTime: idx < 5 ? '09:00' : undefined,
-    closeTime: idx < 5 ? '17:00' : undefined,
+    openTime: idx < 5 ? '9:00 AM' : undefined,
+    closeTime: idx < 5 ? '5:00 PM' : undefined,
   })),
   // Business Information
   sellerType: "Sole Proprietorship",
