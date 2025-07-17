@@ -26,6 +26,7 @@ interface Store {
 }
 
 const getStore = async (storeId : string, token : string) => {
+
     const response = await axios.get(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/stores/${storeId}`,
         {
           headers: {

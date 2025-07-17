@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, SafeAreaView } from 'react-native';
-import { Layout, Text, TopNavigation, TopNavigationAction, Icon } from '@ui-kitten/components';
+import { StyleSheet } from 'react-native';
+import { Layout, Icon } from '@ui-kitten/components';
 import { IconProps, IconElement } from '@ui-kitten/components';
 import { Tab, TabBar } from '@ui-kitten/components';
 import TransactionsTab from './analytics/transactions/transactionsTab';
+import InsightsTab from './analytics/insights/insightsTab';
 
 const BellIcon = (props: IconProps): IconElement => (
   <Icon {...props} name="bell-outline" pack="eva" />
@@ -12,7 +13,6 @@ const BellIcon = (props: IconProps): IconElement => (
 export default function AnalyticsScreen() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   
-
   return (
     <Layout style={styles.container}>
       <TabBar
@@ -23,9 +23,10 @@ export default function AnalyticsScreen() {
         <Tab title="Transactions" />
         <Tab title="Insights" />
       </TabBar>
-      
+
       {selectedIndex === 0 && <TransactionsTab />}
-            
+
+      {selectedIndex === 1 && <InsightsTab />}
     </Layout>
   );
 }
