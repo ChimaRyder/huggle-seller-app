@@ -12,7 +12,7 @@ interface OrderItemProps {
 }
 
 const UserIcon = (props : IconProps) => (
-  <Icon {...props} name='person-outline' pack='eva' ></Icon>
+  <Icon {...props} name='User' ></Icon>
 )
 
 const OrderItem = ({ item, theme, onPress }: OrderItemProps) => {

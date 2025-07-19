@@ -10,9 +10,9 @@ import {
 
 import OrdersTabsNavigation from "./orders/OrdersTabsNavigation";
 
-// const BellIcon = (props: IconProps): IconElement => (
-//   <Icon {...props} name="bell-outline" pack="eva" />
-// );
+const BellIcon = (props: IconProps): IconElement => (
+  <Icon {...props} name="Bell" />
+);
 
 export default function OrdersScreen() {
   const theme = useTheme();

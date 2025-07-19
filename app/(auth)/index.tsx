@@ -105,8 +105,8 @@ export default function AuthScreen() {
       {loading ? (
         <>
           <Animated.View style={animatedStyle}>
-            {/* <Icon
-              name="shopping-bag-outline"
+            <Icon
+              name="ShoppingBag"
               style={{
                 width: 80,
                 height: 80,

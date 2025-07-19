@@ -8,18 +8,13 @@ import { StyleSheet, View, FlatList } from "react-native";
 import renderOrderItem from "./components/orderItem";
 
 // Icons for the tabs
-// const SearchIcon = (props: IconProps): IconElement => (
-//   <Icon {...props} name="search-outline" pack="eva" />
-// );
+const SearchIcon = (props: IconProps): IconElement => (
+  <Icon {...props} name="SearchOutline" />
+);
 
-// const FilterIcon = (props: IconProps): IconElement => (
-// <Icon
-//   {...props}
-//   name="options-2-outline"
-//   pack="eva"
-//   onPress={() => console.log("Filter pressed")}
-// />
-// );
+const FilterIcon = (props: IconProps): IconElement => (
+  <Icon {...props} name="Options2Outline" onPress={() => console.log('Filter pressed')} />
+);
 
 // Orders Tab Component
 const OrdersTab = ({ theme }: { theme: ThemeType }) => {

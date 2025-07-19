@@ -27,9 +27,9 @@ import { Redirect } from "expo-router";
 import axios from "axios";
 import { getStore, Store } from "@/utils/Controllers/StoreController";
 
-// const ArrowIcon = (props: IconProps): IconElement => (
-//   <Icon {...props} name="chevron-right-outline" pack="eva" />
-// );
+const ArrowIcon = (props: IconProps): IconElement => (
+  <Icon {...props} name="ChevronRight" />
+);
 
 export default function ProfileScreen() {
   const router = useRouter();

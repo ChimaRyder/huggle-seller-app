@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
 import { Text, Card, Icon, IconProps } from '@ui-kitten/components';
+import { Star } from 'lucide-react-native';
 
 interface Review {
   id: string;
@@ -16,9 +17,6 @@ interface ReviewItemProps {
   review: Review;
 }
 
-const StarIcon = (props : IconProps) => (
-  <Icon {...props} name="star" pack="eva" />
-);
 
 export default function ReviewItem({ review }: ReviewItemProps) {
   return (
@@ -41,7 +39,7 @@ export default function ReviewItem({ review }: ReviewItemProps) {
       </Text>
       
       <View style={styles.ratingContainer}>
-        <StarIcon fill="#FFD700" width={16} height={16} />
+        <Star fill="#FFD700" color="#FFD700" width={16} height={16} />
         <Text category="c1" style={styles.ratingText}>{review.rating}</Text>
       </View>
     </Card>

@@ -11,11 +11,11 @@ import { getPostbyID, updatePost } from '@/utils/Controllers/PromotionController
 
 // Icons
 const BackIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="arrow-back" pack="eva" />
+  <Icon {...props} name="ArrowLeft" />
 );
 
 const DeleteIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="trash-2-outline" pack="eva" />
+  <Icon {...props} name="Trash2" />
 );
 
 const EditPostScreen = () => {
@@ -146,7 +146,7 @@ const EditPostScreen = () => {
               onPress={handleUpdate}
               disabled={!content.trim() || isSubmitting}
               accessoryLeft={isSubmitting ? () => <Spinner /> : (props) => (
-                <Icon {...props} name="checkmark-outline" pack="eva" />
+                <Icon {...props} name="Check" />
               )}
             >
               {isSubmitting ? 'Updating...' : 'Update'}

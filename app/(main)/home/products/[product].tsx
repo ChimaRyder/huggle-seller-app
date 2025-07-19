@@ -20,20 +20,20 @@ interface Product {
 
 // Icons
 const BackIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="arrow-back" />
+  <Icon {...props} name="ArrowLeft" />
 );
 
 const EditIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="edit-2-outline" />
+  <Icon {...props} name="SquarePen" />
 );
 
 const DeleteIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="trash-2-outline" />
+  <Icon {...props} name="Trash2" />
 );
 
-const StarIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="star" fill="#FFC107" />
-);
+// const StarIcon = (props: IconProps): IconElement => (
+//   <Icon {...props} name="Star" fill="#FFC107" />
+// );
 
 export default function ProductPage() {
   const router = useRouter();

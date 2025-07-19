@@ -1,6 +1,7 @@
 import { Card, Text, Icon, ThemeType } from '@ui-kitten/components';
 import { StyleSheet, View, ImageBackground, Appearance } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Star } from 'lucide-react-native';
 
 const renderProductItem = ({ item, theme }: { item: any, theme: ThemeType }) => {
     const colorScheme = Appearance.getColorScheme();
@@ -21,7 +22,7 @@ const renderProductItem = ({ item, theme }: { item: any, theme: ThemeType }) => 
             <View style={styles.productDetails}>
             <Text category="c1">{item.stock} {item.stock > 1 ? 'items' : 'item'}</Text>
             <View style={styles.ratingContainer}>
-                <Icon name="star" pack="eva" width={12} height={12} fill="#FFC107" />
+                <Star width={12} height={12} fill="#FFC107" color="#FFC107" />
                 <Text category="c1">{item.rating}</Text>
             </View>
             </View>

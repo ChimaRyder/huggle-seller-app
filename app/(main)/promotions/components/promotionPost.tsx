@@ -1,18 +1,19 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { Text, Button, Icon, IconProps, IconElement, ThemeType, OverflowMenu, MenuItem, Layout, useTheme, ViewPager, Avatar } from '@ui-kitten/components';
+import { ChartLine, EllipsisVertical, Heart } from 'lucide-react-native';
 
 // Icons
 const MoreIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="more-vertical" pack="eva" />
+  <Icon {...props} name="EllipsisVertical" />
 );
 
 const HeartIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="heart" pack="eva" />
+  <Icon {...props} name="Heart" />
 );
 
 const AnalyticsIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="bar-chart-2-outline" pack="eva" />
+  <Icon {...props} name="ChartLine" />
 );
 
 interface Post {
@@ -106,7 +107,7 @@ const PromotionPost = ({ post, onEdit, onDelete, store }: PromotionPostProps) =>
     <OverflowMenu
       anchor={() => (
         <TouchableOpacity onPress={() => setMenuVisible(true)} style={styles.menuButton}>
-          <MoreIcon width={20} height={20} fill="#8F9BB3" />
+          <EllipsisVertical height={20} color="#8F9BB3" />
         </TouchableOpacity>
       )}
       visible={menuVisible}
@@ -114,7 +115,7 @@ const PromotionPost = ({ post, onEdit, onDelete, store }: PromotionPostProps) =>
     >
       <MenuItem
         title="Edit"
-        accessoryLeft={(props) => <Icon {...props} name="edit-2-outline" pack="eva" />}
+        accessoryLeft={(props) => <Icon {...props} name="SquarePen" />}
         onPress={() => {
           setMenuVisible(false);
           onEdit();
@@ -122,7 +123,7 @@ const PromotionPost = ({ post, onEdit, onDelete, store }: PromotionPostProps) =>
       />
       <MenuItem
         title="Delete"
-        accessoryLeft={(props) => <Icon {...props} name="trash-2-outline" pack="eva" />}
+        accessoryLeft={(props) => <Icon {...props} name="Trash2" />}
         onPress={() => {
           setMenuVisible(false);
           onDelete();
@@ -156,13 +157,13 @@ const PromotionPost = ({ post, onEdit, onDelete, store }: PromotionPostProps) =>
       {/* Insights */}
       <View style={[styles.insights, {borderTopColor: theme['color-basic-500']}]}>
         <View style={styles.insightItem}>
-          <HeartIcon width={25} height={25} fill={theme['color-primary-500']} />
+          <Heart height={20} color={theme['color-primary-500']} fill={theme['color-primary-500']} />
           <Text category="s2" status='primary' style={styles.actionText}>
             {post.interactions}
           </Text>
         </View>
         <View style={styles.insightItem}>
-          <AnalyticsIcon width={25} height={25} fill={theme['color-primary-500']} />
+          <ChartLine  height={20} color={theme['color-primary-500']} />
           <Text category="s2" status='primary' style={styles.actionText}>
             {post.interactions}
           </Text>

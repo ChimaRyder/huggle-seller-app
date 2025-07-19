@@ -11,7 +11,9 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import * as eva from "@eva-design/eva";
-import { ApplicationProvider } from "@ui-kitten/components";
+import { ApplicationProvider, IconRegistry } from "@ui-kitten/components";
+// import { EvaIconsPack } from "@ui-kitten/eva-icons";
+import { LucideIconsPack } from "@/utils/Icons/lucide-icons"
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { useColorScheme } from "@/hooks/useColorScheme";
@@ -59,41 +61,46 @@ const RootLayout = () => {
 
   return (
     <>
-      <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-        <ApplicationProvider
-          {...eva}
-          theme={
-            colorScheme === "dark"
-              ? { ...eva.dark, ...redTheme }
-              : { ...eva.light, ...redTheme }
-          }
+    <IconRegistry icons={LucideIconsPack}/>
+    <ApplicationProvider
+        {...eva}
+        theme={
+          colorScheme === "dark"
+            ? { ...eva.dark, ...redTheme }
+            : { ...eva.light, ...redTheme }
+        }
+      >
+      <ThemeProvider
+          value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+      >
+        <ClerkProvider
+          publishableKey={publishableKey}
+          tokenCache={tokenCache}
+          // __experimental_passkeys={passkeys}
         >
-          <ThemeProvider
-            value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              navigationBarHidden: true,
+              statusBarHidden: false,
+            }}
           >
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                navigationBarHidden: true,
-                statusBarHidden: false,
-              }}
-            >
-              <Stack.Screen name="index" />
-              <Stack.Screen name="(main)/index" />
-              <Stack.Screen name="(main)/home/products/createProduct/index" />
-              <Stack.Screen name="(main)/home/products/[product]" />
-              <Stack.Screen name="(main)/home/products/editProduct" />
-              <Stack.Screen name="seller-registration/index" />
-              <Stack.Screen
-                name="+not-found"
-                options={{ headerShown: true, title: "Not Found" }}
-              />
-            </Stack>
-            <StatusBar style="auto" />
-          </ThemeProvider>
-        </ApplicationProvider>
-        <Toast />
-      </ClerkProvider>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="(main)/index" />
+            <Stack.Screen name="(main)/home/products/createProduct/index" />
+            <Stack.Screen name="(main)/home/products/[product]" />
+            <Stack.Screen name="(main)/home/products/editProduct" />
+            <Stack.Screen name="seller-registration/index" />
+            <Stack.Screen
+              name="+not-found"
+              options={{ headerShown: true, title: "Not Found" }}
+            />
+          </Stack>
+          <StatusBar style="auto" />
+        </ClerkProvider>
+      </ThemeProvider>
+    </ApplicationProvider>
+    <Toast />
     </>
   );
 };

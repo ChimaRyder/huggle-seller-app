@@ -40,13 +40,11 @@ export const useWarmUpBrowser = () => {
 
 WebBrowser.maybeCompleteAuthSession();
 
-// const FacebookIcon = (props: IconProps): IconElement => (
-//   <Icon {...props} name="facebook" />
-// );
+const FacebookIcon = (props: IconProps): IconElement => <Icon {...props} name="Facebook"/>;
 
-// const GoogleIcon = (props: IconProps): IconElement => {
-//   return <Icon {...props} name="google" pack="eva" />;
-// };
+const GoogleIcon = (props: IconProps): IconElement => {
+  return <Icon {...props} name="Google" />;
+};
 
 export default function WelcomeScreen() {
   useWarmUpBrowser();

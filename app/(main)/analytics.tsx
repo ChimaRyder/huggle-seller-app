@@ -7,7 +7,7 @@ import TransactionsTab from './analytics/transactions/transactionsTab';
 import InsightsTab from './analytics/insights/insightsTab';
 
 const BellIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="bell-outline" pack="eva" />
+  <Icon {...props} name="Bell" />
 );
 
 export default function AnalyticsScreen() {

@@ -11,7 +11,7 @@ import { createPost } from '@/utils/Controllers/PromotionController';
 
 // Icons
 const BackIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="arrow-back" pack="eva" />
+  <Icon {...props} name="ArrowLeft" />
 );
 
 const CreatePostScreen = () => {
@@ -125,7 +125,7 @@ const CreatePostScreen = () => {
             onPress={handleSubmit}
             disabled={!content.trim() || isSubmitting}
             accessoryLeft={isSubmitting ? (props) => (<Spinner size='tiny' />) : (props) => (
-              <Icon {...props} name="checkmark-outline" pack="eva" />
+              <Icon {...props} name="Check" />
             )}
           >
             {isSubmitting ? 'Creating...' : 'Create Post'}

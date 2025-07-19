@@ -16,13 +16,19 @@ import { useAuth, useUser } from "@clerk/clerk-expo";
 import { getAllProducts } from "@/utils/Controllers/ProductController";
 import { showToast } from "@/components/Toast";
 
-// const SearchIcon = (props: IconProps): IconElement => (
-//   <Icon {...props} name="search-outline" pack="eva" />
-// );
 
-// const AlertIcon = (props: IconProps): IconElement => (
-//   <Icon {...props} name="alert-circle-outline" pack="eva" />
-// );
+const SearchIcon = (props: IconProps): IconElement => (
+  <Icon {...props} name="Search" />
+);
+
+
+const AlertIcon = (props: IconProps): IconElement => (
+  <Icon {...props} name="CircleAlert" />
+);
+
+const PlusIcon = (props: IconProps): IconElement => (
+  <Icon {...props} name='Plus'/>
+);
 
 // Product Tab Component
 const ProductsTab = ({ theme }: { theme: ThemeType }) => {
@@ -37,9 +43,9 @@ const ProductsTab = ({ theme }: { theme: ThemeType }) => {
   const { getToken } = useAuth();
   const { user } = useUser();
 
-  // const FilterIcon = (props: IconProps): IconElement => (
-  //   <Icon {...props} name="options-2-outline" pack="eva" onPress={() => setFilterVisible(true)} />
-  // );
+  const FilterIcon = (props: IconProps): IconElement => (
+    <Icon {...props} name="SlidersHorizontal" onPress={() => setFilterVisible(true)} />
+  );
 
   // TODO: Implement filtering logic for status and expiration
 
@@ -165,11 +171,10 @@ const ProductsTab = ({ theme }: { theme: ThemeType }) => {
           style={styles.addProductButton}
           appearance="outline"
           size="small"
-          // accessoryLeft={(props) => (
-          //   <Icon {...props} name="plus-outline" pack="eva" />
-          // )}
-          onPress={() => router.push("/(main)/home/products/createProduct")}
-        ></Button>
+          accessoryLeft={PlusIcon}
+          onPress={() => router.push('/(main)/home/products/createProduct')}
+        >
+        </Button>
       </View>
 
       {products.length > 0 && (

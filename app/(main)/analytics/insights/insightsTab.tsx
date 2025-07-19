@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, View, FlatList, ScrollView } from 'react-native';
 import { Layout, Text, Spinner, Divider } from '@ui-kitten/components';
 import TopProductItem from './components/topProductItem';
+import { useAuth, useUser } from '@clerk/clerk-expo';
+import { getStoreAnalytics, StoreAnalytics } from '@/utils/Controllers/AnalyticsController';
+import { useFocusEffect } from 'expo-router';
 
 const placeholderAnalytics = {
   storeName: "Shrak",
@@ -38,15 +41,33 @@ const placeholderAnalytics = {
 
 const InsightsTab = () => {
   const [loading, setLoading] = useState(true);
-  const [analytics, setAnalytics] = useState<any>(null);
+  const [analytics, setAnalytics] = useState<StoreAnalytics>({} as StoreAnalytics);
+  const { getToken } = useAuth();
+  const { user } = useUser();
 
-  useEffect(() => {
-    setLoading(true);
-    setTimeout(() => {
-      setAnalytics(placeholderAnalytics);
+  const getAnalytics = async () => {
+    try {
+      setLoading(true);
+      const token = await getToken({template: "seller_app"});
+      const response = await getStoreAnalytics(token ?? "", user?.publicMetadata.storeId as string);
+
+      setAnalytics(response.data);
+    } catch (error) {
+      console.error("Error getting analytics: ", error);
+    } finally {
       setLoading(false);
-    }, 1200);
-  }, []);
+    }
+  }
+
+  useFocusEffect(
+    useCallback(() => {
+      getAnalytics();
+
+      return () => {
+        console.log("anaytics not focused");
+      }
+    }, [])
+  );
 
   if (loading) {
     return (
@@ -88,19 +109,19 @@ const InsightsTab = () => {
         <View style={styles.metricsRowSingle}>
           <Layout level='3' style={styles.analyticsCardSingle}>
             <Text category="c1" appearance="hint">Avg. Engagement</Text>
-            <Text appearance="basic" category="h6" style={styles.BoxValue}>{analytics.averageEngagementScore}</Text>
+            <Text appearance="basic" category="h6" style={styles.BoxValue}>{analytics.averageEngagementScore.toFixed(2)}</Text>
           </Layout>
         </View>
         <View style={styles.metricsRowSingle}>
           <Layout level='3' style={styles.analyticsCardSingle}>
             <Text category="c1" appearance="hint">Avg. Views/Product</Text>
-            <Text appearance="basic" category="h6" style={styles.BoxValue}>{analytics.averageViewsPerProduct}</Text>
+            <Text appearance="basic" category="h6" style={styles.BoxValue}>{analytics.averageViewsPerProduct.toFixed(2)}</Text>
           </Layout>
         </View>
         <View style={styles.metricsRowSingle}>
           <Layout level='3' style={styles.analyticsCardSingle}>
             <Text category="c1" appearance="hint">Avg. Revenue/Product</Text>
-            <Text appearance="basic" category="h6" style={styles.BoxValue}>₱ {analytics.averageRevenuePerProduct}</Text>
+            <Text appearance="basic" category="h6" style={styles.BoxValue}>₱ {analytics.averageRevenuePerProduct.toFixed(2)}</Text>
           </Layout>
         </View>
       </Layout>

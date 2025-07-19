@@ -11,9 +11,9 @@ import {
 import ProductsTab from "./home/products/productsTab";
 
 // Icons for the tabs
-// const BellIcon = (props: IconProps): IconElement => (
-//   <Icon {...props} name="bell-outline" pack="eva" />
-// );
+const BellIcon = (props: IconProps): IconElement => (
+  <Icon {...props} name="Bell" />
+);
 
 export default function HomeScreen() {
   const theme = useTheme();

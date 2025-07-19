@@ -19,17 +19,17 @@ import {
 import { getStore, Store } from "@/utils/Controllers/StoreController";
 
 // Icons
-// const SearchIcon = (props: IconProps): IconElement => (
-//   <Icon {...props} name="search-outline" pack="eva" />
-// );
+const SearchIcon = (props: IconProps): IconElement => (
+  <Icon {...props} name="Search" />
+);
 
-// const PlusIcon = (props: IconProps): IconElement => (
-//   <Icon {...props} name="plus-outline" pack="eva" />
-// );
+const PlusIcon = (props: IconProps): IconElement => (
+  <Icon {...props} name="Plus" />
+);
 
-// const AlertIcon = (props: IconProps): IconElement => (
-//   <Icon {...props} name="alert-circle-outline" pack="eva" />
-// );
+const AlertIcon = (props: IconProps): IconElement => (
+  <Icon {...props} name="CircleAlert" />
+);
 
 const PromotionsTab = () => {
   const router = useRouter();

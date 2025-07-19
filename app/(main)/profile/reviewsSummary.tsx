@@ -7,7 +7,7 @@ import ReviewItem from './components/reviewItem';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const BackIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="arrow-back" pack="eva" />
+  <Icon {...props} name="ArrowLeft" />
 );
 
 interface Review {

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { StyleSheet, View, TouchableOpacity, Image } from "react-native";
-import { Icon, Text, Spinner } from "@ui-kitten/components";
+import { Icon, Text, Spinner, useTheme } from "@ui-kitten/components";
+import { CloudUpload } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
 import {
@@ -24,6 +25,7 @@ const ImageUploader = ({
 }: ImageUploaderProps): React.ReactElement => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const theme = useTheme();
 
   // Get Firebase storage reference from your existing config
   const storage = getStorage(firebase);
@@ -114,12 +116,11 @@ const ImageUploader = ({
         </View>
       ) : (
         <View style={styles.placeholder}>
-          <Icon
-            name="cloud-upload-outline"
-            pack="eva"
+          {/* <Icon
+            name="CloudUpload"
             style={styles.icon}
-            fill="#8F9BB3"
-          />
+          /> */}
+          <CloudUpload style={styles.icon} color={theme['color-basic-600']}/>
           <Text style={styles.text}>Add or Drop a Photo</Text>
         </View>
       )}

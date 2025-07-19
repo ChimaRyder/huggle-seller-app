@@ -32,7 +32,7 @@ const initialStore = {
 };
 
 const BackIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="arrow-back" pack="eva" />
+  <Icon {...props} name="ArrowLeft" />
 );
 
 export default function ShopDetailsScreen() {

@@ -18,85 +18,75 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useUser } from "@clerk/clerk-expo";
 import { Redirect } from "expo-router";
 
-// const HomeIcon = (props: IconProps): IconElement => (
-//   <Icon
-//     {...props}
-//     name="shopping-bag-outline"
-//     pack="eva"
-//   />
-// );
+const HomeIcon = (props: IconProps): IconElement => (
+  <Icon
+    {...props}
+    name="ShoppingBag"
+  />
+);
 
-// const HomeFilledIcon = (props: IconProps): IconElement => (
-//   <Icon
-//     {...props}
-//     name="shopping-bag"
-//     pack="eva"
-//   />
-// );
+const HomeFilledIcon = (props: IconProps): IconElement => (
+  <Icon
+    {...props}
+    name="ShoppingBag"
+  />
+);
 
-// const OrdersIcon = (props: IconProps): IconElement => (
-//   <Icon
-//     {...props}
-//     name="file-text-outline"
-//     pack="eva"
-//   />
-// );
+const OrdersIcon = (props: IconProps): IconElement => (
+  <Icon
+    {...props}
+    name="ClockArrowUp"
+  />
+);
 
-// const OrdersFilledIcon = (props: IconProps): IconElement => (
-//   <Icon
-//     {...props}
-//     name="file-text"
-//     pack="eva"
-//   />
-// );
+const OrdersFilledIcon = (props: IconProps): IconElement => (
+  <Icon
+    {...props}
+    name="ClockArrowUp"
+  />
+);
 
-// const AnalyticsIcon = (props: IconProps): IconElement => (
-//   <Icon
-//     {...props}
-//     name="bar-chart-outline"
-//     pack="eva"
-//   />
-// );
+const AnalyticsIcon = (props: IconProps): IconElement => (
+  <Icon
+    {...props}
+    name="ChartColumn"
+  />
+);
 
-// const AnalyticsFilledIcon = (props: IconProps): IconElement => (
-//   <Icon
-//     {...props}
-//     name="bar-chart"
-//     pack="eva"
-//   />
-// );
+const AnalyticsFilledIcon = (props: IconProps): IconElement => (
+  <Icon
+    {...props}
+    name="ChartColumn"
+  />
+);
 
-// const GiftIcon = (props: IconProps): IconElement => (
-//   <Icon
-//     {...props}
-//     name="gift-outline"
-//     pack="eva"
-//   />
-// );
+const GiftIcon = (props: IconProps): IconElement => (
+  <Icon
+    {...props}
+    name="Gift"
+  />
+);
 
-// const GiftFilledIcon = (props: IconProps): IconElement => (
-//   <Icon
-//     {...props}
-//     name="gift"
-//     pack="eva"
-//   />
-// );
+const GiftFilledIcon = (props: IconProps): IconElement => (
+  <Icon
+    {...props}
+    name="Gift"
+  />
+);
 
-// const ProfileIcon = (props: IconProps): IconElement => (
-//   <Icon
-//     {...props}
-//     name="person-outline"
-//     pack="eva"
-//   />
-// );
+const ProfileIcon = (props: IconProps): IconElement => (
+  <Icon
+    {...props}
+    name="User"
+  />
+);
 
-// const ProfileFilledIcon = (props: IconProps): IconElement => (
-//   <Icon
-//     {...props}
-//     name="person"
-//     pack="eva"
-//   />
-// );
+const ProfileFilledIcon = (props: IconProps): IconElement => (
+  <Icon
+    {...props}
+    name="User"
+  />
+);
 
 export default function BottomNav() {
   const [selectedIndex, setSelectedIndex] = useState(0);

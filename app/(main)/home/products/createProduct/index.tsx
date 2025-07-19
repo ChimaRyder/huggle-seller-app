@@ -28,19 +28,19 @@ import { createProduct } from "@/utils/Controllers/ProductController";
 
 // Icons
 const BackIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="arrow-back" pack="eva" />
+  <Icon {...props} name="ArrowLeft" />
 );
 
 const CalendarIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="calendar" pack="eva" />
+  <Icon {...props} name="Calendar" />
 );
 
 const InfoIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="info-outline" pack="eva" />
+  <Icon {...props} name="Info" />
 );
 
 const ExitIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="close" pack="eva" />
+  <Icon {...props} name="CircleX" />
 );
 
 // Product Types

@@ -6,11 +6,11 @@ import { IconProps, IconElement } from '@ui-kitten/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const BackIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="arrow-back" pack="eva" />
+  <Icon {...props} name="ArrowLeft" />
 );
 
 const ArrowIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="chevron-right-outline" pack="eva" />
+  <Icon {...props} name="ChevronRight" />
 );
 
 export default function SettingsScreen() {
