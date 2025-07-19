@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   Alert,
 } from "react-native";
-import { Text, Input, Button } from "@ui-kitten/components";
+import { Text, Input, Button, Icon, IconProps, IconElement } from "@ui-kitten/components";
 import { useFocusEffect, useRouter } from "expo-router";
 import PromotionPost from "./components/promotionPost";
 import { useAuth, useUser } from "@clerk/clerk-expo";
@@ -136,7 +136,7 @@ const PromotionsTab = () => {
           style={styles.addButton}
           appearance="outline"
           size="small"
-          // accessoryLeft={PlusIcon}
+          accessoryLeft={PlusIcon}
           onPress={handleAddPost}
         />
       </View>
@@ -152,7 +152,7 @@ const PromotionsTab = () => {
         />
       ) : (
         <View style={styles.emptyContainer}>
-          {/* <AlertIcon style={styles.emptyIcon} fill="#C5CEE0" /> */}
+          <AlertIcon style={styles.emptyIcon} fill="#C5CEE0" />
           <Text style={styles.emptyTitle} appearance="hint">
             No Posts Found
           </Text>

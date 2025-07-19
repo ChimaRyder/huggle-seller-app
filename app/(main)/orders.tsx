@@ -6,6 +6,9 @@ import {
   TopNavigation,
   TopNavigationAction,
   useTheme,
+  Icon,
+  IconProps,
+  IconElement
 } from "@ui-kitten/components";
 
 import OrdersTabsNavigation from "./orders/OrdersTabsNavigation";
@@ -17,16 +20,16 @@ const BellIcon = (props: IconProps): IconElement => (
 export default function OrdersScreen() {
   const theme = useTheme();
 
-  // const renderRightActions = () => (
-  //   <TopNavigationAction icon={BellIcon} />
-  // );
+  const renderRightActions = () => (
+    <TopNavigationAction icon={BellIcon} />
+  );
 
   return (
     <Layout style={styles.container}>
       <TopNavigation
         title={() => <Text category="h5">Orders</Text>}
         alignment="start"
-        // accessoryRight={renderRightActions}
+        accessoryRight={renderRightActions}
         style={styles.topNavigation}
       />
       <OrdersTabsNavigation />

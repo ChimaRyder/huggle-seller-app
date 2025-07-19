@@ -1,5 +1,6 @@
 import {
   Input,
+  Icon,
   IconProps,
   IconElement,
   ThemeType,
@@ -53,8 +54,8 @@ const OrdersTab = ({ theme }: { theme: ThemeType }) => {
     <View style={styles.tabContent}>
       <Input
         placeholder="Search orders"
-        // accessoryLeft={SearchIcon}
-        // accessoryRight={FilterIcon}
+        accessoryLeft={SearchIcon}
+        accessoryRight={FilterIcon}
         style={styles.searchInput}
       />
       <FlatList

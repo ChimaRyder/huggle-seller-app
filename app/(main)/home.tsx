@@ -6,6 +6,9 @@ import {
   TopNavigation,
   TopNavigationAction,
   useTheme,
+  Icon,
+  IconProps,
+  IconElement
 } from "@ui-kitten/components";
 
 import ProductsTab from "./home/products/productsTab";
@@ -18,9 +21,9 @@ const BellIcon = (props: IconProps): IconElement => (
 export default function HomeScreen() {
   const theme = useTheme();
 
-  // const renderRightActions = () => (
-  //   <TopNavigationAction icon={BellIcon} />
-  // );
+  const renderRightActions = () => (
+    <TopNavigationAction icon={BellIcon} />
+  );
 
   return (
     <Layout style={styles.container}>
@@ -39,7 +42,7 @@ export default function HomeScreen() {
           </Text>
         )}
         alignment="start"
-        // accessoryRight={renderRightActions}
+        accessoryRight={renderRightActions}
         style={styles.topNavigation}
       />
 

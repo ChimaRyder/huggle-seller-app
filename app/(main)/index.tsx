@@ -118,19 +118,19 @@ export default function BottomNav() {
           appearance="noIndicator"
         >
           <BottomNavigationTab
-          // icon={selectedIndex === 0 ? HomeFilledIcon : HomeIcon}
+          icon={selectedIndex === 0 ? HomeFilledIcon : HomeIcon}
           />
           <BottomNavigationTab
-          // icon={selectedIndex === 1 ? OrdersFilledIcon : OrdersIcon}
+          icon={selectedIndex === 1 ? OrdersFilledIcon : OrdersIcon}
           />
           <BottomNavigationTab
-          // icon={selectedIndex === 2 ? AnalyticsFilledIcon : AnalyticsIcon}
+          icon={selectedIndex === 2 ? AnalyticsFilledIcon : AnalyticsIcon}
           />
           <BottomNavigationTab
-          // icon={selectedIndex === 3 ? GiftFilledIcon : GiftIcon}
+          icon={selectedIndex === 3 ? GiftFilledIcon : GiftIcon}
           />
           <BottomNavigationTab
-          // icon={selectedIndex === 4 ? ProfileFilledIcon : ProfileIcon}
+          icon={selectedIndex === 4 ? ProfileFilledIcon : ProfileIcon}
           />
         </BottomNavigation>
       </SafeAreaView>

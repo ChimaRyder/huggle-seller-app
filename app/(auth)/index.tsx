@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { useUser, useAuth } from "@clerk/clerk-expo";
 import axios from "axios";
 import { useClerk } from "@clerk/clerk-expo";
-import { Text, Spinner, useTheme, Layout } from "@ui-kitten/components"; // Changed from react-native-svg for proper Text component
+import { Text, Spinner, useTheme, Layout, Icon } from "@ui-kitten/components"; // Changed from react-native-svg for proper Text component
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -112,7 +112,7 @@ export default function AuthScreen() {
                 height: 80,
               }}
               fill={theme["color-basic-100"]}
-            /> */}
+            />
           </Animated.View>
           {/* <Text category="s1" status="control" style={styles.loadingText}>{status}</Text> */}
         </>

@@ -116,10 +116,6 @@ const ImageUploader = ({
         </View>
       ) : (
         <View style={styles.placeholder}>
-          {/* <Icon
-            name="CloudUpload"
-            style={styles.icon}
-          /> */}
           <CloudUpload style={styles.icon} color={theme['color-basic-600']}/>
           <Text style={styles.text}>Add or Drop a Photo</Text>
         </View>

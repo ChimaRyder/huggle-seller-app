@@ -1,5 +1,5 @@
 import {useEffect, useState} from "react";
-import { Card, Text, useTheme, ThemeType, Icon, IconProps } from '@ui-kitten/components';
+import { Card, Text, useTheme, ThemeType, Icon, IconProps, IconElement } from '@ui-kitten/components';
 import { StyleSheet, View, Appearance, TouchableOpacity } from 'react-native';
 import {Buyer, getBuyer} from "@/utils/Controllers/BuyerController";
 import {useAuth} from "@clerk/clerk-expo"
@@ -11,8 +11,8 @@ interface OrderItemProps {
   onPress?: () => void;
 }
 
-const UserIcon = (props : IconProps) => (
-  <Icon {...props} name='User' ></Icon>
+const UserIcon = (props : IconProps) : IconElement => (
+  <Icon {...props} name='User' />
 )
 
 const OrderItem = ({ item, theme, onPress }: OrderItemProps) => {
@@ -57,7 +57,7 @@ const OrderItem = ({ item, theme, onPress }: OrderItemProps) => {
           <View style={styles.orderInfoCol}>
             <Text category="h6" style={styles.orderId}>Order #{Date.parse(item.createdAt).toString(36).toUpperCase()}</Text>
             <View style={styles.orderMetaRow}>
-              <UserIcon width="18" height="18" fill={theme['color-basic-600']}/>
+              <UserIcon height={18} color={theme['color-basic-600']}/>
               <Text category="s2" style={[styles.buyerName, {color: theme['color-basic-600']}]}>{buyer?.name}</Text>
             </View>
           </View>

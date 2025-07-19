@@ -6,6 +6,9 @@ import {
   Modal,
   Radio,
   RadioGroup,
+  Icon,
+  IconProps,
+  IconElement
 } from "@ui-kitten/components";
 import { StyleSheet, View, FlatList } from "react-native";
 import renderProductItem from "./components/productItem";
@@ -162,8 +165,8 @@ const ProductsTab = ({ theme }: { theme: ThemeType }) => {
       <View style={styles.basketHeader}>
         <Input
           placeholder="Search your products"
-          // accessoryLeft={SearchIcon}
-          // accessoryRight={FilterIcon}
+          accessoryLeft={SearchIcon}
+          accessoryRight={FilterIcon}
           style={styles.searchInput}
           onSubmitEditing={onSubmit}
         />
@@ -189,7 +192,7 @@ const ProductsTab = ({ theme }: { theme: ThemeType }) => {
 
       {products.length === 0 && (
         <View style={styles.noProductsContainer}>
-          {/* <AlertIcon style={styles.noProductsIcon} fill="#C5CEE0" /> */}
+          <AlertIcon style={styles.noProductsIcon} fill="#C5CEE0" />
           <Text style={styles.noProductsText} appearance="hint">
             {search === ""
               ? "You don't have any products yet."

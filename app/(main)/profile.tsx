@@ -119,12 +119,12 @@ export default function ProfileScreen() {
         <Menu>
           <MenuItem
             title="Review Summary"
-            // accessoryRight={ArrowIcon}
+            accessoryRight={ArrowIcon}
             onPress={navigateToReviews}
           />
           <MenuItem
             title="Settings"
-            // accessoryRight={ArrowIcon}
+            accessoryRight={ArrowIcon}
             onPress={navigateToSettings}
           />
         </Menu>

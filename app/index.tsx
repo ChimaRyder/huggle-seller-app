@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { StyleSheet } from "react-native";
 import { useUser } from "@clerk/clerk-expo";
 import { Redirect } from "expo-router";
-import { useTheme, Layout } from "@ui-kitten/components";
+import { useTheme, Layout, Icon } from "@ui-kitten/components";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -67,7 +67,7 @@ const SplashScreen = () => {
             height: 80,
           }}
           fill={theme["color-basic-100"]}
-        /> */}
+        />
       </Animated.View>
     </Layout>
   );
