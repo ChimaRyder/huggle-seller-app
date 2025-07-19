@@ -11,8 +11,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import * as eva from "@eva-design/eva";
-import { ApplicationProvider, IconRegistry } from "@ui-kitten/components";
-import { EvaIconsPack } from "@ui-kitten/eva-icons";
+import { ApplicationProvider } from "@ui-kitten/components";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { useColorScheme } from "@/hooks/useColorScheme";
@@ -24,6 +23,7 @@ import { tokenCache } from "../utils/cache";
 import blueTheme from "@/assets/themes/blueTheme.json";
 import redTheme from "@/assets/themes/redTheme.json";
 import Toast from "react-native-toast-message";
+import { registerForPushNotificationsAsync } from "@/utils/Notifications";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -41,6 +41,13 @@ const RootLayout = () => {
     }
   }, [loaded]);
 
+  useEffect(() => {
+    const token = registerForPushNotificationsAsync().catch((err) => {
+      console.log("Push notification registration error:", err);
+    });
+    console.log("Push notification token:", token);
+  }, []);
+
   if (!loaded) {
     return null;
   }
@@ -52,46 +59,41 @@ const RootLayout = () => {
 
   return (
     <>
-    <IconRegistry icons={EvaIconsPack}/>
-    <ApplicationProvider
-        {...eva}
-        theme={
-          colorScheme === "dark"
-            ? { ...eva.dark, ...redTheme }
-            : { ...eva.light, ...redTheme }
-        }
-      >
-      <ThemeProvider
-          value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
-      >
-        <ClerkProvider
-          publishableKey={publishableKey}
-          tokenCache={tokenCache}
-          // __experimental_passkeys={passkeys}
+      <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+        <ApplicationProvider
+          {...eva}
+          theme={
+            colorScheme === "dark"
+              ? { ...eva.dark, ...redTheme }
+              : { ...eva.light, ...redTheme }
+          }
         >
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              navigationBarHidden: true,
-              statusBarHidden: false,
-            }}
+          <ThemeProvider
+            value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
           >
-            <Stack.Screen name="index" />
-            <Stack.Screen name="(main)/index" />
-            <Stack.Screen name="(main)/home/products/createProduct/index" />
-            <Stack.Screen name="(main)/home/products/[product]" />
-            <Stack.Screen name="(main)/home/products/editProduct" />
-            <Stack.Screen name="seller-registration/index" />
-            <Stack.Screen
-              name="+not-found"
-              options={{ headerShown: true, title: "Not Found" }}
-            />
-          </Stack>
-          <StatusBar style="auto" />
-        </ClerkProvider>
-      </ThemeProvider>
-    </ApplicationProvider>
-    <Toast />
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                navigationBarHidden: true,
+                statusBarHidden: false,
+              }}
+            >
+              <Stack.Screen name="index" />
+              <Stack.Screen name="(main)/index" />
+              <Stack.Screen name="(main)/home/products/createProduct/index" />
+              <Stack.Screen name="(main)/home/products/[product]" />
+              <Stack.Screen name="(main)/home/products/editProduct" />
+              <Stack.Screen name="seller-registration/index" />
+              <Stack.Screen
+                name="+not-found"
+                options={{ headerShown: true, title: "Not Found" }}
+              />
+            </Stack>
+            <StatusBar style="auto" />
+          </ThemeProvider>
+        </ApplicationProvider>
+        <Toast />
+      </ClerkProvider>
     </>
   );
 };

@@ -17,7 +17,6 @@ import {
   IconProps,
   IconElement,
 } from "@ui-kitten/components";
-import { EvaIconsPack } from "@ui-kitten/eva-icons";
 import { ClerkAPIError } from "@clerk/types";
 import { Redirect } from "expo-router";
 
@@ -41,11 +40,13 @@ export const useWarmUpBrowser = () => {
 
 WebBrowser.maybeCompleteAuthSession();
 
-const FacebookIcon = (props: IconProps): IconElement => <Icon {...props} name="facebook"/>;
+// const FacebookIcon = (props: IconProps): IconElement => (
+//   <Icon {...props} name="facebook" />
+// );
 
-const GoogleIcon = (props: IconProps): IconElement => {
-  return <Icon {...props} name="google" pack="eva" />;
-};
+// const GoogleIcon = (props: IconProps): IconElement => {
+//   return <Icon {...props} name="google" pack="eva" />;
+// };
 
 export default function WelcomeScreen() {
   useWarmUpBrowser();
@@ -146,47 +147,47 @@ export default function WelcomeScreen() {
 
   return (
     <>
-      <ImageBackground 
-          source={require('../../assets/images/welcome-screen-background.jpg')} 
-          style={styles.backgroundImage}
+      <ImageBackground
+        source={require("../../assets/images/welcome-screen-background.jpg")}
+        style={styles.backgroundImage}
       >
-      <View style={styles.overlay} />
-      <Layout style={styles.container}>
-        <View style={styles.contentContainer}>
-          <Text style={styles.headline}>Good Vibes. Great Finds.</Text>
-          <Text style={styles.subtext}>
-            Find the best deals for the best meals.
-          </Text>
-          {errors.map((error) => (
-            <Text key={error.code} status="danger">
-              {error.message}
+        <View style={styles.overlay} />
+        <Layout style={styles.container}>
+          <View style={styles.contentContainer}>
+            <Text style={styles.headline}>Good Vibes. Great Finds.</Text>
+            <Text style={styles.subtext}>
+              Find the best deals for the best meals.
             </Text>
-          ))}
+            {errors.map((error) => (
+              <Text key={error.code} status="danger">
+                {error.message}
+              </Text>
+            ))}
 
-          <View style={styles.buttonContainer}>
-            <Button
-              style={styles.facebookButton}
-              accessoryLeft={FacebookIcon}
-              onPress={handleFacebookLogin}
-            >
-              Continue with Facebook
-            </Button>
-            <Button
-              style={styles.googleButton}
-              status="basic"
-              accessoryLeft={GoogleIcon}
-              onPress={handleGoogleLogin}
-            >
-              Continue with Google
-            </Button>
-          </View>
+            <View style={styles.buttonContainer}>
+              <Button
+                style={styles.facebookButton}
+                // accessoryLeft={FacebookIcon}
+                onPress={handleFacebookLogin}
+              >
+                Continue with Facebook
+              </Button>
+              <Button
+                style={styles.googleButton}
+                status="basic"
+                // accessoryLeft={GoogleIcon}
+                onPress={handleGoogleLogin}
+              >
+                Continue with Google
+              </Button>
+            </View>
 
-          {/* <Text style={styles.termsText}>
+            {/* <Text style={styles.termsText}>
             By signing up, you agree to our Terms and Conditions.
           </Text> */}
-        </View>
-      </Layout>
-    </ImageBackground>
+          </View>
+        </Layout>
+      </ImageBackground>
     </>
   );
 }
