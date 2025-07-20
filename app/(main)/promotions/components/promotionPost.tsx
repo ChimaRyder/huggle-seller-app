@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-start',
     gap: 10,
-    paddingVertical: 12,
+    paddingVertical: 18,
     marginHorizontal: 10,
     marginTop: 10,
     borderTopWidth: 1,

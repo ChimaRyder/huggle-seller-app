@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   Alert,
 } from "react-native";
-import { Text, Input, Button, Icon, IconProps, IconElement } from "@ui-kitten/components";
+import { Text, Input, Button, Icon, IconProps, IconElement, useTheme } from "@ui-kitten/components";
 import { useFocusEffect, useRouter } from "expo-router";
 import PromotionPost from "./components/promotionPost";
 import { useAuth, useUser } from "@clerk/clerk-expo";
@@ -17,6 +17,7 @@ import {
   getAllPosts,
 } from "@/utils/Controllers/PromotionController";
 import { getStore, Store } from "@/utils/Controllers/StoreController";
+import { MessageCircleWarning } from "lucide-react-native";
 
 // Icons
 const SearchIcon = (props: IconProps): IconElement => (
@@ -27,12 +28,11 @@ const PlusIcon = (props: IconProps): IconElement => (
   <Icon {...props} name="Plus" />
 );
 
-const AlertIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="CircleAlert" />
-);
 
 const PromotionsTab = () => {
   const router = useRouter();
+  const theme = useTheme();
+  const [loading, setLoading] = useState(false);
   const [posts, setPosts] = useState([]);
   const { getToken } = useAuth();
   const { user } = useUser();
@@ -96,6 +96,7 @@ const PromotionsTab = () => {
   // Fetch Posts function
   const fetchPosts = async () => {
     try {
+      setLoading(true);
       const token = await getToken({ template: "seller_app" });
       const response = await getAllPosts(
         user?.publicMetadata.storeId as string,
@@ -105,6 +106,8 @@ const PromotionsTab = () => {
       setPosts(response.data.posts);
     } catch (error) {
       console.error("Error getting posts:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -142,33 +145,35 @@ const PromotionsTab = () => {
       </View>
 
       {/* Posts List */}
-      {posts.length > 0 ? (
         <FlatList
+          refreshing={loading}
+          onRefresh={fetchPosts}
           data={posts}
           renderItem={renderPost}
           keyExtractor={(item) => item.id.toString()}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.postsList}
+          contentContainerStyle={[styles.postsList, posts.length === 0 && {flex: 1}]}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <MessageCircleWarning size={50} color={theme['color-basic-600']} style={styles.emptyIcon}/>
+              <Text style={styles.emptyTitle} appearance="hint">
+                No Posts Found
+              </Text>
+              <Text style={styles.emptySubtitle} appearance="hint">
+                Promote your products by creating a post.
+              </Text>
+              <Button
+                status="primary"
+                size="large"
+                onPress={handleAddPost}
+                style={styles.createButton}
+              >
+                Create Post
+              </Button>
+            </View>
+          }
         />
-      ) : (
-        <View style={styles.emptyContainer}>
-          <AlertIcon style={styles.emptyIcon} fill="#C5CEE0" />
-          <Text style={styles.emptyTitle} appearance="hint">
-            No Posts Found
-          </Text>
-          <Text style={styles.emptySubtitle} appearance="hint">
-            Promote your products by creating a post.
-          </Text>
-          <Button
-            status="primary"
-            size="large"
-            onPress={handleAddPost}
-            style={styles.createButton}
-          >
-            Create Post
-          </Button>
-        </View>
-      )}
+        
     </View>
   );
 };

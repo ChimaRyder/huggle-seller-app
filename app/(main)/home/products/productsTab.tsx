@@ -189,7 +189,7 @@ const ProductsTab = ({ theme }: { theme: ThemeType }) => {
           renderItem={({ item }) => renderProductItem({ item, theme })}
           keyExtractor={(item) => item.id.toString()}
           numColumns={2}
-          contentContainerStyle={{flex: 1}}
+          contentContainerStyle={products.length === 0 && { flex: 1, justifyContent: 'center' }}
           columnWrapperStyle={styles.productRow}
           ListEmptyComponent={
           <View style={styles.noProductsContainer}>
