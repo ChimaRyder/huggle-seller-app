@@ -66,7 +66,7 @@ export default function SettingsScreen() {
             <Text category="h6" style={styles.sectionTitle}>Account Settings</Text>
             <Menu style={styles.menu}>
               <MenuItem
-                title='Edit profile'
+                title='Edit Shop'
                 accessoryRight={ArrowIcon}
                 onPress={navigateToEditProfile}
               />
