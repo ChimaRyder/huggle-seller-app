@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, Image } from 'react-native';
-import { Layout, Text, Divider, List, ListItem, useTheme, Avatar, Button } from '@ui-kitten/components';
+import { Layout, Text, Divider, List, ListItem, useTheme, Spinner, Button } from '@ui-kitten/components';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {useAuth} from '@clerk/clerk-expo';
@@ -71,22 +71,28 @@ export default function OrderDetailsScreen() {
   const [buyer, setBuyer] = useState<Buyer>({} as Buyer);
   const [products, setProducts] = useState<Array<Product>>([]);
 
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
   const getOrder = async (token : string) => {
     try {
       const orderResponse = await getOrderbyID(params.id as string, token ?? "");
       setOrder(orderResponse.data);
     } catch (error) {
       console.error("Error getting order: ", error);
-    }
+    }  
   }
 
   const getUser = async (token : string) => {
     try {
+      setLoading(true);
       const buyerResponse = await getBuyer(token ?? "", order.buyerId);
       setBuyer(buyerResponse.data);
     } catch (error) {
       console.error("Error getting buyer: ", error); 
-    } 
+    } finally {
+      setLoading(false);
+    }
   }
 
   const getProducts = (token : string ) => {
@@ -101,11 +107,12 @@ export default function OrderDetailsScreen() {
       setProducts(p);
     } catch (error) {
       console.error("Error getting products: ", error); 
-    }
+    } 
   }
   
   const handleStatusUpdate = async (status : number) => {
     try {
+      setSubmitting(true);
       const token = await getToken({template: "seller_app"});
 
       console.log(status);
@@ -131,6 +138,8 @@ export default function OrderDetailsScreen() {
     } catch (error) {
       console.error("Error updating order: ", error);
       showToast('error', 'Uh Oh', `Something went wrong with updating the order. Please try again.`);
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -160,47 +169,78 @@ export default function OrderDetailsScreen() {
             <View style={styles.metaData}>
               <View style={styles.row}>
                 <Text category="s1">Order ID </Text>
-                <Text>#{Date.parse(order.createdAt.toString()).toString(36).toUpperCase()}</Text>
+                {
+                  !loading ?
+                    <Text>#{Date.parse(order.createdAt.toString()).toString(36).toUpperCase()}</Text>
+                    :
+                    <Layout level="2" style={{minWidth: 100}}/>
+                }
               </View>
 
               <View style={styles.row}>
                 <Text category="s1">Buyer's Name</Text>
-                <Text>{buyer.name}</Text>
+                {
+                  !loading ?
+                    <Text>{buyer.name}</Text>
+                    :
+                    <Layout level="2" style={{minWidth: 150}}/>
+                }
               </View>
 
               <View style={styles.row}>
                 <Text category="s1">Status</Text>
-                <Text>{ORDER_STATUSES[order.status]}</Text>
+                {
+                  !loading ?
+                    <Text>{ORDER_STATUSES[order.status]}</Text>
+                    :
+                    <Layout level="2" style={{minWidth: 120}}/>
+                }
               </View>
             </View>
 
             <Divider style={{ marginVertical: 8 }} />
             <Text category="s1" style={{ paddingTop: 10 }}>Items</Text>
-            <List
-                data={products}
-                renderItem={({ item, index }) => <ProductItem product={item} quantity={order.quantity[index]} />}
-                style={styles.productList}
-            />
+            {
+              !loading ?
+              <List
+                  data={products}
+                  renderItem={({ item, index }) => <ProductItem product={item} quantity={order.quantity[index]} />}
+                  style={styles.productList}
+              />
+              :
+              <Layout style={{flex: 1, justifyContent: "center", alignItems: "center"}}>
+                <Spinner size='large'/>
+              </Layout>
+            }
+            
             <Divider style={{ marginVertical: 8 }} />
-            <View style={styles.row}><Text category="s1">Total Price:</Text><Text category="h6" status='primary'>₱ {order.totalPrice.toFixed(2)}</Text></View>
+            <View style={styles.row}>
+              <Text category="s1">Total Price:</Text>
+              {
+                !loading ?
+                  <Text category="h6" status='primary'>₱ {order.totalPrice.toFixed(2)}</Text>
+                  :
+                  <Layout level="2" style={{minWidth: 90}}/>
+              }
+            </View>
             
             {/* Accept/Reject buttons if status is 0 */}
             {order.status === 0 && (
               <View style={styles.actionRow}>
-                <Button status="danger" style={styles.actionButton} onPress={() => handleStatusUpdate(ORDER_STATUSES.indexOf('Canceled'))}>Reject</Button>
-                <Button status="success" style={styles.actionButton} onPress={()=> handleStatusUpdate(ORDER_STATUSES.indexOf('Confirmed'))}>Accept</Button>
+                <Button disabled={submitting} status="danger" style={styles.actionButton} onPress={() => handleStatusUpdate(ORDER_STATUSES.indexOf('Canceled'))}>Reject</Button>
+                <Button disabled={submitting} status="success" style={styles.actionButton} onPress={()=> handleStatusUpdate(ORDER_STATUSES.indexOf('Confirmed'))}>Accept</Button>
               </View>
             )}
 
             {order.status === 1 && (
               <View style={styles.actionRow}>
-                <Button status="success" style={styles.actionButton} onPress={()=> handleStatusUpdate(ORDER_STATUSES.indexOf('Ready For Pickup'))}>Ready Order For Pickup</Button>
+                <Button disabled={submitting} status="success" style={styles.actionButton} onPress={()=> handleStatusUpdate(ORDER_STATUSES.indexOf('Ready For Pickup'))}>Ready Order For Pickup</Button>
               </View>
             )}
 
             {order.status === 2 && (
               <View style={styles.actionRow}>
-                <Button status="success" style={styles.actionButton} onPress={()=> handleStatusUpdate(ORDER_STATUSES.indexOf('Completed'))}>Complete Order</Button>
+                <Button disabled={submitting} status="success" style={styles.actionButton} onPress={()=> handleStatusUpdate(ORDER_STATUSES.indexOf('Completed'))}>Complete Order</Button>
               </View>
             )}
         </SafeAreaView>

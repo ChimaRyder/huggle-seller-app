@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View, FlatList, ScrollView } from 'react-native';
-import { Tab, TabBar, useTheme } from '@ui-kitten/components';
-import renderOrderItem from './components/orderItem';
+import { StyleSheet, View, FlatList, ScrollView, Alert } from 'react-native';
+import { Tab, TabBar, useTheme, Text, Spinner } from '@ui-kitten/components';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Order, getAllOrders } from '@/utils/Controllers/OrderController';
 import { useAuth } from '@clerk/clerk-expo';
 import OrderItem from './components/orderItem';
+import { AlertCircle, CookingPot } from 'lucide-react-native';
 
 const ORDER_STATUSES = [
   'Pending',
@@ -15,9 +15,25 @@ const ORDER_STATUSES = [
   'Canceled',
 ];
 
+const emptyMessages = (index : number) => {
+  switch (index) {
+    case 0:
+      return <Text appearance='hint' category='s2'>No Pending orders yet</Text>
+    case 1:
+      return <Text appearance='hint' category='s2'>No Confirmed orders yet</Text>
+    case 2:
+      return <Text appearance='hint' category='s2'>No orders ready for pick-up yet</Text>
+    case 3:
+      return <Text appearance='hint' category='s2'>No orders completed yet</Text>
+    case 4:
+      return <Text appearance='hint' category='s2'>No orders canceled yet</Text>
+  }
+}
+
 export default function OrdersTabsNavigation() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [orders, setOrders] = useState<Array<Order>>([]);
+  const [loading, setLoading] = useState(false);
   const params = useLocalSearchParams();
   const theme = useTheme();
   const router = useRouter();
@@ -29,6 +45,7 @@ export default function OrdersTabsNavigation() {
 
   const getOrders = async () => {
     try {
+        setLoading(true);
         const token = await getToken({template: "seller_app"});
         const response = await getAllOrders(token ?? "");
 
@@ -36,6 +53,8 @@ export default function OrdersTabsNavigation() {
         setOrders(response.data);
     } catch(error) {
         console.error("Error getting orders: " + error);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -53,11 +72,12 @@ export default function OrdersTabsNavigation() {
 
 
   return (
-    <View style={{display: "flex", gap: 10}}>
+    <View style={{flex: 1}}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.tabBarScroll}
+        style={{ flexGrow: 0 }}
       >
         <TabBar
           selectedIndex={selectedIndex}
@@ -71,13 +91,24 @@ export default function OrdersTabsNavigation() {
         </TabBar>
       </ScrollView>
       <FlatList
+        refreshing={loading}
+        onRefresh={getOrders}
         data={filteredOrders}
         renderItem={({ item }) => (
           <OrderItem item={item} theme={theme} onPress={() => router.push({ pathname: '/(main)/orders/orderDetails', params: { id: item.id } })}/>
         )}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.ordersList}
-        ListEmptyComponent={<View style={styles.empty}><></></View>}
+        contentContainerStyle={[
+          styles.ordersList,
+          filteredOrders.length === 0 && { flex: 1, justifyContent: 'center' }
+        ]}
+        style={{ flex: 1 }}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <CookingPot size={40} color={theme['color-basic-600']} />
+            {emptyMessages(selectedIndex)}
+          </View> 
+        }
       />
     </View>
   );
@@ -90,10 +121,6 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     marginBottom: 8,
-    flexGrow: 0,
-    backgroundColor: 'transparent',
-    borderBottomWidth: 0,
-    elevation: 0,
   },
   tab: {
     minWidth: 150,
@@ -107,9 +134,8 @@ const styles = StyleSheet.create({
     paddingBottom: 80,
   },
   empty: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 40,
+    gap: 10
   },
 }); 
