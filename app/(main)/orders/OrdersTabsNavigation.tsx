@@ -49,7 +49,6 @@ export default function OrdersTabsNavigation() {
         const token = await getToken({template: "seller_app"});
         const response = await getAllOrders(token ?? "");
 
-        console.log(response.data);
         setOrders(response.data);
     } catch(error) {
         console.error("Error getting orders: " + error);
@@ -68,8 +67,6 @@ export default function OrdersTabsNavigation() {
       }
     }, [])
   )
-
-
 
   return (
     <View style={{flex: 1}}>

@@ -8,7 +8,9 @@ import {
   RadioGroup,
   Icon,
   IconProps,
-  IconElement
+  IconElement,
+  Layout,
+  Spinner
 } from "@ui-kitten/components";
 import { StyleSheet, View, FlatList } from "react-native";
 import renderProductItem from "./components/productItem";
@@ -18,16 +20,11 @@ import axios from "axios";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { getAllProducts } from "@/utils/Controllers/ProductController";
 import { showToast } from "@/components/Toast";
-import { AlertCircle } from "lucide-react-native";
+import { AlertCircle, CookingPot } from "lucide-react-native";
 
 
 const SearchIcon = (props: IconProps): IconElement => (
   <Icon {...props} name="Search" />
-);
-
-
-const AlertIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="CircleAlert" />
 );
 
 const PlusIcon = (props: IconProps): IconElement => (
@@ -37,6 +34,7 @@ const PlusIcon = (props: IconProps): IconElement => (
 // Product Tab Component
 const ProductsTab = ({ theme }: { theme: ThemeType }) => {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState<Array<any>>([]);
   const [search, setSearch] = useState("");
   const [filterVisible, setFilterVisible] = useState(false);
@@ -56,6 +54,7 @@ const ProductsTab = ({ theme }: { theme: ThemeType }) => {
   // Sample product data
   const fetchProducts = async () => {
     try {
+      setLoading(true);
       const token = await getToken({ template: "seller_app" });
       const response = await getAllProducts(search, token ?? "");
 
@@ -68,6 +67,8 @@ const ProductsTab = ({ theme }: { theme: ThemeType }) => {
         "Uh oh!",
         `Something went wrong while getting your products. Please try again.`
       );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -181,37 +182,34 @@ const ProductsTab = ({ theme }: { theme: ThemeType }) => {
         </Button>
       </View>
 
-      {products.length > 0 && (
         <FlatList
+          refreshing={loading}
+          onRefresh={fetchProducts}
           data={products}
           renderItem={({ item }) => renderProductItem({ item, theme })}
           keyExtractor={(item) => item.id.toString()}
           numColumns={2}
+          contentContainerStyle={{flex: 1}}
           columnWrapperStyle={styles.productRow}
+          ListEmptyComponent={
+          <View style={styles.noProductsContainer}>
+            <CookingPot size={40} style={styles.noProductsIcon} color={theme['color-basic-600']}/>
+            <Text style={styles.noProductsText} appearance="hint">
+              No Products Found
+            </Text>
+            <Button
+              status="primary"
+              size="large"
+              onPress={() => router.push("/(main)/home/products/createProduct")}
+              style={styles.ErrorAddProductButton}
+            >
+              Add a Product
+            </Button>
+          </View>
+          }
         />
-      )}
 
-      {products.length === 0 && (
-        <View style={styles.noProductsContainer}>
-          <AlertCircle size={40} style={styles.noProductsIcon} color={theme['color-basic-600']}/>
-          <Text style={styles.noProductsText} appearance="hint">
-            {search === ""
-              ? "You don't have any products yet."
-              : "No products found."}
-          </Text>
-          <Text style={styles.noProductsText} appearance="hint">
-            Add one now.
-          </Text>
-          <Button
-            status="primary"
-            size="large"
-            onPress={() => router.push("/(main)/home/products/createProduct")}
-            style={styles.ErrorAddProductButton}
-          >
-            Add a Product
-          </Button>
-        </View>
-      )}
+        
     </View>
   );
 };
