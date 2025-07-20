@@ -18,6 +18,7 @@ import axios from "axios";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { getAllProducts } from "@/utils/Controllers/ProductController";
 import { showToast } from "@/components/Toast";
+import { AlertCircle } from "lucide-react-native";
 
 
 const SearchIcon = (props: IconProps): IconElement => (
@@ -192,7 +193,7 @@ const ProductsTab = ({ theme }: { theme: ThemeType }) => {
 
       {products.length === 0 && (
         <View style={styles.noProductsContainer}>
-          <AlertIcon style={styles.noProductsIcon} fill="#C5CEE0" />
+          <AlertCircle size={40} style={styles.noProductsIcon} color={theme['color-basic-600']}/>
           <Text style={styles.noProductsText} appearance="hint">
             {search === ""
               ? "You don't have any products yet."

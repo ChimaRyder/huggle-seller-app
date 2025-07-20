@@ -110,11 +110,10 @@ export default function AuthScreen() {
               style={{
                 width: 80,
                 height: 80,
+                tintColor: theme["color-basic-100"]
               }}
-              fill={theme["color-basic-100"]}
             />
           </Animated.View>
-          {/* <Text category="s1" status="control" style={styles.loadingText}>{status}</Text> */}
         </>
       ) : (
         <View style={styles.errorContainer}>

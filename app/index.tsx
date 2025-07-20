@@ -65,8 +65,8 @@ const SplashScreen = () => {
           style={{
             width: 80,
             height: 80,
+            tintColor: theme["color-basic-100"]
           }}
-          fill={theme["color-basic-100"]}
         />
       </Animated.View>
     </Layout>

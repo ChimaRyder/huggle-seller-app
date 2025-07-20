@@ -57,7 +57,7 @@ const OrderItem = ({ item, theme, onPress }: OrderItemProps) => {
           <View style={styles.orderInfoCol}>
             <Text category="h6" style={styles.orderId}>Order #{Date.parse(item.createdAt).toString(36).toUpperCase()}</Text>
             <View style={styles.orderMetaRow}>
-              <UserIcon height={18} color={theme['color-basic-600']}/>
+              <UserIcon style={{height: 18, tintColor: theme['color-basic-600']}}/>
               <Text category="s2" style={[styles.buyerName, {color: theme['color-basic-600']}]}>{buyer?.name}</Text>
             </View>
           </View>
