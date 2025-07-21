@@ -1,16 +1,28 @@
 import { View, StyleSheet} from "react-native";
 import { Text } from "@ui-kitten/components";
+import { Order } from "@/utils/Controllers/OrderController";
 
-const renderTransactionItem = ({ item }: { item: any }) => (
+const renderTransactionItem = ({ item }: { item: Order }) => (
     <View style={styles.transactionItem}>
         <View style={styles.transactionInfo}>
-            <View style={styles.transactionImagePlaceholder}></View>
-            <View>
-                <Text category="s1">{item.name}</Text>
-                <Text category="c1" appearance="hint">{item.time}</Text>
+            <View style={{gap: 5}}>
+                <Text category="s1">#{Date.parse(item.createdAt.toString()).toString(36).toUpperCase()}</Text>
+                <Text category="c1" appearance="hint">
+                  {new Date(item.createdAt).toLocaleString(
+                  'en-PH',
+                  {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    hour12: true,
+                    minute: "2-digit",
+                  }
+                  )}
+                </Text>
             </View>
         </View>
-        <Text category="s1" status="success">{item.amount}</Text>
+        <Text category="s1" status="success"> + ₱{item.totalPrice.toFixed(2)}</Text>
     </View>
 );
 
@@ -19,9 +31,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EDF1F7',
+    paddingVertical: 15,
   },
   transactionInfo: {
     flexDirection: 'row',
@@ -30,7 +40,6 @@ const styles = StyleSheet.create({
   transactionImagePlaceholder: {
     width: 40,
     height: 40,
-    backgroundColor: '#E4E9F2',
     borderRadius: 20,
     marginRight: 12,
   },

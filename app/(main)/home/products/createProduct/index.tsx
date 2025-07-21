@@ -44,7 +44,7 @@ const ExitIcon = (props: IconProps): IconElement => (
 );
 
 // Product Types
-const productTypes = ["Food", "Beverage", "Canned Goods"];
+const productTypes = ["Food", "Electronics", "Clothing", "Home Appliances", "Books", "Health & Beauty", "Sports & Outdoors", "Toys & Games", "Pets", "Automotives", "Baby Products", "Office Supplies", "Arts & Crafts"];
 
 // Validation Schema
 const ProductSchema = Yup.object().shape({

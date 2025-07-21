@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
-import { StyleSheet } from 'react-native';
-import { Layout, Icon } from '@ui-kitten/components';
+import React, { useState, useCallback } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { Layout, Icon, TopNavigationAction } from '@ui-kitten/components';
 import { IconProps, IconElement } from '@ui-kitten/components';
-import { Tab, TabBar } from '@ui-kitten/components';
+import { Tab, TabBar, Spinner, TopNavigation, Text } from '@ui-kitten/components';
 import TransactionsTab from './analytics/transactions/transactionsTab';
 import InsightsTab from './analytics/insights/insightsTab';
+import { useAuth, useUser} from '@clerk/clerk-expo'
+import { StoreAnalytics, getStoreAnalytics } from '@/utils/Controllers/AnalyticsController';
+import { useFocusEffect } from 'expo-router';
 
 const BellIcon = (props: IconProps): IconElement => (
   <Icon {...props} name="Bell" />
@@ -12,9 +15,56 @@ const BellIcon = (props: IconProps): IconElement => (
 
 export default function AnalyticsScreen() {
   const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const [loading, setLoading] = useState(true);
+  const [analytics, setAnalytics] = useState<StoreAnalytics>({} as StoreAnalytics);
+  const { getToken } = useAuth();
+  const { user } = useUser();
+
+  const getAnalytics = async () => {
+    try {
+      setLoading(true);
+      const token = await getToken({template: "seller_app"});
+      const response = await getStoreAnalytics(token ?? "", user?.publicMetadata.storeId as string);
+
+      setAnalytics(response.data);
+    } catch (error) {
+      console.error("Error getting analytics: ", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useFocusEffect(
+    useCallback(() => {
+      getAnalytics();
+
+      return () => {
+        console.log("anaytics not focused");
+      }
+    }, [])
+  );
+
+  const renderRightActions = () =>(
+    <TopNavigationAction icon={BellIcon}/>
+  )
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Spinner size="giant" />
+      </View>
+    );
+  }
   
   return (
     <Layout style={styles.container}>
+      <TopNavigation
+        title={() => <Text category="h5">Analytics</Text>}
+        alignment="start"
+        accessoryRight={renderRightActions}
+        style={styles.topNavigation}
+      />
       <TabBar
         selectedIndex={selectedIndex}
         onSelect={index => setSelectedIndex(index)}
@@ -24,9 +74,9 @@ export default function AnalyticsScreen() {
         <Tab title="Insights" />
       </TabBar>
 
-      {selectedIndex === 0 && <TransactionsTab />}
+      {selectedIndex === 0 && <TransactionsTab analytics={analytics} />}
 
-      {selectedIndex === 1 && <InsightsTab />}
+      {selectedIndex === 1 && <InsightsTab analytics={analytics} />}
     </Layout>
   );
 }
@@ -34,6 +84,7 @@ export default function AnalyticsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    paddingHorizontal: 5
   },
   content: {
     flex: 1,
@@ -43,5 +94,14 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     margin: 5,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  topNavigation: {
+    marginTop: 10,
   },
 });

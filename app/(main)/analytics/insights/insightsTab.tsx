@@ -6,76 +6,8 @@ import { useAuth, useUser } from '@clerk/clerk-expo';
 import { getStoreAnalytics, StoreAnalytics } from '@/utils/Controllers/AnalyticsController';
 import { useFocusEffect } from 'expo-router';
 
-const placeholderAnalytics = {
-  storeName: "Shrak",
-  monthIndex: 0,
-  totalProducts: 5,
-  totalViews: 66,
-  totalCartAdds: 1,
-  totalPurchases: 1,
-  averageEngagementScore: 0.162,
-  averageViewsPerProduct: 13.2,
-  averageRevenuePerProduct: 385,
-  topProducts: [
-    {
-      productId: "bb94b04e-5f36-448a-9867-212b3ed6b8f5",
-      productName: "Bro Product",
-      views: 43,
-      cartAdds: 0,
-      purchases: 1,
-      revenue: 1925,
-      engagementScore: 0.53,
-    },
-    {
-      productId: "028340e7-df22-483a-bbd9-c92bfe0f5661",
-      productName: "Hhfhh",
-      views: 10,
-      cartAdds: 1,
-      purchases: 0,
-      revenue: 0,
-      engagementScore: 0.12,
-    },
-    // Add up to 5 products as needed
-  ],
-};
 
-const InsightsTab = () => {
-  const [loading, setLoading] = useState(true);
-  const [analytics, setAnalytics] = useState<StoreAnalytics>({} as StoreAnalytics);
-  const { getToken } = useAuth();
-  const { user } = useUser();
-
-  const getAnalytics = async () => {
-    try {
-      setLoading(true);
-      const token = await getToken({template: "seller_app"});
-      const response = await getStoreAnalytics(token ?? "", user?.publicMetadata.storeId as string);
-
-      setAnalytics(response.data);
-    } catch (error) {
-      console.error("Error getting analytics: ", error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useFocusEffect(
-    useCallback(() => {
-      getAnalytics();
-
-      return () => {
-        console.log("anaytics not focused");
-      }
-    }, [])
-  );
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Spinner size="giant" />
-      </View>
-    );
-  }
+const InsightsTab = ({analytics} : {analytics : StoreAnalytics}) => {
 
   return (
     <ScrollView style={styles.tabContent}>

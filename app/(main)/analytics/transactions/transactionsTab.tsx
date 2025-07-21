@@ -1,18 +1,39 @@
 import { StyleSheet, View, FlatList } from 'react-native';
-import { Text, Layout } from '@ui-kitten/components';
+import { Text, Layout, Divider, useTheme } from '@ui-kitten/components';
 import renderTransactionItem from './components/transactionItem';
+import { StoreAnalytics } from '@/utils/Controllers/AnalyticsController';
+import { useCallback, useState } from 'react';
+import { useAuth } from '@clerk/clerk-expo';
+import { getAllOrders, Order } from '@/utils/Controllers/OrderController';
+import { useFocusEffect } from 'expo-router';
+import { CookingPot } from 'lucide-react-native';
 
 // Transactions Tab Component
-const TransactionsTab = () => {
-  // Sample transaction data
-  const transactions = [
-    { id: 1, name: 'Chris Smith', time: '10:55 AM', amount: '+ 50.00' },
-    { id: 2, name: 'Chris Smith', time: '10:55 AM', amount: '+ 50.00' },
-    { id: 3, name: 'Chris Smith', time: '10:55 AM', amount: '+ 50.00' },
-    { id: 4, name: 'Chris Smith', time: '10:55 AM', amount: '+ 50.00' },
-    { id: 5, name: 'Chris Smith', time: '10:55 AM', amount: '+ 50.00' },
-    { id: 6, name: 'Chris Smith', time: '10:55 AM', amount: '+ 50.00' },
-  ];
+const TransactionsTab = ({analytics} : {analytics : StoreAnalytics}) => {
+  const theme = useTheme();
+  const [loading, setLoading] = useState(false);
+  const [orders, setOrders] = useState<Array<Order>>({} as Order[]);
+  const { getToken } = useAuth();
+
+  const getOrders = async () => {
+    try {
+      setLoading(true);
+      const token = await getToken({template: "seller_app"});
+      const response = await getAllOrders(token ?? "");
+
+      setOrders(response.data.filter((data : Order) => data.status === 3));
+    } catch(error) {
+      console.error("Error getting orders: ", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useFocusEffect(
+    useCallback(() => {
+      getOrders();
+    }, [analytics])
+  )
 
   return (
     <View style={styles.tabContent}>
@@ -21,32 +42,41 @@ const TransactionsTab = () => {
           <Text category="h5">Earnings</Text>
         </View>
         
-        <Text category="h2" style={styles.totalRevenue}>₱ 11,438.00</Text>
+        <Text category="h2" style={styles.totalRevenue}>₱ { analytics.totalRevenue.toFixed(2) }</Text>
         <Text category="c1" appearance="hint" style={styles.totalRevenueLabel}>Total Revenue</Text>
         
         <View style={styles.analyticsRow}>
           <Layout level='3' style={styles.analyticsCard}>
             <Text category="c1" appearance="hint">Average per week</Text>
-            <Text appearance="basic" category="h6" style={styles.BoxValue}>₱ 617.00</Text>
+            <Text appearance="basic" category="h6" style={styles.BoxValue}>₱ 00.00</Text>
           </Layout>
           <Layout level='3' style={styles.analyticsCard}>
             <Text category="c1" appearance="hint">Earning Growth</Text>
-            <Text appearance="basic" category="h6" style={styles.BoxValue}>65%</Text>
+            <Text appearance="basic" category="h6" style={styles.BoxValue}>0%</Text>
           </Layout>
         </View>
       </Layout>
       
       <Layout level='2' style={styles.transactionsContainer}>
         <View style={styles.transactionsHeader}>
-          <Text category="h6">Transactions</Text>
-          <Text category="p2" status="primary">See all</Text>
+          <Text category="h6">Completed Orders</Text>
         </View>
         
         <FlatList
-          data={transactions}
+          refreshing={loading}
+          onRefresh={getOrders}
+          data={orders}
           renderItem={renderTransactionItem}
           keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={styles.transactionsList}
+          contentContainerStyle={[styles.transactionsList, orders.length === 0 && {flex: 1}]}
+          ItemSeparatorComponent={Divider}
+          ListEmptyComponent={
+            <Layout level="2" style={styles.emptyContainer}>
+              <CookingPot size={40} color={theme['color-basic-100']}/>
+              <Text category='h6'>No Orders Found</Text>
+              <Text category='p2'>No orders have been completed yet</Text>
+            </Layout>
+          }
         />
       </Layout>
     </View>
@@ -103,6 +133,12 @@ const styles = StyleSheet.create({
   },
   BoxValue: {
   marginTop: 5,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
   }
 });
   
