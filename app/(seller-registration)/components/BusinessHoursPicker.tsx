@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text, Toggle, Select, SelectItem, IndexPath } from '@ui-kitten/components';
 
-const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+const DAYS = ['SUN','MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
   const hour24 = Math.floor(i / 2);
   const minute = i % 2 === 0 ? '00' : '30';

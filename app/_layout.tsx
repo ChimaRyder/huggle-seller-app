@@ -64,11 +64,7 @@ const RootLayout = () => {
     <IconRegistry icons={LucideIconsPack}/>
     <ApplicationProvider
         {...eva}
-        theme={
-          colorScheme === "dark"
-            ? { ...eva.dark, ...redTheme }
-            : { ...eva.light, ...redTheme }
-        }
+        theme={theme}
       >
       <ThemeProvider
           value={colorScheme === "dark" ? DarkTheme : DefaultTheme}

@@ -21,13 +21,15 @@ export default function AnalyticsScreen() {
   const { getToken } = useAuth();
   const { user } = useUser();
 
+  const [timeSpan, setTimeSpan] = useState(1);
+
   const getAnalytics = async () => {
     try {
       setLoading(true);
       const token = await getToken({template: "seller_app"});
-      const response = await getStoreAnalytics(token ?? "", user?.publicMetadata.storeId as string);
+      const response = await getStoreAnalytics(token ?? "", user?.publicMetadata.storeId as string, timeSpan);
 
-      setAnalytics(response.data);
+      setAnalytics(response.data.monthlyBreakdown[0]);
     } catch (error) {
       console.error("Error getting analytics: ", error);
     } finally {
@@ -42,7 +44,7 @@ export default function AnalyticsScreen() {
       return () => {
         console.log("anaytics not focused");
       }
-    }, [])
+    }, [timeSpan])
   );
 
   const renderRightActions = () =>(
@@ -76,7 +78,7 @@ export default function AnalyticsScreen() {
 
       {selectedIndex === 0 && <TransactionsTab analytics={analytics} />}
 
-      {selectedIndex === 1 && <InsightsTab analytics={analytics} />}
+      {selectedIndex === 1 && <InsightsTab analytics={analytics} setTimeSpan={setTimeSpan} timeSpan={timeSpan} />}
     </Layout>
   );
 }

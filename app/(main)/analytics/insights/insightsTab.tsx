@@ -1,19 +1,66 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, View, FlatList, ScrollView } from 'react-native';
-import { Layout, Text, Spinner, Divider } from '@ui-kitten/components';
+import { Layout, Text, Spinner, Divider, Select, SelectItem, IndexPath } from '@ui-kitten/components';
 import TopProductItem from './components/topProductItem';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { getStoreAnalytics, StoreAnalytics } from '@/utils/Controllers/AnalyticsController';
 import { useFocusEffect } from 'expo-router';
 
+const timeSpanConvert = (timeSpan: number) => {
+  switch (timeSpan) {
+    case 1:
+      return 0;
+    case 3:
+      return 1;
+    case 6:
+      return 2;
+    case 12:
+      return 3;
+    default:
+      return 0;
+  }
+}
 
-const InsightsTab = ({analytics} : {analytics : StoreAnalytics}) => {
+const timeSpanOptions = ["1 Month", "3 Months", "6 Months", "1 Year"];
+
+const InsightsTab = ({analytics, setTimeSpan, timeSpan} : {analytics : StoreAnalytics, setTimeSpan: (timeSpan: number) => void, timeSpan: number}) => {
+  const [selectedTimeSpan, setSelectedTimeSpan] = useState(new IndexPath(timeSpanConvert(timeSpan)));
+
+  useFocusEffect(
+    useCallback(() => {
+      switch (selectedTimeSpan.row) {
+        case 0:
+          setTimeSpan(1);
+          break;
+        case 1:
+          setTimeSpan(3);
+          break;
+        case 2:
+          setTimeSpan(6);
+          break;
+        case 3:
+          setTimeSpan(12);
+          break;
+      }
+    }, [selectedTimeSpan])
+  );
 
   return (
     <ScrollView style={styles.tabContent}>
       <Layout level='2' style={styles.analyticsContainer}>
-        <View style={styles.analyticsHeader}>
-          <Text category="h5">Monthly Insights</Text>
+        <View style={styles.headerRow}>
+          <Text category="h6">Monthly Insights</Text>
+          <Select
+            value={timeSpanOptions[selectedTimeSpan.row]}
+            selectedIndex={selectedTimeSpan}
+            onSelect={index => setSelectedTimeSpan(index as IndexPath)}
+            style={styles.timeSpanSelect}
+            size="small"
+          >
+            {timeSpanOptions.map((option, idx) => (
+              <SelectItem key={option} title={option} />
+            ))}
+          </Select>
         </View>
         {/* Views on its own row */}
         <View style={styles.metricsRowSingle}>
@@ -83,6 +130,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 16,
     marginBottom: 16,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  timeSpanSelect: {
+    minWidth: 140,
   },
   analyticsHeader: {
     flexDirection: 'row',

@@ -27,9 +27,9 @@ export default function SettingsScreen() {
     router.push('/(main)/profile/shopDetails');
   };
 
-  const navigateToPermissions = () => {
+  const navigateToVerification = () => {
     // Navigate to permissions screen
-    console.log('Navigate to permissions');
+    router.push('/(main)/profile/storeVerification');
   };
 
   const navigateToAboutUs = () => {
@@ -66,9 +66,14 @@ export default function SettingsScreen() {
             <Text category="h6" style={styles.sectionTitle}>Account Settings</Text>
             <Menu style={styles.menu}>
               <MenuItem
-                title='Edit Shop'
+                title='Edit Store'
                 accessoryRight={ArrowIcon}
                 onPress={navigateToEditProfile}
+              />
+              <MenuItem
+                title='Store Verification'
+                accessoryRight={ArrowIcon}
+                onPress={navigateToVerification}
               />
               <MenuItem
                 title="Push Notifications"
@@ -77,11 +82,6 @@ export default function SettingsScreen() {
               <MenuItem
                 title="Dark Mode"
                 accessoryRight={() => <Toggle checked={darkMode} onChange={setDarkMode} style={styles.toggle} />}
-              />
-              <MenuItem
-                title='Permissions'
-                accessoryRight={ArrowIcon}
-                onPress={navigateToPermissions}
               />
             </Menu>
           </Layout>

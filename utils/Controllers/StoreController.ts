@@ -26,7 +26,6 @@ interface Store {
 }
 
 const getStore = async (storeId : string, token : string) => {
-
     const response = await axios.get(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/stores/${storeId}`,
         {
           headers: {
@@ -40,8 +39,6 @@ const getStore = async (storeId : string, token : string) => {
 }
 
 const updateStore = async (store: Store, token : string) => {
-    console.log(token);
-    console.log(store);
     const response = await axios.put(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/stores/${store.id}`,
         store,
         {

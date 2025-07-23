@@ -24,9 +24,9 @@ interface StoreAnalytics {
     topProducts: Array<TopProduct>;
 }
 
-const getStoreAnalytics = async (token: string, storeId: string) => {
+const getStoreAnalytics = async (token: string, storeId: string, timeSpan: number) => {
   const response = await axios.get(
-    `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/analytics/store/${storeId}/current`,
+    `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/analytics/store/${storeId}/summary/${timeSpan}`,
     {
       headers: {
         "Content-Type": "application/json;charset=UTF-8",
