@@ -9,7 +9,7 @@ import {
   ViewPager,
   Layout,
 } from "@ui-kitten/components";
-import HomeScreen from "./home";
+import ProductsScreen from "./products";
 import OrdersScreen from "./orders";
 import AnalyticsScreen from "./analytics";
 import ProfileScreen from "./profile";
@@ -26,21 +26,7 @@ const HomeIcon = (props: IconProps): IconElement => (
   />
 );
 
-const HomeFilledIcon = (props: IconProps): IconElement => (
-  <Icon
-    {...props}
-    name="ShoppingBag"
-  />
-);
-
 const OrdersIcon = (props: IconProps): IconElement => (
-  <Icon
-    {...props}
-    name="ClockArrowUp"
-  />
-);
-
-const OrdersFilledIcon = (props: IconProps): IconElement => (
   <Icon
     {...props}
     name="ClockArrowUp"
@@ -54,13 +40,6 @@ const AnalyticsIcon = (props: IconProps): IconElement => (
   />
 );
 
-const AnalyticsFilledIcon = (props: IconProps): IconElement => (
-  <Icon
-    {...props}
-    name="ChartColumn"
-  />
-);
-
 const GiftIcon = (props: IconProps): IconElement => (
   <Icon
     {...props}
@@ -68,21 +47,7 @@ const GiftIcon = (props: IconProps): IconElement => (
   />
 );
 
-const GiftFilledIcon = (props: IconProps): IconElement => (
-  <Icon
-    {...props}
-    name="Gift"
-  />
-);
-
 const ProfileIcon = (props: IconProps): IconElement => (
-  <Icon
-    {...props}
-    name="User"
-  />
-);
-
-const ProfileFilledIcon = (props: IconProps): IconElement => (
   <Icon
     {...props}
     name="User"
@@ -104,7 +69,6 @@ export default function BottomNav() {
       const token = await getToken({template: "seller_app"});
       const response = await getUnreadCount(token ?? "", user?.id);
 
-      console.log(response.data.unreadCount);
       setUnread(response.data.unreadCount)
     } catch (error) {
       console.error("Error getting unread count: ", error);
@@ -126,7 +90,7 @@ export default function BottomNav() {
           style={styles.viewPager}
           swipeEnabled={false}
         >
-          <HomeScreen unread={unread} />
+          <ProductsScreen unread={unread} />
           <OrdersScreen unread={unread}/>
           <AnalyticsScreen />
           <PromotionsScreen />
@@ -139,19 +103,19 @@ export default function BottomNav() {
           appearance="noIndicator"
         >
           <BottomNavigationTab
-          icon={selectedIndex === 0 ? HomeFilledIcon : HomeIcon}
+          icon={HomeIcon}
           />
           <BottomNavigationTab
-          icon={selectedIndex === 1 ? OrdersFilledIcon : OrdersIcon}
+          icon={OrdersIcon}
           />
           <BottomNavigationTab
-          icon={selectedIndex === 2 ? AnalyticsFilledIcon : AnalyticsIcon}
+          icon={AnalyticsIcon}
           />
           <BottomNavigationTab
-          icon={selectedIndex === 3 ? GiftFilledIcon : GiftIcon}
+          icon={GiftIcon}
           />
           <BottomNavigationTab
-          icon={selectedIndex === 4 ? ProfileFilledIcon : ProfileIcon}
+          icon={ProfileIcon}
           />
         </BottomNavigation>
       </SafeAreaView>

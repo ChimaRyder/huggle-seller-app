@@ -4,7 +4,7 @@ import { Layout, Text, Icon, TopNavigation, Divider, Button, Input, Select, Sele
 import { useFocusEffect, useRouter } from 'expo-router';
 import { IconProps, IconElement } from '@ui-kitten/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import ImageUploader from '../home/products/components/ImageUploader';
+import ImageUploader from '../products/components/ImageUploader';
 import BusinessHoursPicker from '../../(seller-registration)/components/BusinessHoursPicker';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { getStore, updateStore } from '@/utils/Controllers/StoreController';

@@ -198,23 +198,6 @@ const EditProduct = () => {
       console.error("Error updating product:", error);
       showToast('error', 'Uh oh!', `Something went wrong while updating the product. Please try again.`);
     }
-
-    // axios
-    //   .put(
-    //     `https://huggle-backend-jh2l.onrender.com/api/seller/products/update`,
-    //     productData,
-    //     {
-    //       headers: {
-    //         "Content-Type": "application/json;charset=UTF-8",
-    //         Authorization: `Bearer ${token}`,
-    //       },
-    //     }
-    //   )
-    //   .then((response) => {
-        
-    //   })
-    //   .catch((error) => {
-    //   });
   };
 
   // Handle cancel

@@ -11,7 +11,7 @@ import {
   IconElement
 } from "@ui-kitten/components";
 
-import ProductsTab from "./home/products/productsTab";
+import ProductsTab from "./products/productsTab";
 import { useRouter } from "expo-router";
 import { BellDot, BellDotIcon } from "lucide-react-native";
 
@@ -20,7 +20,7 @@ const BellIcon = (props: IconProps): IconElement => (
   <Icon {...props} name="Bell" />
 );
 
-export default function HomeScreen({unread} : {unread : number}) {
+export default function ProductsScreen({unread} : {unread : number}) {
   const theme = useTheme();
   const router = useRouter();
 

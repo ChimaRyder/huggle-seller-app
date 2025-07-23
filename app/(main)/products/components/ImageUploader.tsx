@@ -10,7 +10,7 @@ import {
   uploadBytesResumable,
   getDownloadURL,
 } from "firebase/storage";
-import { firebase } from "../../../../../fbconfig"; // Import your existing firebase config
+import { firebase } from "@/fbconfig"; // Import your existing firebase config
 
 interface ImageUploaderProps {
   image: string;

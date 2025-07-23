@@ -3,7 +3,7 @@ import { StyleSheet, View, ScrollView } from 'react-native';
 import { Layout, Text, Button, TopNavigation, TopNavigationAction, Icon, IconProps, IconElement, Input, Spinner } from '@ui-kitten/components';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import ImageUploader from '../home/products/components/ImageUploader';
+import ImageUploader from '../products/components/ImageUploader';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import axios from 'axios';
 import { showToast } from '@/components/Toast';

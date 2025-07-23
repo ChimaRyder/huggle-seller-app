@@ -5,7 +5,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import axios from 'axios';
 import { useAuth } from '@clerk/clerk-expo';
-import ImageUploader from '../home/products/components/ImageUploader';
+import ImageUploader from '../products/components/ImageUploader';
 import { showToast } from '@/components/Toast';
 import { getPostbyID, updatePost } from '@/utils/Controllers/PromotionController';
 
