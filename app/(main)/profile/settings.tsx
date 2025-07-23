@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View, ScrollView } from 'react-native';
-import { Layout, Text, Icon, TopNavigation, Divider, Menu, MenuItem, Toggle, useTheme } from '@ui-kitten/components';
+import { Layout, Text, Icon, TopNavigation, Divider, Menu, MenuItem, Toggle, useTheme, TopNavigationAction } from '@ui-kitten/components';
 import { useRouter } from 'expo-router';
 import { IconProps, IconElement } from '@ui-kitten/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -54,9 +54,7 @@ export default function SettingsScreen() {
           title="Settings"
           alignment="center"
           accessoryLeft={() => (
-            <View style={styles.backButton}>
-              <BackIcon width={24} height={24} fill={theme['color-basic-100']} onPress={navigateBack} />
-            </View>
+            <TopNavigationAction icon={BackIcon} onPress={() => router.back()}/>
           )}
           style={styles.topNavigation}
         />

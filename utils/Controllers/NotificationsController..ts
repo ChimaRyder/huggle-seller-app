@@ -37,4 +37,17 @@ const getUnreadCount = async (token : string, id : string) => {
     return response;
 }
 
-export {Notification, getNotifications, getUnreadCount};
+const markRead = async (token : string, id : string) => {
+    const response = await axios.put(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/notifications/mark-all-read?userId=${id}`, 
+        {
+          headers: {
+            "Content-Type": "application/json;charset=UTF-8",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+    );
+
+    return response;
+}
+
+export {Notification, getNotifications, getUnreadCount, markRead};

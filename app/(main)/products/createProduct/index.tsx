@@ -451,14 +451,6 @@ const CreateProduct = () => {
 
                 <View style={styles.buttonContainer}>
                   <Button
-                    style={styles.draftButton}
-                    appearance="outline"
-                    status="primary"
-                    onPress={handleSaveAsDraft}
-                  >
-                    Save draft
-                  </Button>
-                  <Button
                     style={styles.publishButton}
                     status="success"
                     onPress={() => formikSubmit()}
@@ -513,7 +505,7 @@ const styles = StyleSheet.create({
   },
   coverImageUploader: {
     width: "100%",
-    height: 150,
+    height: 200,
     marginBottom: 16,
   },
   additionalImagesContainer: {

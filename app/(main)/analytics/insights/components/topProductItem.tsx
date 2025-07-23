@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, Layout } from '@ui-kitten/components';
+import { Text, Layout, useTheme } from '@ui-kitten/components';
+import { Eye, ShoppingBag, ShoppingCart } from 'lucide-react-native';
 
 interface TopProductItemProps {
   item: {
@@ -14,20 +15,25 @@ interface TopProductItemProps {
   index: number;
 }
 
-const TopProductItem: React.FC<TopProductItemProps> = ({ item, index }) => (
-  <Layout level='3' style={styles.container}>
-    <Text category="s1" style={styles.rank}>{index + 1}.</Text>
-    <View style={styles.infoContainer}>
-      <Text category="s1" style={styles.productName}>{item.productName}</Text>
-      <View style={styles.statsRow}>
-        <Text appearance="hint" style={styles.stat}>Views: {item.views}</Text>
-        <Text appearance="hint" style={styles.stat}>Cart Adds: {item.cartAdds}</Text>
-        <Text appearance="hint" style={styles.stat}>Purchases: {item.purchases}</Text>
-        {/* <Text appearance="hint" style={styles.stat}>Engagement: {item.engagementScore}</Text> */}
+const TopProductItem: React.FC<TopProductItemProps> = ({ item, index }) => {
+  const theme = useTheme();
+  
+  return (
+    <Layout level='3' style={styles.container}>
+      <Text category="s1" style={styles.rank}>{index + 1}.</Text>
+      <View style={styles.infoContainer}>
+        <Text category="s1" style={styles.productName}>{item.productName}</Text>
+        <View style={styles.statsRow}>
+          <Eye size={15} color={theme['color-basic-600']}/> 
+          <Text appearance="hint" style={styles.stat}>{item.views}</Text>
+          <ShoppingCart size={15} color={theme['color-basic-600']}/> 
+          <Text appearance="hint" style={styles.stat}>{item.cartAdds}</Text>
+          <ShoppingBag size={15} color={theme['color-basic-600']}/>
+          <Text appearance="hint" style={styles.stat}>{item.purchases}</Text>
+        </View>
       </View>
-    </View>
-  </Layout>
-);
+    </Layout>
+  )};
 
 const styles = StyleSheet.create({
   container: {

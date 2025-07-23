@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { StyleSheet, View, ScrollView } from "react-native";
+import { StyleSheet, View, ScrollView, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import {
@@ -17,6 +17,7 @@ import {
   Spinner,
   TopNavigation,
   TopNavigationAction,
+  Toggle,
 } from "@ui-kitten/components";
 import { Formik } from "formik";
 import * as Yup from "yup";
@@ -112,9 +113,11 @@ const EditProduct = () => {
     new IndexPath(0)
   );
   const [visible, setVisible] = useState(false);
+  const [isActive, setIsActive] = useState(true);
   const [metadata, setMetadata] = useState<Metadata>();
   const [category, setCategory] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState<ProductFormValues>({
     name: "",
     description: "",
@@ -127,8 +130,6 @@ const EditProduct = () => {
     stock: 0,
     category: "",
   });
-  const [storeID, setStoreID] = useState("");
-  const [productID, setProductID] = useState("");
 
   const getProduct = async () => {
     setLoading(true);
@@ -153,9 +154,8 @@ const EditProduct = () => {
     setSelectedIndex(new IndexPath(productTypes.indexOf(data.productType)));
     setCategory(data.category);
 
-    // setStoreID(data.storeId);
-    // setProductID(data.id);
     setMetadata(data);
+    setIsActive(data.isActive);
 
     setLoading(false);
     return data;
@@ -180,7 +180,7 @@ const EditProduct = () => {
       stock: values.stock,
       category: category,
       storeId: metadata?.storeId ?? "",
-      isActive: metadata?.isActive ?? true,
+      isActive: false,
       createdAt: metadata?.createdAt ?? new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       rating: 0,
@@ -189,20 +189,48 @@ const EditProduct = () => {
 
     const token = await getToken({ template: "seller_app" });
     try {
+      setSubmitting(true);
       const response = await updateProduct(productData, token ?? "");
 
-      console.log("Product updated successfully:", response.data);
+      // console.log("Product updated successfully:", response.data);
       router.dismissTo("/(main)");
       showToast('success', 'Product Updated!', `${productData.name} has been updated successfully.`);
     } catch(error) {
       console.error("Error updating product:", error);
       showToast('error', 'Uh oh!', `Something went wrong while updating the product. Please try again.`);
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  // Handle cancel
-  const handleUnlist = () => {
-    console.log("Unlisted"); // TODO: Add unlist function
+  const handleUnlist = (isChecked : boolean) => {
+    Alert.alert("Unlist Product", "Are you sure you want to unlist this product? You can list this product back at any time.", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Unlist",
+        onPress: () => {
+          setIsActive(isChecked);
+        },
+      },
+    ]);
+  };
+
+  const handleActive = (isChecked : boolean) => {
+    Alert.alert("List Product", "Are you sure you want to list this product? You can unlist this product back at any time.", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "List",
+        onPress: () => {
+          setIsActive(isChecked);
+        },
+      },
+    ]);
   };
 
   return (
@@ -509,20 +537,23 @@ const EditProduct = () => {
                       )}
                     </View>
 
-                    <View style={styles.buttonContainer}>
-                      <Button
-                        style={styles.unlistButton}
-                        status="danger"
-                        onPress={handleUnlist}
+                    <View style={{flexDirection: "row", padding: 16}}>
+                      <Toggle
+                        checked={isActive}
+                        onChange={isActive ? handleUnlist : handleActive}
                       >
-                        Unlist
-                      </Button>
+                        Active Status
+                      </Toggle>
+                    </View>
+
+                    <View style={styles.buttonContainer}>
                       <Button
                         style={styles.publishButton}
                         status="success"
                         onPress={() => formikSubmit()}
+                        disabled={submitting}
                       >
-                        Update
+                        {!submitting ? "Update" : "Updating..."}
                       </Button>
                     </View>
                   </View>
@@ -557,7 +588,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 15,
     borderRadius: 8,
     padding: 16,
   },
@@ -580,7 +611,7 @@ const styles = StyleSheet.create({
   },
   coverImageUploader: {
     width: "100%",
-    height: 150,
+    height: 200,
     marginBottom: 16,
   },
   additionalImagesContainer: {

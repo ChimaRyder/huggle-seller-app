@@ -1,22 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, ScrollView, Image } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { StyleSheet, View, ScrollView, Image, Alert } from 'react-native';
 import { Layout, Text, Icon, Button, TopNavigation, TopNavigationAction, Divider, Spinner, IconProps, IconElement, ViewPager, useTheme } from '@ui-kitten/components';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import axios from 'axios';
 import { useAuth } from '@clerk/clerk-expo';
-import { getProductbyID } from '@/utils/Controllers/ProductController';
-
-// Product interface, will change depending on what to receive once API is in
-interface Product {
-  id: number;
-  name: string;
-  discountedPrice: number;
-  description: string;
-  coverImage: string;
-  additionalImages: string[];
-  category: string[];
-}
+import { deleteProduct, getProductbyID } from '@/utils/Controllers/ProductController';
+import { Product } from '@/utils/Controllers/ProductController';
+import { showToast } from '@/components/Toast';
 
 // Icons
 const BackIcon = (props: IconProps): IconElement => (
@@ -38,27 +28,60 @@ const DeleteIcon = (props: IconProps): IconElement => (
 export default function ProductPage() {
   const router = useRouter();
   const { product: productId } = useLocalSearchParams();
-  const [product, setProduct] = useState<Product>({id: 0, name: '', discountedPrice: 0.00, description: '', coverImage: '', additionalImages: [], category: []});
+  const [product, setProduct] = useState<Product>({} as Product);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const {getToken} = useAuth();
   const theme = useTheme();
   
   // Find the product based on the ID
   const getProduct = async () => {
-    setLoading(true);
-    const token = await getToken();
-    const response = await getProductbyID(productId as string, token ?? "");
+    try {
+      setLoading(true);
+      const token = await getToken({template: "seller_app"});
+      const response = await getProductbyID(productId as string, token ?? "");
 
-    const data = response.data;
-    setProduct(data);
-    setLoading(false);
-    return data;
+      setProduct(response.data);
+    } catch(error) {
+      console.error('Error getting product: ', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => {
-    getProduct();
-  }, []);
+  const deleteProd = async () => {
+    try {
+      const token = await getToken({template: "seller_app"});
+      const response = await deleteProduct(productId as string, token ?? "");
+
+      router.back();
+      showToast('success', 'Product Deleted', `${product.name} has been deleted.`);
+    } catch(error) {
+      console.error('Error deleting product: ', error);
+      showToast('error', 'Uh Oh!', `An error occured while deleting ${product.name}. Please try again later.`);
+    } 
+  }
+
+  const handleDelete = () => {
+    Alert.alert("Delete Product", "Are you sure you want to delete this product?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Delete",
+        onPress: deleteProd,
+      },
+    ]);
+  }
+
+  useFocusEffect(
+    useCallback(() => {
+      getProduct();
+
+      return () => {}
+    }, [])
+  );
 
   const navigateBack = () => {
     router.back();
@@ -66,7 +89,7 @@ export default function ProductPage() {
 
   const navigateToEdit = () => {
     router.push({
-      pathname: "/(main)/home/products/editProduct",
+      pathname: "/(main)/products/editProduct",
       params: { productId: product.id }
     });
   };
@@ -99,11 +122,11 @@ export default function ProductPage() {
       <SafeAreaView style={styles.safeArea}>
         <TopNavigation
           accessoryLeft={renderBackAction}
-          title={() => <Text category='h6'>Product Details</Text>}
+          title={() => <Text category='s1'>Product Details</Text>}
         />
         <Divider />
         
-        <View style={styles.imageContainer}>
+        <Layout level="2" style={styles.imageContainer}>
           <ViewPager
             selectedIndex={selectedIndex}
             onSelect={index => setSelectedIndex(index)}
@@ -129,23 +152,27 @@ export default function ProductPage() {
             ]}
           </ViewPager>
           {renderImageIndicators()}
-        </View>
+        </Layout>
 
         <ScrollView style={styles.scrollView}>
-          
-          
           <View style={styles.contentContainer}>
-            <Text category='h4' style={styles.productTitle}>{product.name}</Text>
-            
-            <Text category='h5' status='primary' style={styles.productPrice}>{product.discountedPrice.toFixed(2)}</Text>
+            <View style={{flexDirection: "row", gap: 8, alignItems: "center", marginBottom: 3}}>
+              <Text category='h6' status='primary' style={styles.productPrice}>₱{product.discountedPrice.toFixed(2)}</Text>
+
+              <Layout style={{backgroundColor: theme['color-primary-200'], justifyContent: "center", alignItems: "center", padding: 5, paddingHorizontal: 7, borderRadius: 5}}>
+                <Text category='p1' status='primary' style={styles.productPrice}>-{(((product.originalPrice - product.discountedPrice) / product.originalPrice) * 100).toFixed()}%</Text>
+              </Layout>
+            </View>
+
+            <Text category='h6' style={styles.productTitle}>{product.name}</Text>
             
             <View style={styles.section}>
-              <Text category='h6'>Description</Text>
-              <Text appearance='hint' style={styles.description}>{product.description}</Text>
+              <Text category='s1'>Description</Text>
+              <Text category='p2' style={styles.description}>{product.description}</Text>
             </View>
             
             <View style={styles.section}>
-              <Text category='h6'>Categories</Text>
+              <Text category='s1'>Categories</Text>
 
               <View style={styles.categoryContainer}>
                 {product.category.map((category, index) => <Text key={index} category='c1' appearance='alternative' style={[styles.categoryText, {backgroundColor: theme['color-primary-500']}]}>{category}</Text>)}
@@ -156,7 +183,7 @@ export default function ProductPage() {
 
         <Button 
           style={styles.deleteButton} 
-          onPress={() => {console.log('delete')}} // TODO: Add delete function
+          onPress={deleteProd}
           activeOpacity={0.7}
           accessoryLeft={<DeleteIcon/>}
           status='danger'
@@ -206,16 +233,15 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   productTitle: {
-    marginBottom: 8,
+    marginBottom: 30,
   },
   productPrice: {
-    marginBottom: 24,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 12,
   },
   description: {
-    marginTop: 8,
+    margin: 5,
     lineHeight: 20,
   },
   reviewItem: {
@@ -297,7 +323,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 5,
-    marginVertical: 8,
+    margin: 8,
   },
   categoryText: {
     backgroundColor: '#F7F9FC',

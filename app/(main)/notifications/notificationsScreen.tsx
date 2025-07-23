@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { useAuth, useUser } from "@clerk/clerk-expo";
-import { Notification, getNotifications } from "@/utils/Controllers/NotificationsController.";
+import { Notification, getNotifications, markRead } from "@/utils/Controllers/NotificationsController.";
 import NotificationItem from "./components/notificationItem";
 import { CookingPot } from "lucide-react-native";
 
@@ -39,6 +39,17 @@ const NotificationScreen = () => {
         }
     }
 
+    const handleBack = async () => {
+        try {
+            const token = await getToken({template: "seller_app"});
+            const response = await markRead(token ?? "", user?.id as string);
+
+            router.back();
+        } catch (error) {
+            console.error("Error updating notifications: ", error);
+        }
+    }
+
     useFocusEffect(
         useCallback(() => {
             getAllNotifs();
@@ -50,7 +61,7 @@ const NotificationScreen = () => {
     )
 
     const renderLeftActions = () => (
-        <TopNavigationAction icon={BackIcon} onPress={() => router.back()}/>
+        <TopNavigationAction icon={BackIcon} onPress={handleBack}/>
     )
 
     return (
@@ -59,6 +70,7 @@ const NotificationScreen = () => {
                 <TopNavigation
                 title={"Notifications"}
                 accessoryLeft={renderLeftActions}
+                alignment="center"
                 />
 
                 <FlatList
@@ -72,6 +84,7 @@ const NotificationScreen = () => {
                             <Text category="h6" appearance="hint">No Notifications</Text>
                         </View>
                     )}
+                    contentContainerStyle={styles.list}
                 />
 
             </SafeAreaView>
@@ -88,6 +101,9 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         gap: 10
+    },
+    list: {
+        padding: 15
     }
 })
 

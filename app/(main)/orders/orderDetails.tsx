@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, Image } from 'react-native';
-import { Layout, Text, Divider, List, ListItem, useTheme, Spinner, Button } from '@ui-kitten/components';
+import { Layout, Text, Divider, List, ListItem, useTheme, Spinner, Button, TopNavigation, TopNavigationAction, Icon, IconProps } from '@ui-kitten/components';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {useAuth} from '@clerk/clerk-expo';
@@ -21,6 +21,10 @@ interface ProductItemProps {
   product: Product;
   quantity: number,
 }
+
+const BackIcon = (props : IconProps) => (
+  <Icon {...props} name="ArrowLeft"/>
+)
 
 const ProductItem: React.FC<ProductItemProps> = ({ product, quantity }) => (
   <View style={productItemStyles.container}>
@@ -73,6 +77,10 @@ export default function OrderDetailsScreen() {
 
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const renderLeftActions = () => (
+    <TopNavigationAction icon={BackIcon} onPress={() => router.back()}/>
+  )
 
   const getOrder = async (token : string) => {
     try {
@@ -163,8 +171,13 @@ export default function OrderDetailsScreen() {
   return ( order.id !== undefined &&
     <Layout style={styles.container}>
         <SafeAreaView style={{flex: 1}}>
-            <Text category="h5" style={styles.header}>Order Details</Text>
-            <Divider style={{ marginVertical: 8 }} />
+            <TopNavigation
+              title={'Order Details'}
+              alignment='center'
+              accessoryLeft={renderLeftActions}
+            />
+
+            <Divider/>
 
             <View style={styles.metaData}>
               <View style={styles.row}>

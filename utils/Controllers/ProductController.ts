@@ -1,6 +1,7 @@
 import axios from "axios";
 
 interface Product {
+    id? : string,
     name: string,
     description: string,
     productType: string,
@@ -76,4 +77,18 @@ const updateProduct = async (product : FullProduct, token : string) => {
     return response;
 }
 
-export {Product, createProduct, getAllProducts, getProductbyID, updateProduct};
+const deleteProduct = async (id : string, token : string) => {
+    const response = await axios.delete(
+        `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/products/${id}`,
+        {
+          headers: {
+            "Content-Type": "application/json;charset=UTF-8",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
+
+    return response;
+}
+
+export {Product, createProduct, getAllProducts, getProductbyID, updateProduct, deleteProduct};

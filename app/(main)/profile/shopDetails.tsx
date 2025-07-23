@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { StyleSheet, View, ScrollView, Dimensions } from 'react-native';
-import { Layout, Text, Icon, TopNavigation, Divider, Button, Input, Select, SelectItem, Toggle, useTheme, IndexPath } from '@ui-kitten/components';
+import { Layout, Text, Icon, TopNavigation, Divider, Button, Input, Select, SelectItem, Toggle, useTheme, IndexPath, TopNavigationAction } from '@ui-kitten/components';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { IconProps, IconElement } from '@ui-kitten/components';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -77,7 +77,6 @@ export default function ShopDetailsScreen() {
       const response = await getStore(user?.publicMetadata.storeId as string, token ?? "");
 
       setStore(response.data);
-      console.log(response.data);
     } catch(error) {
       console.error('Error getting store: ', error);
     }
@@ -100,9 +99,7 @@ export default function ShopDetailsScreen() {
           title="Shop Details"
           alignment="center"
           accessoryLeft={() => (
-            <View style={styles.backButton}>
-              <BackIcon fill={theme['color-basic-100']} width={24} height={24} onPress={() => router.back()} />
-            </View>
+            <TopNavigationAction icon={BackIcon} onPress={() => router.back()}/>
           )}
           style={styles.topNavigation}
         />

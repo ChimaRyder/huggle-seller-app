@@ -1,4 +1,4 @@
-import { Card, Text, Icon, ThemeType } from '@ui-kitten/components';
+import { Card, Text, Icon, ThemeType, Layout } from '@ui-kitten/components';
 import { StyleSheet, View, ImageBackground, Appearance } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Star } from 'lucide-react-native';
@@ -9,23 +9,30 @@ const renderProductItem = ({ item, theme }: { item: any, theme: ThemeType }) => 
     
     return (
         <Card 
-        style={[styles.productCard, { backgroundColor: colorScheme === 'dark' ? theme['color-basic-900'] : theme['color-basic-200'] }]} {...{activeOpacity: 0.5}}
+        style={[styles.productCard]} {...{activeOpacity: 0.5}}
         onPress={() => router.push({
-            pathname: "/(main)/home/products/[product]",
+            pathname: "/(main)/products/[product]",
             params: { product: item.id }
         })}
         >
-            <View style={styles.productImagePlaceholder}>
+            <Layout level='3' style={styles.productImagePlaceholder}>
                 <ImageBackground source={{ uri: item.coverImage }} style={styles.productImage} />
+            </Layout>
+            <View style={{flexDirection: 'column', justifyContent: "space-between", minHeight: 60}}>
+                <View>
+                    <Text category="s2" status='primary'>₱{item.discountedPrice.toFixed(2)}</Text>
+                    <Text category="c1">{item.name}</Text>
+                </View>
+
+                <View style={styles.productDetails}>
+                    <Text category="c1" appearance='hint'>{item.stock} {item.stock !== 1 ? 'items' : 'item'}</Text>
+                    {/* <View style={styles.ratingContainer}>
+                        <Star width={12} height={12} fill="#FFC107" color="#FFC107" />
+                        <Text category="c1">{`${item.rating} (${item.ratingCount})`}</Text>
+                    </View> */}
+                </View>
             </View>
-            <Text category="s1">{item.name.length > 14 ? item.name.slice(0, 14) + '...' : item.name}</Text>
-            <View style={styles.productDetails}>
-            <Text category="c1">{item.stock} {item.stock > 1 ? 'items' : 'item'}</Text>
-            {/* <View style={styles.ratingContainer}>
-                <Star width={12} height={12} fill="#FFC107" color="#FFC107" />
-                <Text category="c1">{`${item.rating} (${item.ratingCount})`}</Text>
-            </View> */}
-            </View>
+            
         </Card>
     );
 };
@@ -38,18 +45,16 @@ const styles = StyleSheet.create({
     },
     productImagePlaceholder: {
         height: 120,
-        backgroundColor: '#E4E9F2',
         borderRadius: 8,
         marginBottom: 8,
+        overflow: "hidden"
     },
     productImage: {
         flex: 1,
     },
     productDetails: {
-        flexDirection: 'row',
+        flexDirection: 'row-reverse',
         justifyContent: 'space-between',
-        marginTop: 4,
-        marginBottom: 8,
     },
     ratingContainer: {
         flexDirection: 'row',

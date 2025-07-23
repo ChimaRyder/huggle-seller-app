@@ -93,7 +93,7 @@ const RootLayout = () => {
         </ClerkProvider>
       </ThemeProvider>
     </ApplicationProvider>
-    <Toast />
+    <Toast position="top"/>
     </>
   );
 };

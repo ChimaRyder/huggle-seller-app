@@ -195,7 +195,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   productsList: {
-    paddingBottom: 80,
   },
   loadingContainer: {
     flex: 1,

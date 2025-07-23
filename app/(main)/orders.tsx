@@ -13,6 +13,7 @@ import {
 
 import OrdersTabsNavigation from "./orders/OrdersTabsNavigation";
 import { BellDot } from "lucide-react-native";
+import { useRouter } from "expo-router";
 
 const BellIcon = (props: IconProps): IconElement => (
   <Icon {...props} name="Bell" />
@@ -20,9 +21,10 @@ const BellIcon = (props: IconProps): IconElement => (
 
 export default function OrdersScreen({unread} : {unread : number}) {
   const theme = useTheme();
+  const router = useRouter();
 
   const renderRightActions = () => (
-    <TopNavigationAction icon={unread > 0 ? () => <BellDot size={25} color={theme['color-primary-500']}/> : BellIcon} />
+    <TopNavigationAction icon={unread > 0 ? () => <BellDot size={25} color={theme['color-primary-500']}/> : BellIcon} onPress={() => router.push('/(main)/notifications/notificationsScreen')} />
   );
 
   return (

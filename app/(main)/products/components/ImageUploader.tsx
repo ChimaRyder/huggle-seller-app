@@ -88,8 +88,6 @@ const ImageUploader = ({
 
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
       quality: 0.8,
     });
 
@@ -110,7 +108,7 @@ const ImageUploader = ({
       ) : isUploading ? (
         <View style={styles.placeholder}>
           <Spinner size="medium" />
-          <Text style={styles.text}>{`Uploading... ${Math.round(
+          <Text style={styles.text}>{`${Math.round(
             uploadProgress
           )}%`}</Text>
         </View>
