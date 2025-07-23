@@ -82,11 +82,8 @@ const RootLayout = () => {
             }}
           >
             <Stack.Screen name="index" />
-            <Stack.Screen name="(main)/index" />
-            <Stack.Screen name="(main)/home/products/createProduct/index" />
-            <Stack.Screen name="(main)/home/products/[product]" />
-            <Stack.Screen name="(main)/home/products/editProduct" />
-            <Stack.Screen name="seller-registration/index" />
+            <Stack.Screen name="(main)/" />
+            <Stack.Screen name="(seller-registration)" />
             <Stack.Screen
               name="+not-found"
               options={{ headerShown: true, title: "Not Found" }}

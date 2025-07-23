@@ -27,7 +27,7 @@ const createPost = async (post : Post, token: string) => {
 }
 
 const getAllPosts = async (id : string, token : string) => {
-    const response = await axios.get(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/posts/search?StoreId=${id}`, {
+    const response = await axios.get(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/posts/store/${id}`, {
         headers: {
           "Content-Type": "application/json;charset=UTF-8",
           Authorization: `Bearer ${token}`,
