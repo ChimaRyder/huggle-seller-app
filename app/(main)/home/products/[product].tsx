@@ -145,21 +145,6 @@ export default function ProductPage() {
             </View>
             
             <View style={styles.section}>
-              <Text category='h6'>Reviews</Text>
-              
-              {/* {product.reviews.map((review, index) => (
-                <View key={index} style={styles.reviewItem}>
-                  <Text category='s1' style={styles.reviewerName}>{review.reviewerName}</Text>
-                  <Text appearance='hint'>{review.comment}</Text>
-                  <View style={styles.ratingContainer}>
-                    <StarIcon width={16} height={16} />
-                    <Text category='c1'>{review.rating}</Text>
-                  </View>
-                </View>
-              ))} */}
-            </View>
-
-            <View style={styles.section}>
               <Text category='h6'>Categories</Text>
 
               <View style={styles.categoryContainer}>
@@ -183,7 +168,7 @@ export default function ProductPage() {
           onPress={navigateToEdit}
           activeOpacity={0.7}
           accessoryLeft={<EditIcon/>}
-          status='info'
+          status='warning'
         >
         </Button>
       </SafeAreaView>

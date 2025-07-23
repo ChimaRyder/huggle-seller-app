@@ -12,16 +12,17 @@ import {
 } from "@ui-kitten/components";
 
 import OrdersTabsNavigation from "./orders/OrdersTabsNavigation";
+import { BellDot } from "lucide-react-native";
 
 const BellIcon = (props: IconProps): IconElement => (
   <Icon {...props} name="Bell" />
 );
 
-export default function OrdersScreen() {
+export default function OrdersScreen({unread} : {unread : number}) {
   const theme = useTheme();
 
   const renderRightActions = () => (
-    <TopNavigationAction icon={BellIcon} />
+    <TopNavigationAction icon={unread > 0 ? () => <BellDot size={25} color={theme['color-primary-500']}/> : BellIcon} />
   );
 
   return (

@@ -12,17 +12,20 @@ import {
 } from "@ui-kitten/components";
 
 import ProductsTab from "./home/products/productsTab";
+import { useRouter } from "expo-router";
+import { BellDot, BellDotIcon } from "lucide-react-native";
 
 // Icons for the tabs
 const BellIcon = (props: IconProps): IconElement => (
   <Icon {...props} name="Bell" />
 );
 
-export default function HomeScreen() {
+export default function HomeScreen({unread} : {unread : number}) {
   const theme = useTheme();
+  const router = useRouter();
 
   const renderRightActions = () => (
-    <TopNavigationAction icon={BellIcon} />
+    <TopNavigationAction icon={unread > 0 ? () => <BellDot size={25} color={theme['color-primary-500']}/> : BellIcon} onPress={() => router.push('/(main)/notifications/notificationsScreen')} />
   );
 
   return (

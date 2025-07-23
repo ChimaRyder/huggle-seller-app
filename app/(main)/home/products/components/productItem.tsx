@@ -21,10 +21,10 @@ const renderProductItem = ({ item, theme }: { item: any, theme: ThemeType }) => 
             <Text category="s1">{item.name.length > 14 ? item.name.slice(0, 14) + '...' : item.name}</Text>
             <View style={styles.productDetails}>
             <Text category="c1">{item.stock} {item.stock > 1 ? 'items' : 'item'}</Text>
-            <View style={styles.ratingContainer}>
+            {/* <View style={styles.ratingContainer}>
                 <Star width={12} height={12} fill="#FFC107" color="#FFC107" />
-                <Text category="c1">{item.rating}</Text>
-            </View>
+                <Text category="c1">{`${item.rating} (${item.ratingCount})`}</Text>
+            </View> */}
             </View>
         </Card>
     );

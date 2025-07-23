@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { StyleSheet } from "react-native";
 import {
   BottomNavigation,
@@ -15,8 +15,9 @@ import AnalyticsScreen from "./analytics";
 import ProfileScreen from "./profile";
 import PromotionsScreen from "./promotions";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useUser } from "@clerk/clerk-expo";
-import { Redirect } from "expo-router";
+import { useAuth, useUser } from "@clerk/clerk-expo";
+import { Redirect, useFocusEffect } from "expo-router";
+import { getUnreadCount } from "@/utils/Controllers/NotificationsController.";
 
 const HomeIcon = (props: IconProps): IconElement => (
   <Icon
@@ -90,11 +91,31 @@ const ProfileFilledIcon = (props: IconProps): IconElement => (
 
 export default function BottomNav() {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [unread, setUnread] = useState(0);
   const { user } = useUser();
+  const {getToken} = useAuth();
 
   if (!user) {
     return <Redirect href="/(login)" />;
   }
+
+  const checkUnread = async () => {
+    try {
+      const token = await getToken({template: "seller_app"});
+      const response = await getUnreadCount(token ?? "", user?.id);
+
+      console.log(response.data.unreadCount);
+      setUnread(response.data.unreadCount)
+    } catch (error) {
+      console.error("Error getting unread count: ", error);
+    }
+  }
+
+  useFocusEffect(
+    useCallback(() => {
+      checkUnread();
+    }, [])
+  )
 
   return (
     <Layout level="1" style={styles.layout}>
@@ -105,8 +126,8 @@ export default function BottomNav() {
           style={styles.viewPager}
           swipeEnabled={false}
         >
-          <HomeScreen />
-          <OrdersScreen />
+          <HomeScreen unread={unread} />
+          <OrdersScreen unread={unread}/>
           <AnalyticsScreen />
           <PromotionsScreen />
           <ProfileScreen />
