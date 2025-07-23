@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { StyleSheet, FlatList } from 'react-native';
 import { Text, Icon, TopNavigation, Divider, TopNavigationAction } from '@ui-kitten/components';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { IconProps, IconElement, Layout } from '@ui-kitten/components';
 import ReviewItem from './components/reviewItem';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Review } from '@/utils/Controllers/ReviewsController';
+import { getReviews, Review } from '@/utils/Controllers/ReviewsController';
+import { useAuth, useUser } from '@clerk/clerk-expo';
 
 const BackIcon = (props: IconProps): IconElement => (
   <Icon {...props} name="ArrowLeft" />
@@ -41,6 +42,36 @@ const mockReviews : Review[] = [
 export default function ReviewsSummaryScreen() {
   const router = useRouter();
 
+  const [loading, setLoading] = useState(false);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const { user } = useUser();
+  const { getToken } = useAuth();
+
+  const getAllReviews = async () => {
+    try {
+      setLoading(true);
+      const token = await getToken({template: "seller_app"});
+      const response = await getReviews(token ?? "", user?.publicMetadata.storeId as string);
+
+      setReviews(response.data);
+    } catch (error) {
+      console.error("Error getting reviews: ", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useFocusEffect(
+    useCallback(() => {
+      getAllReviews();
+
+      return () => {
+        console.log("reviews not focused");
+      }
+    }, [])
+  )
+
+
   const navigateBack = () => (
     <TopNavigationAction icon={BackIcon} onPress={() => router.back()} />
   );
@@ -61,7 +92,9 @@ export default function ReviewsSummaryScreen() {
         <Divider />
 
         <FlatList
-          data={mockReviews}
+          refreshing = {loading}
+          onRefresh={getAllReviews}
+          data={reviews}
           renderItem={renderReview}
           keyExtractor={item => item.id}
           style={styles.scrollView}

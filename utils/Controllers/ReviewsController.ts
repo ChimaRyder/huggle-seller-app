@@ -13,7 +13,7 @@ interface Review {
 }
 
 const getReviews = async (token : string, storeId : string) => {
-    const response = await axios.get(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/reviews`,
+    const response = await axios.get(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/reviews/store/${storeId}`,
         {
             headers: {
                 "Content-Type": "application/json;charset=UTF-8",
@@ -26,4 +26,4 @@ const getReviews = async (token : string, storeId : string) => {
 
 }
 
-export { Review }
+export { Review, getReviews }
