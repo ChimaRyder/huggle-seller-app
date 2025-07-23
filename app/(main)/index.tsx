@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { StyleSheet } from "react-native";
 import {
   BottomNavigation,
@@ -16,7 +16,7 @@ import ProfileScreen from "./profile";
 import PromotionsScreen from "./promotions";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth, useUser } from "@clerk/clerk-expo";
-import { Redirect, useFocusEffect } from "expo-router";
+import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { getUnreadCount } from "@/utils/Controllers/NotificationsController.";
 
 const HomeIcon = (props: IconProps): IconElement => (
@@ -57,17 +57,15 @@ const ProfileIcon = (props: IconProps): IconElement => (
 export default function BottomNav() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [unread, setUnread] = useState(0);
+  const router = useRouter();
   const { user } = useUser();
   const {getToken} = useAuth();
 
-  if (!user) {
-    return <Redirect href="/(login)" />;
-  }
 
   const checkUnread = async () => {
     try {
       const token = await getToken({template: "seller_app"});
-      const response = await getUnreadCount(token ?? "", user?.id);
+      const response = await getUnreadCount(token ?? "", user?.id as string);
 
       setUnread(response.data.unreadCount)
     } catch (error) {
@@ -80,6 +78,12 @@ export default function BottomNav() {
       checkUnread();
     }, [])
   )
+
+  useEffect(() => {
+    if (!user) {
+      router.replace('/(login)')
+    }
+  }, [user]);
 
   return (
     <Layout level="1" style={styles.layout}>

@@ -61,24 +61,6 @@ export default function WelcomeScreen() {
     }
   }, [user]);
 
-  if (user) {
-    // console.log("User is already signed in");
-    // return <Redirect href="/(auth)" />;
-  }
-
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      console.log("User signed out successfully");
-    } catch (error) {
-      console.error("Error signing out:", error);
-      Alert.alert(
-        "Error",
-        "An error occurred while signing out. Please try again."
-      );
-    }
-  };
-
   // Handle Google Login Response
   const handleFacebookLogin = async () => {
     try {
