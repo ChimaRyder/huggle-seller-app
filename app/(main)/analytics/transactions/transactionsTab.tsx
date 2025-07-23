@@ -39,13 +39,13 @@ const TransactionsTab = ({analytics} : {analytics : StoreAnalytics}) => {
     <View style={styles.tabContent}>
       <Layout level='2' style={styles.earningsContainer}>
         <View style={styles.earningsHeader}>
-          <Text category="h5">Earnings</Text>
+          {/* <Text category="h5">Earnings</Text> */}
         </View>
         
         <Text category="h2" style={styles.totalRevenue}>₱ { analytics.totalRevenue.toFixed(2) }</Text>
         <Text category="c1" appearance="hint" style={styles.totalRevenueLabel}>Total Revenue</Text>
         
-        <View style={styles.analyticsRow}>
+        {/* <View style={styles.analyticsRow}>
           <Layout level='3' style={styles.analyticsCard}>
             <Text category="c1" appearance="hint">Average per week</Text>
             <Text appearance="basic" category="h6" style={styles.BoxValue}>₱ 00.00</Text>
@@ -54,7 +54,7 @@ const TransactionsTab = ({analytics} : {analytics : StoreAnalytics}) => {
             <Text category="c1" appearance="hint">Earning Growth</Text>
             <Text appearance="basic" category="h6" style={styles.BoxValue}>0%</Text>
           </Layout>
-        </View>
+        </View> */}
       </Layout>
       
       <Layout level='2' style={styles.transactionsContainer}>

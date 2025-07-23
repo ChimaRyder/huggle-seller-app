@@ -85,12 +85,12 @@ const InsightsTab = ({analytics, setTimeSpan, timeSpan} : {analytics : StoreAnal
           </Layout>
         </View>
         {/* Each average analytic on its own row */}
-        <View style={styles.metricsRowSingle}>
+        {/* <View style={styles.metricsRowSingle}>
           <Layout level='3' style={styles.analyticsCardSingle}>
             <Text category="c1" appearance="hint">Avg. Engagement</Text>
             <Text appearance="basic" category="h6" style={styles.BoxValue}>{analytics.averageEngagementScore.toFixed(2)}</Text>
           </Layout>
-        </View>
+        </View> */}
         <View style={styles.metricsRowSingle}>
           <Layout level='3' style={styles.analyticsCardSingle}>
             <Text category="c1" appearance="hint">Avg. Views/Product</Text>

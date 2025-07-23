@@ -47,10 +47,6 @@ export default function AnalyticsScreen() {
     }, [timeSpan])
   );
 
-  const renderRightActions = () =>(
-    <TopNavigationAction icon={BellIcon}/>
-  )
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -64,7 +60,6 @@ export default function AnalyticsScreen() {
       <TopNavigation
         title={() => <Text category="h5">Analytics</Text>}
         alignment="start"
-        accessoryRight={renderRightActions}
         style={styles.topNavigation}
       />
       <TabBar

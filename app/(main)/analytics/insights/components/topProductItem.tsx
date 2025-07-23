@@ -23,7 +23,7 @@ const TopProductItem: React.FC<TopProductItemProps> = ({ item, index }) => (
         <Text appearance="hint" style={styles.stat}>Views: {item.views}</Text>
         <Text appearance="hint" style={styles.stat}>Cart Adds: {item.cartAdds}</Text>
         <Text appearance="hint" style={styles.stat}>Purchases: {item.purchases}</Text>
-        <Text appearance="hint" style={styles.stat}>Engagement: {item.engagementScore}</Text>
+        {/* <Text appearance="hint" style={styles.stat}>Engagement: {item.engagementScore}</Text> */}
       </View>
     </View>
   </Layout>
