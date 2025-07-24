@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View, ScrollView, Image, Alert } from 'react-native';
+import { StyleSheet, View, ScrollView, Image, Alert, FlatList } from 'react-native';
 import { Layout, Text, Icon, Button, TopNavigation, TopNavigationAction, Divider, Spinner, IconProps, IconElement, ViewPager, useTheme } from '@ui-kitten/components';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,6 +7,9 @@ import { useAuth } from '@clerk/clerk-expo';
 import { deleteProduct, getProductbyID } from '@/utils/Controllers/ProductController';
 import { Product } from '@/utils/Controllers/ProductController';
 import { showToast } from '@/components/Toast';
+import { getProductReviews, Review } from '@/utils/Controllers/ReviewsController';
+import ReviewItem from '../profile/components/reviewItem';
+import { CookingPot } from 'lucide-react-native';
 
 // Icons
 const BackIcon = (props: IconProps): IconElement => (
@@ -29,6 +32,7 @@ export default function ProductPage() {
   const router = useRouter();
   const { product: productId } = useLocalSearchParams();
   const [product, setProduct] = useState<Product>({} as Product);
+  const [reviews, setReviews] = useState<Review[]>([] as Review[])
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const {getToken} = useAuth();
@@ -42,8 +46,23 @@ export default function ProductPage() {
       const response = await getProductbyID(productId as string, token ?? "");
 
       setProduct(response.data);
+      await getReviews();
     } catch(error) {
       console.error('Error getting product: ', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getReviews = async () => {
+    try {
+      setLoading(true);
+      const token = await getToken({template: "seller_app"});
+      const response = await getProductReviews(token ?? "", productId as string);
+
+      setReviews(response.data.slice(0, 5));
+    } catch(error) {
+      console.error('Error getting reviews: ', error);
     } finally {
       setLoading(false);
     }
@@ -178,12 +197,34 @@ export default function ProductPage() {
                 {product.category.map((category, index) => <Text key={index} category='c1' appearance='alternative' style={[styles.categoryText, {backgroundColor: theme['color-primary-500']}]}>{category}</Text>)}
               </View>
             </View>
+
+            <View style={styles.section}>
+              <View style={{flexDirection: "row", justifyContent: "space-between"}}>
+                <Text category='s1'>Reviews</Text>
+                <Text category='p2' style={{textDecorationLine: "underline", color: theme['color-primary-500']}} onPress={() => router.push('/(main)/profile/reviewsSummary')}>See all</Text>
+              </View>
+
+              <View>
+                <FlatList
+                  scrollEnabled={false}
+                  data={reviews}
+                  renderItem={({item} : {item : Review}) => <ReviewItem review={item} key={item.id}/>}
+                  ListEmptyComponent={
+                    <View style={{justifyContent: "center", alignItems: "center", gap: 10}}>
+                      <CookingPot color={theme['color-basic-600']}/>
+                      <Text appearance='hint'>No Reviews</Text>
+                    </View>
+                  }
+                  contentContainerStyle={{paddingVertical: 10}}
+                />
+              </View>
+            </View>
           </View>
         </ScrollView>
 
         <Button 
           style={styles.deleteButton} 
-          onPress={deleteProd}
+          onPress={handleDelete}
           activeOpacity={0.7}
           accessoryLeft={<DeleteIcon/>}
           status='danger'

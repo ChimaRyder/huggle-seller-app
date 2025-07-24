@@ -23,7 +23,19 @@ const getReviews = async (token : string, storeId : string) => {
     )
 
     return response;
-
 }
 
-export { Review, getReviews }
+const getProductReviews = async (token : string, productId : string) => {
+    const response = await axios.get(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/reviews/product/${productId}`,
+        {
+            headers: {
+                "Content-Type": "application/json;charset=UTF-8",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+        }
+    )
+
+    return response;
+}
+
+export { Review, getReviews, getProductReviews }

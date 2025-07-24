@@ -53,8 +53,8 @@ export default function ReviewItem({ review }: {review : Review}) {
         <View style={{flexDirection: "row", gap: 10}}>
           <View style={[styles.headerLine, {backgroundColor: theme['color-primary-500']}]}/>
           <View style={styles.metaCol}>
-            <View style={{flexDirection: "row", alignItems: "center"}}>
-              <User size={18} color={theme['color-basic-100']}/>
+            <View style={{flexDirection: "row", alignItems: "center", gap: 5}}>
+              <User size={18} color={theme['color-basic-600']}/>
               <Text category="s2" style={styles.metaText}>{buyer.name}</Text>
             </View>
             <Text category="p2" appearance='hint' style={styles.metaText}>Review on: {product.name}</Text>

@@ -26,6 +26,7 @@ import { useClerk, useUser, useAuth } from "@clerk/clerk-expo";
 import { Redirect } from "expo-router";
 import axios from "axios";
 import { getStore, Store } from "@/utils/Controllers/StoreController";
+import { disableToken } from "@/utils/Controllers/TokenController";
 
 const ArrowIcon = (props: IconProps): IconElement => (
   <Icon {...props} name="ChevronRight" />
@@ -62,6 +63,12 @@ export default function ProfileScreen() {
       console.error("Error getting store: ", error);
     }
   };
+
+  // const disablePushToken = () => {
+  //   const token = await getToken({template: "seller_app"});
+  //   const pushToken = 
+  //   const response = await disableToken(token ?? "", );
+  // }
 
   const navigateToReviews = () => {
     router.push("/(main)/profile/reviewsSummary");
