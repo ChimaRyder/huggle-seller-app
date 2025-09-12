@@ -24,7 +24,7 @@ import ImageUploader from "../components/ImageUploader";
 import axios from "axios";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { showToast } from "@/components/Toast";
-import { createProduct } from "@/utils/Controllers/ProductController";
+import { createProduct } from "@/utils/data/ProductController";
 
 // Icons
 const BackIcon = (props: IconProps): IconElement => (
@@ -140,7 +140,7 @@ const CreateProduct = () => {
     try {
       const response = await createProduct(productData, token ?? "");
 
-      console.log("Product created successfully:", response.data);
+      console.log("Product created successfully:", ((response as any).data));
       router.dismissTo("/(main)");
       showToast('success', 'Product Created!', `${productData.name} has been created successfully.`);
     } catch (error) {

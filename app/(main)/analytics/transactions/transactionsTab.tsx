@@ -1,10 +1,10 @@
 import { StyleSheet, View, FlatList } from 'react-native';
 import { Text, Layout, Divider, useTheme } from '@ui-kitten/components';
 import renderTransactionItem from './components/transactionItem';
-import { StoreAnalytics } from '@/utils/Controllers/AnalyticsController';
+import { StoreAnalytics } from '@/utils/data/AnalyticsController';
 import { useCallback, useState } from 'react';
 import { useAuth } from '@clerk/clerk-expo';
-import { getAllOrders, Order } from '@/utils/Controllers/OrderController';
+import { getAllOrders, Order } from '@/utils/data/OrderController';
 import { useFocusEffect } from 'expo-router';
 import { CookingPot } from 'lucide-react-native';
 
@@ -12,7 +12,7 @@ import { CookingPot } from 'lucide-react-native';
 const TransactionsTab = ({analytics} : {analytics : StoreAnalytics}) => {
   const theme = useTheme();
   const [loading, setLoading] = useState(false);
-  const [orders, setOrders] = useState<Array<Order>>({} as Order[]);
+  const [orders, setOrders] = useState<Array<Order>>([]);
   const { getToken } = useAuth();
 
   const getOrders = async () => {
@@ -21,7 +21,7 @@ const TransactionsTab = ({analytics} : {analytics : StoreAnalytics}) => {
       const token = await getToken({template: "seller_app"});
       const response = await getAllOrders(token ?? "");
 
-      setOrders(response.data.filter((data : Order) => data.status === 3));
+      setOrders(((response as any).data).filter((data : Order) => data.status === 2));
     } catch(error) {
       console.error("Error getting orders: ", error);
     } finally {

@@ -54,10 +54,7 @@ const RootLayout = () => {
     return null;
   }
 
-  const theme =
-    colorScheme === "dark"
-      ? { ...eva.dark, ...mainTheme }
-      : { ...eva.light, ...mainTheme };
+  const theme = { ...eva.light, ...mainTheme };
 
   return (
     <>
@@ -67,7 +64,7 @@ const RootLayout = () => {
         theme={theme}
       >
       <ThemeProvider
-          value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+          value={DefaultTheme}
       >
         <ClerkProvider
           publishableKey={publishableKey}

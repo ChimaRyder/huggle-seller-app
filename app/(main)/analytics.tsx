@@ -6,7 +6,7 @@ import { Tab, TabBar, Spinner, TopNavigation, Text } from '@ui-kitten/components
 import TransactionsTab from './analytics/transactions/transactionsTab';
 import InsightsTab from './analytics/insights/insightsTab';
 import { useAuth, useUser} from '@clerk/clerk-expo'
-import { StoreAnalytics, getStoreAnalytics } from '@/utils/Controllers/AnalyticsController';
+import { StoreAnalytics, getStoreAnalytics } from '@/utils/data/AnalyticsController';
 import { useFocusEffect } from 'expo-router';
 
 const BellIcon = (props: IconProps): IconElement => (
@@ -29,7 +29,7 @@ export default function AnalyticsScreen() {
       const token = await getToken({template: "seller_app"});
       const response = await getStoreAnalytics(token ?? "", user?.publicMetadata.storeId as string, timeSpan);
 
-      setAnalytics(response.data.monthlyBreakdown[0]);
+      setAnalytics((response as any).data);
     } catch (error) {
       console.error("Error getting analytics: ", error);
     } finally {

@@ -4,13 +4,6 @@ import { Icon, Text, Spinner, useTheme } from "@ui-kitten/components";
 import { CloudUpload } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
-import {
-  getStorage,
-  ref,
-  uploadBytesResumable,
-  getDownloadURL,
-} from "firebase/storage";
-import { firebase } from "@/fbconfig"; // Import your existing firebase config
 
 interface ImageUploaderProps {
   image: string;
@@ -27,54 +20,25 @@ const ImageUploader = ({
   const [uploadProgress, setUploadProgress] = useState(0);
   const theme = useTheme();
 
-  // Get Firebase storage reference from your existing config
-  const storage = getStorage(firebase);
 
-  const uploadToFirebase = async (uri: string) => {
-    try {
-      setIsUploading(true);
-      setUploadProgress(0);
-
-      // Create a unique filename with timestamp to prevent collisions
-      const filename = uri.substring(uri.lastIndexOf("/") + 1);
-      const timestamp = new Date().getTime();
-      const uniqueFilename = `product_images/${timestamp}_${filename}`;
-
-      // Create reference to the file location in Firebase Storage
-      const storageRef = ref(storage, uniqueFilename);
-
-      // Convert the image to blob for upload
-      const response = await fetch(uri);
-      const blob = await response.blob();
-
-      // Start the upload task
-      const uploadTask = uploadBytesResumable(storageRef, blob);
-
-      // Listen to upload events
-      uploadTask.on(
-        "state_changed",
-        (snapshot) => {
-          // Track upload progress
-          const progress =
-            (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setUploadProgress(progress);
-        },
-        (error) => {
-          // Handle errors
-          console.error("Upload error:", error);
+  const uploadPlaceholder = async (uri: string) => {
+    setIsUploading(true);
+    setUploadProgress(0);
+    
+    alert("Feature Under Development: File upload functionality will be available once the new architecture is implemented.");
+    
+    // Simulate progress for UX
+    const interval = setInterval(() => {
+      setUploadProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          onImageSelected(uri);
           setIsUploading(false);
-        },
-        async () => {
-          // Upload completed successfully
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          onImageSelected(downloadURL); // Pass the Firebase URL back to parent component
-          setIsUploading(false);
+          return 100;
         }
-      );
-    } catch (error) {
-      console.error("Error preparing upload:", error);
-      setIsUploading(false);
-    }
+        return prev + 10;
+      });
+    }, 100);
   };
 
   const handleImageSelection = async () => {
@@ -92,7 +56,7 @@ const ImageUploader = ({
     });
 
     if (!result.canceled && result.assets && result.assets[0]) {
-      uploadToFirebase(result.assets[0].uri);
+      uploadPlaceholder(result.assets[0].uri);
     }
   };
 

@@ -28,7 +28,7 @@ import axios from "axios";
 import { useAuth } from "@clerk/clerk-expo";
 import { showToast } from "@/components/Toast";
 import React from "react";
-import { getProductbyID, Product, updateProduct } from "@/utils/Controllers/ProductController";
+import { getProductbyID, Product, updateProduct } from "@/utils/data/ProductController";
 
 // Icons
 const BackIcon = (props: IconProps): IconElement => (
@@ -136,7 +136,7 @@ const EditProduct = () => {
     const token = await getToken({ template: "seller_app" });
     const response = await getProductbyID(productId as string, token ?? "");
 
-    const data = response.data;
+    const data = ((response as any).data);
 
     setForm({
       name: data.name,
@@ -192,7 +192,7 @@ const EditProduct = () => {
       setSubmitting(true);
       const response = await updateProduct(productData, token ?? "");
 
-      // console.log("Product updated successfully:", response.data);
+      // console.log("Product updated successfully:", ((response as any).data));
       router.dismissTo("/(main)");
       showToast('success', 'Product Updated!', `${productData.name} has been updated successfully.`);
     } catch(error) {

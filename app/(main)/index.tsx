@@ -17,7 +17,7 @@ import PromotionsScreen from "./promotions";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { Redirect, useFocusEffect, useRouter } from "expo-router";
-import { getUnreadCount } from "@/utils/Controllers/NotificationsController.";
+import { getUnreadCount } from "@/utils/data/NotificationsController";
 
 const HomeIcon = (props: IconProps): IconElement => (
   <Icon
@@ -67,7 +67,7 @@ export default function BottomNav() {
       const token = await getToken({template: "seller_app"});
       const response = await getUnreadCount(token ?? "", user?.id as string);
 
-      setUnread(response.data.unreadCount)
+      setUnread(((response as any).data).count)
     } catch (error) {
       console.error("Error getting unread count: ", error);
     }

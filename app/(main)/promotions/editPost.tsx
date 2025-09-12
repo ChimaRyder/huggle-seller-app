@@ -7,7 +7,7 @@ import axios from 'axios';
 import { useAuth } from '@clerk/clerk-expo';
 import ImageUploader from '../products/components/ImageUploader';
 import { showToast } from '@/components/Toast';
-import { getPostbyID, updatePost } from '@/utils/Controllers/PromotionController';
+import { getPostbyID, updatePost } from '@/utils/data/PromotionController';
 
 // Icons
 const BackIcon = (props: IconProps): IconElement => (
@@ -33,7 +33,7 @@ const EditPostScreen = () => {
       const token = await getToken({template: 'seller_app'});
       const response = await getPostbyID(postId as string, token ?? "");
 
-      const post = response.data;
+      const post = ((response as any).data);
 
       setContent(post.content);
       setImages(post.imageUrls);

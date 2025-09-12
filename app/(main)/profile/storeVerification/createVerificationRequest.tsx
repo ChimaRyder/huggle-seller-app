@@ -5,10 +5,8 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { firebase } from '../../../../fbconfig';
 import { useUser, useAuth } from '@clerk/clerk-expo';
-import { createRequest, InitialRequest } from '@/utils/Controllers/VerificationController';
+import { createRequest, InitialRequest } from '@/utils/data/VerificationController';
 
 const BackIcon = (props : IconProps) : IconElement => <Icon {...props} name="ArrowLeft" />;
 
@@ -56,7 +54,6 @@ const formatFileName = (file: any) => {
   return "File selected";
 };
 
-const storage = getStorage(firebase);
 
 export default function CreateVerificationRequest() {
   const router = useRouter();
@@ -76,44 +73,12 @@ export default function CreateVerificationRequest() {
     <TopNavigationAction icon={BackIcon} onPress={() => router.back()} />
   );
 
-  const uploadToFirebase = async (
-    uri: string,
-    name: string,
-    type: string,
-    folder: string
-  ) => {
-    try {
-      const timestamp = new Date().getTime();
-      const uniqueFilename = `${folder}/${timestamp}_${name.replace(/\s+/g, "_")}`;
-      const storageRef = ref(storage, uniqueFilename);
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      const uploadTask = uploadBytesResumable(storageRef, blob);
-      return new Promise<string>((resolve, reject) => {
-        uploadTask.on(
-          "state_changed",
-          (snapshot) => {
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            if (folder === "government_ids") {
-              setUploadProgress((prev) => ({ ...prev, id: progress }));
-            } else {
-              setUploadProgress((prev) => ({ ...prev, permit: progress }));
-            }
-          },
-          (error) => {
-            console.error("Upload error:", error);
-            reject(error);
-          },
-          async () => {
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            resolve(downloadURL);
-          }
-        );
-      });
-    } catch (error) {
-      console.error("Error preparing upload:", error);
-      throw error;
-    }
+  const uploadPlaceholder = async () => {
+    Alert.alert(
+      "Feature Under Development", 
+      "File upload functionality will be available once the new architecture is implemented."
+    );
+    return "placeholder-url";
   };
 
   const handleUploadGovernmentId = async () => {
@@ -141,14 +106,9 @@ export default function CreateVerificationRequest() {
         try {
           const fileName = selectedImage.fileName || `government_id.${selectedImage.uri.split(".").pop()}`;
           const fileType = selectedImage.mimeType || `image/${selectedImage.uri.split(".").pop()}`;
-          const downloadURL = await uploadToFirebase(
-            selectedImage.uri,
-            fileName,
-            fileType,
-            "government_ids"
-          );
+          await uploadPlaceholder();
           setGovernmentIdImage({
-            uri: downloadURL,
+            uri: selectedImage.uri,
             name: fileName,
             type: fileType,
             size: fileSize,
@@ -188,14 +148,9 @@ export default function CreateVerificationRequest() {
           return;
         }
         try {
-          const downloadURL = await uploadToFirebase(
-            selectedDocument.uri,
-            selectedDocument.name,
-            selectedDocument.mimeType || "application/pdf",
-            "business_permits"
-          );
+          await uploadPlaceholder();
           setBusinessPermitPdf({
-            uri: downloadURL,
+            uri: selectedDocument.uri,
             name: selectedDocument.name,
             type: selectedDocument.mimeType,
             size: selectedDocument.size,

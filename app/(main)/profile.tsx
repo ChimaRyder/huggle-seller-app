@@ -25,8 +25,8 @@ import { IconProps, IconElement } from "@ui-kitten/components";
 import { useClerk, useUser, useAuth } from "@clerk/clerk-expo";
 import { Redirect } from "expo-router";
 import axios from "axios";
-import { getStore, Store } from "@/utils/Controllers/StoreController";
-import { disableToken } from "@/utils/Controllers/TokenController";
+import { getStore, Store } from "@/utils/data/StoreController";
+import { disableToken } from "@/utils/data/TokenController";
 
 const ArrowIcon = (props: IconProps): IconElement => (
   <Icon {...props} name="ChevronRight" />
@@ -58,7 +58,7 @@ export default function ProfileScreen() {
         token ?? ""
       );
 
-      setUser(response.data);
+      setUser(((response as any).data));
     } catch (error) {
       console.error("Error getting store: ", error);
     }

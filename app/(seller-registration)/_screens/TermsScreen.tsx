@@ -7,7 +7,7 @@ import { useSellerRegistration } from "../SellerRegistrationContext";
 import { useRouter } from "expo-router";
 import axios from "axios";
 import { useAuth, useUser } from "@clerk/clerk-expo"; // Add this import
-import { createSeller } from "@/utils/Controllers/SellerController";
+import { createSeller } from "@/utils/data/SellerController";
 
 const TermsScreen = () => {
   const { formData, updateFormData, setCurrentStep } = useSellerRegistration();
@@ -37,7 +37,7 @@ const TermsScreen = () => {
 
       // Handle the response
       if (response.status === 201) {
-        console.log("Seller created successfully:", response.data);
+        console.log("Seller created successfully:", ((response as any).data));
         // Navigate to the tabs screen or success screen
         router.push("/(main)");
       } else {

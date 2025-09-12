@@ -1,6 +1,6 @@
 import { View, StyleSheet} from "react-native";
 import { Text } from "@ui-kitten/components";
-import { Order } from "@/utils/Controllers/OrderController";
+import { Order } from "@/utils/data/OrderController";
 
 const renderTransactionItem = ({ item }: { item: Order }) => (
     <View style={styles.transactionItem}>

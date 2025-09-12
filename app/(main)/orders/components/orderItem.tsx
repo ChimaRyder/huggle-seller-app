@@ -1,7 +1,7 @@
 import {useEffect, useState} from "react";
 import { Card, Text, useTheme, ThemeType, Icon, IconProps, IconElement, Layout } from '@ui-kitten/components';
 import { StyleSheet, View, Appearance, TouchableOpacity } from 'react-native';
-import {Buyer, getBuyer} from "@/utils/Controllers/BuyerController";
+import {Buyer, getBuyer} from "@/utils/data/BuyerController";
 import {useAuth} from "@clerk/clerk-expo"
 
 
@@ -28,7 +28,7 @@ const OrderItem = ({ item, theme, onPress }: OrderItemProps) => {
       const token = await getToken({template: "seller_app"});
       const response = await getBuyer(token ?? "", item.buyerId);
 
-      setBuyer(response.data);
+      setBuyer(((response as any).data));
     } catch (error) {
       console.error("Error getting buyer:", error);
     } finally {

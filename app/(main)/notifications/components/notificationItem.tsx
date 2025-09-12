@@ -1,6 +1,6 @@
 import { StyleSheet, View } from "react-native";
 import { Card, Text, Layout, useTheme} from "@ui-kitten/components";
-import { markRead, Notification } from "@/utils/Controllers/NotificationsController.";
+import { markRead, Notification } from "@/utils/data/NotificationsController";
 import { NotepadText, NotepadTextDashed } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";

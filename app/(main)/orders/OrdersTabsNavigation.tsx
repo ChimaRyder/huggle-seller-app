@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View, FlatList, ScrollView, Alert } from 'react-native';
 import { Tab, TabBar, useTheme, Text, Spinner } from '@ui-kitten/components';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { Order, getAllOrders } from '@/utils/Controllers/OrderController';
+import { Order, getAllOrders } from '@/utils/data/OrderController';
 import { useAuth } from '@clerk/clerk-expo';
 import OrderItem from './components/orderItem';
 import { AlertCircle, CookingPot } from 'lucide-react-native';
@@ -49,7 +49,7 @@ export default function OrdersTabsNavigation() {
         const token = await getToken({template: "seller_app"});
         const response = await getAllOrders(token ?? "");
 
-        setOrders(response.data);
+        setOrders(((response as any).data));
     } catch(error) {
         console.error("Error getting orders: " + error);
     } finally {

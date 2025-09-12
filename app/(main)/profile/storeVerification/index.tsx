@@ -4,7 +4,7 @@ import { Layout, Text, Button, ListItem, Divider, TopNavigation, TopNavigationAc
 import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth, useUser } from '@clerk/clerk-expo';
-import { Request, getRequests } from '@/utils/Controllers/VerificationController';
+import { Request, getRequests } from '@/utils/data/VerificationController';
 
 const BackIcon = (props: IconProps) => <Icon {...props} name="ArrowLeft" />;
 
@@ -21,7 +21,7 @@ export default function StoreVerificationIndex() {
       const token = await getToken({template: "seller_app"});
       const response = await getRequests(token ?? "", user?.id as string);
 
-      setRequests(response.data);
+      setRequests(((response as any).data));
     } catch (error) {
       console.error("Error getting requests: ", error);
     } finally {

@@ -5,7 +5,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { IconProps, IconElement, Layout } from '@ui-kitten/components';
 import ReviewItem from './components/reviewItem';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getReviews, Review } from '@/utils/Controllers/ReviewsController';
+import { getReviews, Review } from '@/utils/data/ReviewsController';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 
 const BackIcon = (props: IconProps): IconElement => (
@@ -53,7 +53,7 @@ export default function ReviewsSummaryScreen() {
       const token = await getToken({template: "seller_app"});
       const response = await getReviews(token ?? "", user?.publicMetadata.storeId as string);
 
-      setReviews(response.data);
+      setReviews(((response as any).data));
     } catch (error) {
       console.error("Error getting reviews: ", error);
     } finally {

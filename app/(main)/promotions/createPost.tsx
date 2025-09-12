@@ -7,7 +7,7 @@ import ImageUploader from '../products/components/ImageUploader';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import axios from 'axios';
 import { showToast } from '@/components/Toast';
-import { createPost } from '@/utils/Controllers/PromotionController';
+import { createPost } from '@/utils/data/PromotionController';
 
 // Icons
 const BackIcon = (props: IconProps): IconElement => (

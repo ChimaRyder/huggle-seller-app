@@ -13,7 +13,7 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import { registerForPushNotificationsAsync } from "@/utils/Notifications";
-import { addToken } from "@/utils/Controllers/TokenController";
+import { addToken } from "@/utils/data/TokenController";
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -59,7 +59,7 @@ export default function AuthScreen() {
 
           setStatus("Redirecting...");
           if (exists === 200) {
-            await registerAndFetchToken();
+            // await registerAndFetchToken();
             setTimeout(() => {
               router.dismissTo("/(main)");
             }, 500); // Small delay for smoother transition

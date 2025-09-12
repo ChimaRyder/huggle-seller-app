@@ -4,10 +4,10 @@ import { Layout, Text, Icon, Button, TopNavigation, TopNavigationAction, Divider
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@clerk/clerk-expo';
-import { deleteProduct, getProductbyID } from '@/utils/Controllers/ProductController';
-import { Product } from '@/utils/Controllers/ProductController';
+import { deleteProduct, getProductbyID } from '@/utils/data/ProductController';
+import { Product } from '@/utils/data/ProductController';
 import { showToast } from '@/components/Toast';
-import { getProductReviews, Review } from '@/utils/Controllers/ReviewsController';
+import { getProductReviews, Review } from '@/utils/data/ReviewsController';
 import ReviewItem from '../profile/components/reviewItem';
 import { CookingPot } from 'lucide-react-native';
 
@@ -45,7 +45,7 @@ export default function ProductPage() {
       const token = await getToken({template: "seller_app"});
       const response = await getProductbyID(productId as string, token ?? "");
 
-      setProduct(response.data);
+      setProduct(((response as any).data));
       await getReviews();
     } catch(error) {
       console.error('Error getting product: ', error);
@@ -60,7 +60,7 @@ export default function ProductPage() {
       const token = await getToken({template: "seller_app"});
       const response = await getProductReviews(token ?? "", productId as string);
 
-      setReviews(response.data.slice(0, 5));
+      setReviews(((response as any).data).slice(0, 5));
     } catch(error) {
       console.error('Error getting reviews: ', error);
     } finally {

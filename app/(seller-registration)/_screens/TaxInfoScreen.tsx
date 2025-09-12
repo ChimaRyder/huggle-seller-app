@@ -22,13 +22,6 @@ import { useSellerRegistration } from "../SellerRegistrationContext";
 import { taxInfoSchema } from "../../../utils/validationSchemas";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
-import {
-  getStorage,
-  ref,
-  uploadBytesResumable,
-  getDownloadURL,
-} from "firebase/storage";
-import { firebase } from "../../../fbconfig"; // Adjust path if needed
 
 const spinnerIndicator = (props : ImageProps) => (
     <View style={[props.style, styles.spinnerContainer]}>
@@ -43,8 +36,6 @@ const TaxInfoScreen = () => {
   const [permitLoading, setPermitLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ id: 0, permit: 0 });
 
-  // Get Firebase storage reference
-  const storage = getStorage(firebase);
 
   // Government ID types for Philippines
   const governmentIdTypes = [
@@ -89,62 +80,12 @@ const TaxInfoScreen = () => {
     return true;
   };
 
-  // Upload file to Firebase Storage
-  const uploadToFirebase = async (
-    uri: string,
-    name: string,
-    type: string,
-    folder: string
-  ) => {
-    try {
-      // Create a unique filename with timestamp
-      const timestamp = new Date().getTime();
-      const fileExtension = uri.substring(uri.lastIndexOf(".") + 1);
-      const uniqueFilename = `${folder}/${timestamp}_${name.replace(
-        /\s+/g,
-        "_"
-      )}`;
-
-      // Create reference to the file location
-      const storageRef = ref(storage, uniqueFilename);
-
-      // Convert the file to blob for upload
-      const response = await fetch(uri);
-      const blob = await response.blob();
-
-      // Start the upload task
-      const uploadTask = uploadBytesResumable(storageRef, blob);
-
-      // Return a promise that resolves with the download URL when upload completes
-      return new Promise<string>((resolve, reject) => {
-        uploadTask.on(
-          "state_changed",
-          (snapshot) => {
-            // Track upload progress
-            const progress =
-              (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            if (folder === "government_ids") {
-              setUploadProgress((prev) => ({ ...prev, id: progress }));
-            } else {
-              setUploadProgress((prev) => ({ ...prev, permit: progress }));
-            }
-          },
-          (error) => {
-            // Handle upload error
-            console.error("Upload error:", error);
-            reject(error);
-          },
-          async () => {
-            // Upload completed successfully
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            resolve(downloadURL);
-          }
-        );
-      });
-    } catch (error) {
-      console.error("Error preparing upload:", error);
-      throw error;
-    }
+  const uploadPlaceholder = async () => {
+    Alert.alert(
+      "Feature Under Development", 
+      "File upload functionality will be available once the new architecture is implemented."
+    );
+    return "placeholder-url";
   };
 
   // Handle Government ID Image Upload
@@ -181,7 +122,6 @@ const TaxInfoScreen = () => {
         }
 
         try {
-          // Upload to Firebase Storage
           const fileName =
             selectedImage.fileName ||
             `government_id.${selectedImage.uri.split(".").pop()}`;
@@ -190,25 +130,19 @@ const TaxInfoScreen = () => {
             selectedImage.mimeType ||
             `image/${selectedImage.uri.split(".").pop()}`;
 
-          const downloadURL = await uploadToFirebase(
-            selectedImage.uri,
-            fileName,
-            fileType,
-            "government_ids"
-          );
+          await uploadPlaceholder();
 
-          // Store Firebase URL and file metadata
           setFieldValue("governmentIdImage", {
-            uri: downloadURL,
+            uri: selectedImage.uri,
             name: fileName,
             type: fileType,
             size: fileSize,
-            localUri: selectedImage.uri, // Keep local URI for preview
+            localUri: selectedImage.uri,
           });
         } catch (error) {
           Alert.alert(
             "Upload Error",
-            "Failed to upload image to server. Please try again."
+            "Failed to upload image. Please try again."
           );
           console.error(error);
         }
@@ -247,17 +181,10 @@ const TaxInfoScreen = () => {
         }
 
         try {
-          // Upload to Firebase Storage
-          const downloadURL = await uploadToFirebase(
-            selectedDocument.uri,
-            selectedDocument.name,
-            selectedDocument.mimeType || "application/pdf",
-            "business_permits"
-          );
+          await uploadPlaceholder();
 
-          // Store Firebase URL and file metadata
           setFieldValue("businessPermitPdf", {
-            uri: downloadURL,
+            uri: selectedDocument.uri,
             name: selectedDocument.name,
             type: selectedDocument.mimeType,
             size: selectedDocument.size,
@@ -265,7 +192,7 @@ const TaxInfoScreen = () => {
         } catch (error) {
           Alert.alert(
             "Upload Error",
-            "Failed to upload PDF to server. Please try again."
+            "Failed to upload PDF. Please try again."
           );
           console.error(error);
         }

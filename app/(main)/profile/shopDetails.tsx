@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ImageUploader from '../products/components/ImageUploader';
 import BusinessHoursPicker from '../../(seller-registration)/components/BusinessHoursPicker';
 import { useAuth, useUser } from '@clerk/clerk-expo';
-import { getStore, updateStore } from '@/utils/Controllers/StoreController';
+import { getStore, updateStore } from '@/utils/data/StoreController';
 import { showToast } from '@/components/Toast';
 
 const shopCategories = ["Restaurant", "Grocery", "Market", "Store"];
@@ -76,7 +76,7 @@ export default function ShopDetailsScreen() {
       const token = await getToken({template: "seller_app"});
       const response = await getStore(user?.publicMetadata.storeId as string, token ?? "");
 
-      setStore(response.data);
+      setStore(((response as any).data));
     } catch(error) {
       console.error('Error getting store: ', error);
     }

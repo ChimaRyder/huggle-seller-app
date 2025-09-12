@@ -4,9 +4,9 @@ import { Layout, Text, Divider, List, ListItem, useTheme, Spinner, Button, TopNa
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {useAuth} from '@clerk/clerk-expo';
-import { Order, getOrderbyID, updateOrder } from '@/utils/Controllers/OrderController';
-import { Buyer, getBuyer } from '@/utils/Controllers/BuyerController';
-import { Product, getProductbyID } from '@/utils/Controllers/ProductController';
+import { Order, getOrderbyID, updateOrder } from '@/utils/data/OrderController';
+import { Buyer, getBuyer } from '@/utils/data/BuyerController';
+import { Product, getProductbyID } from '@/utils/data/ProductController';
 import { showToast } from "@/components/Toast";
 
 const ORDER_STATUSES = [

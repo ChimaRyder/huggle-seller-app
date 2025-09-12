@@ -15,8 +15,8 @@ import { showToast } from "@/components/Toast";
 import {
   deletePost,
   getAllPosts,
-} from "@/utils/Controllers/PromotionController";
-import { getStore, Store } from "@/utils/Controllers/StoreController";
+} from "@/utils/data/PromotionController";
+import { getStore, Store } from "@/utils/data/StoreController";
 import { MessageCircleWarning } from "lucide-react-native";
 
 // Icons
@@ -103,7 +103,7 @@ const PromotionsTab = () => {
         token ?? ""
       );
 
-      setPosts(response.data);
+      setPosts((response as any).data);
     } catch (error) {
       console.error("Error getting posts:", error);
     } finally {
@@ -120,7 +120,7 @@ const PromotionsTab = () => {
         token ?? ""
       );
 
-      setStore(response.data);
+      setStore((response as any).data);
     } catch (error) {
       console.error("Error getting store:", error);
     }

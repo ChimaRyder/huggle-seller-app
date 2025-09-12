@@ -3,9 +3,9 @@ import { StyleSheet, View } from 'react-native';
 import { Text, Card } from '@ui-kitten/components';
 import { Star, User } from 'lucide-react-native';
 import { useTheme } from '@ui-kitten/components';
-import { Review } from '@/utils/Controllers/ReviewsController';
-import { getProductbyID, Product } from '@/utils/Controllers/ProductController';
-import { Buyer, getBuyer } from '@/utils/Controllers/BuyerController';
+import { Review } from '@/utils/data/ReviewsController';
+import { getProductbyID, Product } from '@/utils/data/ProductController';
+import { Buyer, getBuyer } from '@/utils/data/BuyerController';
 import { useAuth } from '@clerk/clerk-expo';
 import { useFocusEffect } from 'expo-router';
 
@@ -23,7 +23,7 @@ export default function ReviewItem({ review }: {review : Review}) {
       const token = await getToken({template: "seller_app"});
       const response = await getBuyer(token ?? "", review.buyerId);
 
-      setBuyer(response.data);
+      setBuyer(((response as any).data));
     } catch (error) {
       console.error("Error getting buyer: ", error);
     }
@@ -34,7 +34,7 @@ export default function ReviewItem({ review }: {review : Review}) {
       const token = await getToken({template: "seller_app"});
       const response = await getProductbyID(review.productId, token ?? "");
 
-      setProduct(response.data);
+      setProduct(((response as any).data));
     } catch (error) {
       console.error("Error getting product: ", error);
     }

@@ -18,7 +18,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { useAuth, useUser } from "@clerk/clerk-expo";
-import { getAllProducts } from "@/utils/Controllers/ProductController";
+import { getAllProducts } from "@/utils/data/ProductController";
 import { showToast } from "@/components/Toast";
 import { AlertCircle, CookingPot } from "lucide-react-native";
 
@@ -46,8 +46,8 @@ const ProductsTab = ({ theme }: { theme: ThemeType }) => {
       const token = await getToken({ template: "seller_app" });
       const response = await getAllProducts(search, token ?? "");
 
-      const data = response.data;
-      setProducts(data.products);
+      const data = ((response as any).data);
+      setProducts(data);
     } catch (error) {
       console.error("Error getting products: ", error);
       showToast(
@@ -102,7 +102,7 @@ const ProductsTab = ({ theme }: { theme: ThemeType }) => {
           keyExtractor={(item) => item.id.toString()}
           numColumns={2}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={products.length === 0 && { flex: 1, justifyContent: 'center' }}
+          contentContainerStyle={(products?.length || 0) === 0 && { flex: 1, justifyContent: 'center' }}
           columnWrapperStyle={styles.productRow}
           ListEmptyComponent={
           <View style={styles.noProductsContainer}>

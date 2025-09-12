@@ -3,7 +3,7 @@ import { StyleSheet, View, FlatList, ScrollView } from 'react-native';
 import { Layout, Text, Spinner, Divider, Select, SelectItem, IndexPath } from '@ui-kitten/components';
 import TopProductItem from './components/topProductItem';
 import { useAuth, useUser } from '@clerk/clerk-expo';
-import { getStoreAnalytics, StoreAnalytics } from '@/utils/Controllers/AnalyticsController';
+import { getStoreAnalytics, StoreAnalytics } from '@/utils/data/AnalyticsController';
 import { useFocusEffect } from 'expo-router';
 
 const timeSpanConvert = (timeSpan: number) => {

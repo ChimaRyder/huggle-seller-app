@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { useAuth, useUser } from "@clerk/clerk-expo";
-import { Notification, getNotifications, markRead } from "@/utils/Controllers/NotificationsController.";
+import { Notification, getNotifications, markRead } from "@/utils/data/NotificationsController";
 import NotificationItem from "./components/notificationItem";
 import { CookingPot } from "lucide-react-native";
 
@@ -31,7 +31,7 @@ const NotificationScreen = () => {
             const token = await getToken({template: "seller_app"});
             const response = await getNotifications(token ?? "", user?.id as string);
 
-            setNotifications(response.data.notifications);
+            setNotifications((response as any).data);
         } catch (error) {
             console.error("Error getting notifications: ", error);
         } finally {

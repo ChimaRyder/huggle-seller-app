@@ -4,7 +4,7 @@ import { Layout, Text, Button, Divider, TopNavigation, TopNavigationAction, Icon
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth, useUser } from '@clerk/clerk-expo';
-import { getRequest, Request } from '@/utils/Controllers/VerificationController';
+import { getRequest, Request } from '@/utils/data/VerificationController';
 
 const BackIcon = (props : IconProps) : IconElement => <Icon {...props} name="ArrowLeft" />;
 
@@ -39,7 +39,7 @@ export default function VerificationDetails() {
       const token = await getToken({template: "seller_app"});
       const response = await getRequest(token ?? "", id as string);
 
-      setRequest(response.data);
+      setRequest(((response as any).data));
     } catch (error) {
       console.error("Error getting request: ", error);
     } finally {
