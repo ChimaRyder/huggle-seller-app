@@ -1,216 +1,563 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, ScrollView } from 'react-native';
-import { Layout, Text, Button, TopNavigation, TopNavigationAction, Icon, IconProps, IconElement, Input, Spinner } from '@ui-kitten/components';
-import { useRouter } from 'expo-router';
+import {
+  StyleSheet,
+  View,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Image,
+  Alert,
+  Dimensions,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import ImageUploader from '../products/components/ImageUploader';
+import { useRouter } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
-import axios from 'axios';
-import { showToast } from '@/components/Toast';
-import { createPost } from '@/utils/data/PromotionController';
+import {
+  ArrowLeft,
+  Camera,
+  X,
+  Hash,
+  Type,
+  Image as ImageIcon,
+  Check,
+  AlertCircle,
+} from 'lucide-react-native';
+import { colors, spacing, typography, radii } from '@/constants/theme';
+import { mockPosts, type MockPost } from '@/data/mockPromotionData';
+import * as ImagePicker from 'expo-image-picker';
 
-// Icons
-const BackIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="ArrowLeft" />
-);
+const { width } = Dimensions.get('window');
+const IMAGE_SIZE = (width - spacing.lg * 3) / 2;
 
 const CreatePostScreen = () => {
   const router = useRouter();
-  const [content, setContent] = useState('');
-  const [images, setImages] = useState<string[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { getToken } = useAuth();
   const { user } = useUser();
+  const [caption, setCaption] = useState('');
+  const [images, setImages] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
+  const [currentTag, setCurrentTag] = useState('');
+  const [postType, setPostType] = useState<MockPost['postType']>('product_promotion');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   const navigateBack = () => {
-    router.back();
+    if (caption.trim() || images.length > 0 || tags.length > 0) {
+      Alert.alert(
+        'Discard Changes',
+        'Are you sure you want to discard your post?',
+        [
+          { text: 'Keep Editing', style: 'cancel' },
+          { text: 'Discard', style: 'destructive', onPress: () => router.back() },
+        ]
+      );
+    } else {
+      router.back();
+    }
   };
 
-  const handleImageSelected = (imageUri: string) => {
-    setImages(prev => [...prev, imageUri]);
-  };
-
-  const handleSubmit = async () => {
-    if (!content.trim()) {
-      console.log('Content is required');
+  const pickImage = async () => {
+    if (images.length >= 5) {
+      Alert.alert('Limit Reached', 'You can add up to 5 images per post.');
       return;
     }
 
-    setIsSubmitting(true);
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
 
-    const post = {
-      storeId: user?.publicMetadata.storeId as string,
-      content: content,
-      imageUrls: images,
+    if (!result.canceled && result.assets[0]) {
+      setImages(prev => [...prev, result.assets[0].uri]);
     }
-
-    try {
-      const token = await getToken({template: 'seller_app'});
-      const response = await createPost(post, token ?? "");
-
-      showToast('success', 'Success', 'Post created successfully.');
-
-      setIsSubmitting(false);
-      router.dismissTo('/(main)');
-    } catch(error) {
-      console.error(error);
-      showToast('error', 'Error', 'Failed to create post.');
-    }
-
   };
 
-  const renderBackAction = () => (
-    <TopNavigationAction icon={BackIcon} onPress={navigateBack} />
-  );
+  const removeImage = (index: number) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const addTag = () => {
+    const tag = currentTag.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (tag && !tags.includes(tag) && tags.length < 10) {
+      setTags(prev => [...prev, tag]);
+      setCurrentTag('');
+    }
+  };
+
+  const removeTag = (tagToRemove: string) => {
+    setTags(prev => prev.filter(tag => tag !== tagToRemove));
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: { [key: string]: string } = {};
+
+    if (!caption.trim()) {
+      newErrors.caption = 'Caption is required';
+    } else if (caption.length < 10) {
+      newErrors.caption = 'Caption must be at least 10 characters';
+    }
+
+    if (images.length === 0) {
+      newErrors.images = 'At least one image is required';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+
+    setIsSubmitting(true);
+
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      Alert.alert(
+        'Post Created!',
+        'Your post has been created successfully and will be visible to customers.',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.back(),
+          },
+        ]
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Failed to create post. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const getPostTypeColor = (type: MockPost['postType']) => {
+    switch (type) {
+      case 'product_promotion': return colors.primary;
+      case 'sale': return colors.warning;
+      case 'event': return colors.info;
+      case 'announcement': return colors.success;
+      default: return colors.text.secondary;
+    }
+  };
+
+  const getPostTypeLabel = (type: MockPost['postType']) => {
+    switch (type) {
+      case 'product_promotion': return 'Product Promotion';
+      case 'sale': return 'Sale/Discount';
+      case 'event': return 'Event';
+      case 'announcement': return 'Announcement';
+      default: return 'Post';
+    }
+  };
+
+  const postTypes: MockPost['postType'][] = ['product_promotion', 'sale', 'event', 'announcement'];
 
   return (
-    <Layout style={styles.container} level='1'>
-      <SafeAreaView style={styles.safeArea}>
-        <TopNavigation
-          accessoryLeft={renderBackAction}
-          title={() => <Text category='h6'>Create Post</Text>}
-        />
-        
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          <View style={styles.content}>
-            {/* Content Input */}
-            <View style={styles.section}>
-              <Text category="s1" style={styles.label}>Post Content</Text>
-              <Input
-                multiline
-                textStyle={{ minHeight: 100 }}
-                placeholder="What's your promotional message?"
-                value={content}
-                onChangeText={setContent}
-                style={styles.contentInput}
-              />
-            </View>
-
-            {/* Images Section */}
-            <View style={styles.section}>
-              <Text category="s1" style={styles.label}>Images</Text>
-              <Text category="c1" appearance="hint" style={styles.hint}>
-                Add up to 5 images to make your post more engaging
-              </Text>
-              
-              <View style={styles.imageGrid}>
-                {images.map((image, index) => (
-                  <View key={index} style={styles.imageContainer}>
-                    <ImageUploader
-                      image={image}
-                      onImageSelected={handleImageSelected}
-                      style={styles.imageUploader}
-                    />
-                  </View>
-                ))}
-                
-                {images.length < 5 && (
-                  <View style={styles.imageContainer}>
-                    <ImageUploader
-                      image=""
-                      onImageSelected={handleImageSelected}
-                      style={styles.imageUploader}
-                    />
-                  </View>
-                )}
-              </View>
-            </View>
-          </View>
-        </ScrollView>
-
-        {/* Submit Button */}
-        <View style={styles.footer}>
-          <Button
-            style={styles.submitButton}
-            onPress={handleSubmit}
-            disabled={!content.trim() || isSubmitting}
-            accessoryLeft={isSubmitting ? (props) => (<Spinner size='tiny' />) : (props) => (
-              <Icon {...props} name="Check" />
-            )}
-          >
-            {isSubmitting ? 'Creating...' : 'Create Post'}
-          </Button>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={navigateBack}>
+          <ArrowLeft size={24} color={colors.text.primary} />
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>Create Post</Text>
+          <Text style={styles.headerSubtitle}>Share with your customers</Text>
         </View>
-      </SafeAreaView>
-    </Layout>
+        <TouchableOpacity
+          style={[styles.publishButton, (!caption.trim() || images.length === 0) && styles.publishButtonDisabled]}
+          onPress={handleSubmit}
+          disabled={!caption.trim() || images.length === 0 || isSubmitting}
+        >
+          {isSubmitting ? (
+            <View style={styles.loadingIndicator} />
+          ) : (
+            <Check size={20} color={colors.text.inverse} />
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Post Type Selection */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Type size={20} color={colors.primary} />
+            <Text style={styles.sectionTitle}>Post Type</Text>
+          </View>
+          <View style={styles.postTypeGrid}>
+            {postTypes.map((type) => (
+              <TouchableOpacity
+                key={type}
+                style={[
+                  styles.postTypeOption,
+                  postType === type && { backgroundColor: getPostTypeColor(type) + '20', borderColor: getPostTypeColor(type) }
+                ]}
+                onPress={() => setPostType(type)}
+              >
+                <Text style={[
+                  styles.postTypeText,
+                  postType === type && { color: getPostTypeColor(type), fontWeight: typography.fontWeights.semibold }
+                ]}>
+                  {getPostTypeLabel(type)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Images Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <ImageIcon size={20} color={colors.primary} />
+            <Text style={styles.sectionTitle}>Images</Text>
+            <Text style={styles.sectionCounter}>({images.length}/5)</Text>
+          </View>
+          {errors.images && (
+            <View style={styles.errorContainer}>
+              <AlertCircle size={16} color={colors.error} />
+              <Text style={styles.errorText}>{errors.images}</Text>
+            </View>
+          )}
+          <Text style={styles.sectionDescription}>
+            Add high-quality images to make your post more engaging
+          </Text>
+
+          <View style={styles.imageGrid}>
+            {images.map((imageUri, index) => (
+              <View key={index} style={styles.imageItem}>
+                <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+                <TouchableOpacity
+                  style={styles.removeImageButton}
+                  onPress={() => removeImage(index)}
+                >
+                  <X size={16} color={colors.text.inverse} />
+                </TouchableOpacity>
+              </View>
+            ))}
+
+            {images.length < 5 && (
+              <TouchableOpacity style={styles.addImageButton} onPress={pickImage}>
+                <Camera size={24} color={colors.primary} />
+                <Text style={styles.addImageText}>Add Photo</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Caption Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Type size={20} color={colors.primary} />
+            <Text style={styles.sectionTitle}>Caption</Text>
+            <Text style={styles.characterCount}>{caption.length}/500</Text>
+          </View>
+          {errors.caption && (
+            <View style={styles.errorContainer}>
+              <AlertCircle size={16} color={colors.error} />
+              <Text style={styles.errorText}>{errors.caption}</Text>
+            </View>
+          )}
+          <TextInput
+            style={[
+              styles.captionInput,
+              errors.caption && { borderColor: colors.error }
+            ]}
+            multiline
+            placeholder="What's your promotional message? Share details about your products, sales, or events..."
+            placeholderTextColor={colors.text.tertiary}
+            value={caption}
+            onChangeText={setCaption}
+            maxLength={500}
+            textAlignVertical="top"
+          />
+        </View>
+
+        {/* Tags Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Hash size={20} color={colors.primary} />
+            <Text style={styles.sectionTitle}>Tags</Text>
+            <Text style={styles.sectionCounter}>({tags.length}/10)</Text>
+          </View>
+          <Text style={styles.sectionDescription}>
+            Add relevant tags to help customers discover your post
+          </Text>
+
+          {/* Tag Input */}
+          <View style={styles.tagInputContainer}>
+            <TextInput
+              style={styles.tagInput}
+              placeholder="Add a tag..."
+              placeholderTextColor={colors.text.tertiary}
+              value={currentTag}
+              onChangeText={setCurrentTag}
+              onSubmitEditing={addTag}
+              maxLength={20}
+            />
+            <TouchableOpacity
+              style={[styles.addTagButton, !currentTag.trim() && styles.addTagButtonDisabled]}
+              onPress={addTag}
+              disabled={!currentTag.trim() || tags.length >= 10}
+            >
+              <Text style={styles.addTagText}>Add</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Tags Display */}
+          {tags.length > 0 && (
+            <View style={styles.tagsContainer}>
+              {tags.map((tag, index) => (
+                <View key={index} style={styles.tag}>
+                  <Text style={styles.tagText}>#{tag}</Text>
+                  <TouchableOpacity onPress={() => removeTag(tag)}>
+                    <X size={14} color={colors.primary} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        <View style={{ height: spacing.xxxl }} />
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background.tertiary,
   },
-  safeArea: {
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.background.primary,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.primary,
+  },
+  backButton: {
+    padding: spacing.sm,
+    marginRight: spacing.md,
+  },
+  headerCenter: {
     flex: 1,
+  },
+  headerTitle: {
+    fontSize: typography.fontSizes.xl,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text.primary,
+  },
+  headerSubtitle: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+    marginTop: spacing.xs,
+  },
+  publishButton: {
+    backgroundColor: colors.primary,
+    borderRadius: radii.md,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  publishButtonDisabled: {
+    backgroundColor: colors.text.tertiary,
+  },
+  loadingIndicator: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.text.inverse,
+    borderTopColor: 'transparent',
   },
   scrollView: {
     flex: 1,
   },
-  content: {
-    padding: 16,
-  },
+
+  // Sections
   section: {
-    marginBottom: 24,
+    backgroundColor: colors.background.primary,
+    marginBottom: spacing.md,
+    padding: spacing.lg,
   },
-  label: {
-    marginBottom: 8,
-    fontWeight: '600',
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
   },
-  hint: {
-    marginBottom: 12,
+  sectionTitle: {
+    fontSize: typography.fontSizes.lg,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.primary,
+    marginLeft: spacing.sm,
+    flex: 1,
   },
-  contentInput: {
-    borderRadius: 8,
+  sectionCounter: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.tertiary,
   },
+  sectionDescription: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+    marginBottom: spacing.lg,
+    lineHeight: 20,
+  },
+  characterCount: {
+    fontSize: typography.fontSizes.xs,
+    color: colors.text.tertiary,
+  },
+
+  // Error handling
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.sm,
+  },
+  errorText: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.error,
+    marginLeft: spacing.xs,
+  },
+
+  // Post Type Selection
+  postTypeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  postTypeOption: {
+    flex: 1,
+    minWidth: '45%',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+    backgroundColor: colors.background.secondary,
+    alignItems: 'center',
+  },
+  postTypeText: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+    textAlign: 'center',
+  },
+
+  // Images
   imageGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: spacing.md,
   },
-  imageContainer: {
-    width: '48%',
-    aspectRatio: 1,
+  imageItem: {
+    position: 'relative',
+    width: IMAGE_SIZE,
+    height: IMAGE_SIZE,
   },
   imagePreview: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#F7F9FC',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E4E9F2',
+    borderRadius: radii.lg,
+    backgroundColor: colors.background.secondary,
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    backgroundColor: colors.error,
+    borderRadius: 12,
+    width: 24,
+    height: 24,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  imageText: {
-    fontSize: 12,
-    color: '#8F9BB3',
-  },
   addImageButton: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#F7F9FC',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E4E9F2',
+    width: IMAGE_SIZE,
+    height: IMAGE_SIZE,
+    borderRadius: radii.lg,
+    borderWidth: 2,
     borderStyle: 'dashed',
+    borderColor: colors.primary,
+    backgroundColor: colors.background.successSubtle,
     justifyContent: 'center',
     alignItems: 'center',
   },
   addImageText: {
-    fontSize: 12,
-    color: '#8F9BB3',
+    fontSize: typography.fontSizes.sm,
+    color: colors.primary,
+    marginTop: spacing.xs,
+    fontWeight: typography.fontWeights.medium,
   },
-  footer: {
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E4E9F2',
+
+  // Caption Input
+  captionInput: {
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    fontSize: typography.fontSizes.md,
+    color: colors.text.primary,
+    backgroundColor: colors.background.secondary,
+    minHeight: 120,
+    lineHeight: 22,
   },
-  submitButton: {
-    borderRadius: 8,
+
+  // Tags
+  tagInputContainer: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.lg,
   },
-  imageUploader: {
-    width: '100%',
-    height: '100%',
+  tagInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    fontSize: typography.fontSizes.md,
+    color: colors.text.primary,
+    backgroundColor: colors.background.secondary,
+  },
+  addTagButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: radii.lg,
+    justifyContent: 'center',
+  },
+  addTagButtonDisabled: {
+    backgroundColor: colors.text.tertiary,
+  },
+  addTagText: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.inverse,
+    fontWeight: typography.fontWeights.semibold,
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  tag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background.secondary,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.md,
+    gap: spacing.sm,
+  },
+  tagText: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.primary,
+    fontWeight: typography.fontWeights.medium,
   },
 });
 
