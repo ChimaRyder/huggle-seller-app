@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, View, FlatList, ScrollView } from 'react-native';
-import { Layout, Text, Spinner, Divider, Select, SelectItem, IndexPath } from '@ui-kitten/components';
+import { StyleSheet, View, FlatList, ScrollView, Text, TouchableOpacity, RefreshControl } from 'react-native';
 import TopProductItem from './components/topProductItem';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { getStoreAnalytics, StoreAnalytics } from '@/utils/data/AnalyticsController';
 import { useFocusEffect } from 'expo-router';
+import { TrendingUp, TrendingDown, Eye, ShoppingCart, ShoppingBag, DollarSign, Users, Target, Zap } from 'lucide-react-native';
+import { colors, spacing, typography, radii } from '@/constants/theme';
 
 const timeSpanConvert = (timeSpan: number) => {
   switch (timeSpan) {
@@ -23,185 +24,393 @@ const timeSpanConvert = (timeSpan: number) => {
 
 const timeSpanOptions = ["1 Month", "3 Months", "6 Months", "1 Year"];
 
-const InsightsTab = ({analytics, setTimeSpan, timeSpan} : {analytics : StoreAnalytics, setTimeSpan: (timeSpan: number) => void, timeSpan: number}) => {
-  const [selectedTimeSpan, setSelectedTimeSpan] = useState(new IndexPath(timeSpanConvert(timeSpan)));
+// Helper functions for calculations
+const calculateConversionRate = (purchases: number, views: number): number => {
+  return views > 0 ? (purchases / views) * 100 : 0;
+};
 
-  useFocusEffect(
-    useCallback(() => {
-      switch (selectedTimeSpan.row) {
-        case 0:
-          setTimeSpan(1);
-          break;
-        case 1:
-          setTimeSpan(3);
-          break;
-        case 2:
-          setTimeSpan(6);
-          break;
-        case 3:
-          setTimeSpan(12);
-          break;
-      }
-    }, [selectedTimeSpan])
-  );
+const calculateCartConversion = (purchases: number, cartAdds: number): number => {
+  return cartAdds > 0 ? (purchases / cartAdds) * 100 : 0;
+};
+
+const formatCurrency = (amount: number): string => {
+  return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
+const getGrowthIndicator = (current: number, previous: number) => {
+  if (previous === 0) return { isPositive: true, percentage: 0 };
+  const growth = ((current - previous) / previous) * 100;
+  return { isPositive: growth >= 0, percentage: Math.abs(growth) };
+};
+
+const InsightsTab = ({analytics, setTimeSpan, timeSpan} : {analytics : StoreAnalytics, setTimeSpan: (timeSpan: number) => void, timeSpan: number}) => {
+  const [selectedTimeSpan, setSelectedTimeSpan] = useState(timeSpanConvert(timeSpan));
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    // Trigger analytics refresh in parent component
+    setTimeout(() => setRefreshing(false), 1000);
+  }, []);
+
+  const handleTimeSpanChange = useCallback((index: number) => {
+    setSelectedTimeSpan(index);
+    switch (index) {
+      case 0: setTimeSpan(1); break;
+      case 1: setTimeSpan(3); break;
+      case 2: setTimeSpan(6); break;
+      case 3: setTimeSpan(12); break;
+    }
+  }, [setTimeSpan]);
+
+  // Calculate derived metrics
+  const conversionRate = calculateConversionRate(analytics.totalPurchases || 0, analytics.totalViews || 0);
+  const cartConversion = calculateCartConversion(analytics.totalPurchases || 0, analytics.totalCartAdds || 0);
+  const totalRevenue = (analytics.averageRevenuePerProduct || 0) * (analytics.totalProducts || 0);
+  const avgOrderValue = analytics.totalPurchases > 0 ? totalRevenue / analytics.totalPurchases : 0;
 
   return (
-    <ScrollView style={styles.tabContent}>
-      <Layout level='2' style={styles.analyticsContainer}>
-        <View style={styles.headerRow}>
-          <Text category="h6">Monthly Insights</Text>
-          <Select
-            value={timeSpanOptions[selectedTimeSpan.row]}
-            selectedIndex={selectedTimeSpan}
-            onSelect={index => setSelectedTimeSpan(index as IndexPath)}
-            style={styles.timeSpanSelect}
-            size="small"
-          >
-            {timeSpanOptions.map((option, idx) => (
-              <SelectItem key={option} title={option} />
-            ))}
-          </Select>
+    <ScrollView
+      style={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+      }
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Header with Time Period Selector */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.headerTitle}>Business Insights</Text>
+          <Text style={styles.headerSubtitle}>Track your store's performance</Text>
         </View>
-        {/* Views on its own row */}
-        <View style={styles.metricsRowSingle}>
-          <Layout level='3' style={styles.analyticsCardSingle}>
-            <Text category="c1" appearance="hint">Views</Text>
-            <Text appearance="basic" category="h6" style={styles.BoxValue}>{analytics.totalViews}</Text>
-          </Layout>
+        <View style={styles.timeSelector}>
+          {timeSpanOptions.map((option, index) => (
+            <TouchableOpacity
+              key={option}
+              style={[
+                styles.timeSelectorOption,
+                selectedTimeSpan === index && styles.timeSelectorActive
+              ]}
+              onPress={() => handleTimeSpanChange(index)}
+            >
+              <Text style={[
+                styles.timeSelectorText,
+                selectedTimeSpan === index && styles.timeSelectorActiveText
+              ]}>
+                {option}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
-        {/* Products, Cart Adds, Purchases in one row */}
-        <View style={styles.metricsRowThree}>
-          <Layout level='3' style={styles.analyticsCardThree}>
-            <Text category="c1" appearance="hint">Products</Text>
-            <Text appearance="basic" category="h6" style={styles.BoxValue}>{analytics.totalProducts}</Text>
-          </Layout>
-          <Layout level='3' style={styles.analyticsCardThree}>
-            <Text category="c1" appearance="hint">Cart Adds</Text>
-            <Text appearance="basic" category="h6" style={styles.BoxValue}>{analytics.totalCartAdds}</Text>
-          </Layout>
-          <Layout level='3' style={styles.analyticsCardThree}>
-            <Text category="c1" appearance="hint">Purchases</Text>
-            <Text appearance="basic" category="h6" style={styles.BoxValue}>{analytics.totalPurchases}</Text>
-          </Layout>
+      </View>
+
+      {/* Revenue Highlight Card */}
+      <View style={styles.revenueCard}>
+        <View style={styles.revenueHeader}>
+          <DollarSign size={24} color={colors.success} />
+          <Text style={styles.revenueTitle}>Total Revenue</Text>
         </View>
-        {/* Each average analytic on its own row */}
-        {/* <View style={styles.metricsRowSingle}>
-          <Layout level='3' style={styles.analyticsCardSingle}>
-            <Text category="c1" appearance="hint">Avg. Engagement</Text>
-            <Text appearance="basic" category="h6" style={styles.BoxValue}>{analytics.averageEngagementScore.toFixed(2)}</Text>
-          </Layout>
-        </View> */}
-        <View style={styles.metricsRowSingle}>
-          <Layout level='3' style={styles.analyticsCardSingle}>
-            <Text category="c1" appearance="hint">Avg. Views/Product</Text>
-            <Text appearance="basic" category="h6" style={styles.BoxValue}>{analytics.averageViewsPerProduct.toFixed(2)}</Text>
-          </Layout>
+        <Text style={styles.revenueAmount}>{formatCurrency(totalRevenue)}</Text>
+        <View style={styles.revenueStats}>
+          <View style={styles.revenueStat}>
+            <Text style={styles.revenueStatLabel}>Avg Order Value</Text>
+            <Text style={styles.revenueStatValue}>{formatCurrency(avgOrderValue)}</Text>
+          </View>
+          <View style={styles.revenueStat}>
+            <Text style={styles.revenueStatLabel}>Revenue/Product</Text>
+            <Text style={styles.revenueStatValue}>{formatCurrency(analytics.averageRevenuePerProduct || 0)}</Text>
+          </View>
         </View>
-        <View style={styles.metricsRowSingle}>
-          <Layout level='3' style={styles.analyticsCardSingle}>
-            <Text category="c1" appearance="hint">Avg. Revenue/Product</Text>
-            <Text appearance="basic" category="h6" style={styles.BoxValue}>₱ {analytics.averageRevenuePerProduct.toFixed(2)}</Text>
-          </Layout>
+      </View>
+
+      {/* Key Performance Metrics */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Key Performance Metrics</Text>
+        <View style={styles.metricsGrid}>
+          <View style={styles.metricCard}>
+            <View style={styles.metricHeader}>
+              <Target size={20} color={colors.primary} />
+              <Text style={styles.metricLabel}>Conversion Rate</Text>
+            </View>
+            <Text style={styles.metricValue}>{conversionRate.toFixed(2)}%</Text>
+            <Text style={styles.metricSubtext}>Views to Purchases</Text>
+          </View>
+
+          <View style={styles.metricCard}>
+            <View style={styles.metricHeader}>
+              <ShoppingCart size={20} color={colors.warning} />
+              <Text style={styles.metricLabel}>Cart Conversion</Text>
+            </View>
+            <Text style={styles.metricValue}>{cartConversion.toFixed(2)}%</Text>
+            <Text style={styles.metricSubtext}>Cart to Purchase</Text>
+          </View>
+
+          <View style={styles.metricCard}>
+            <View style={styles.metricHeader}>
+              <Eye size={20} color={colors.info} />
+              <Text style={styles.metricLabel}>Total Views</Text>
+            </View>
+            <Text style={styles.metricValue}>{(analytics.totalViews || 0).toLocaleString()}</Text>
+            <Text style={styles.metricSubtext}>Product impressions</Text>
+          </View>
+
+          <View style={styles.metricCard}>
+            <View style={styles.metricHeader}>
+              <ShoppingBag size={20} color={colors.success} />
+              <Text style={styles.metricLabel}>Orders</Text>
+            </View>
+            <Text style={styles.metricValue}>{analytics.totalPurchases || 0}</Text>
+            <Text style={styles.metricSubtext}>Completed purchases</Text>
+          </View>
         </View>
-      </Layout>
-      <Layout level='2' style={styles.productsContainer}>
-        <View style={styles.productsHeader}>
-          <Text category="h6">Top Products</Text>
+      </View>
+
+      {/* Business Performance */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Business Performance</Text>
+        <View style={styles.performanceGrid}>
+          <View style={styles.performanceCard}>
+            <View style={styles.performanceIcon}>
+              <Users size={20} color={colors.primary} />
+            </View>
+            <View style={styles.performanceContent}>
+              <Text style={styles.performanceLabel}>Avg. Views per Product</Text>
+              <Text style={styles.performanceValue}>{(analytics.averageViewsPerProduct || 0).toFixed(1)}</Text>
+            </View>
+          </View>
+
+          <View style={styles.performanceCard}>
+            <View style={styles.performanceIcon}>
+              <Zap size={20} color={colors.warning} />
+            </View>
+            <View style={styles.performanceContent}>
+              <Text style={styles.performanceLabel}>Active Products</Text>
+              <Text style={styles.performanceValue}>{analytics.totalProducts || 0}</Text>
+            </View>
+          </View>
         </View>
-        <FlatList
-          scrollEnabled={false}
-          data={analytics.topProducts.slice(0, 5)}
-          renderItem={({ item, index }) => <TopProductItem item={item} index={index} />}
-          keyExtractor={item => item.productId}
-          ItemSeparatorComponent={Divider}
-          contentContainerStyle={styles.productsList}
-        />
-      </Layout>
+      </View>
+
+      {/* Top Performing Products */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Top Performing Products</Text>
+        <View style={styles.topProducts}>
+          {(analytics.topProducts || []).slice(0, 5).map((item, index) => (
+            <TopProductItem key={item.productId} item={item} index={index} />
+          ))}
+          {(!analytics.topProducts || analytics.topProducts.length === 0) && (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>No product data available</Text>
+              <Text style={styles.emptyStateSubtext}>Start selling to see your top products here</Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      <View style={{ height: spacing.xxxl }} />
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  tabContent: {
+  container: {
     flex: 1,
-    padding: 16,
+    backgroundColor: colors.background.tertiary,
   },
-  analyticsContainer: {
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
+  header: {
+    backgroundColor: colors.background.primary,
+    padding: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.primary,
   },
-  headerRow: {
+  headerLeft: {
+    marginBottom: spacing.md,
+  },
+  headerTitle: {
+    fontSize: typography.fontSizes.xl,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  headerSubtitle: {
+    fontSize: typography.fontSizes.md,
+    color: colors.text.secondary,
+  },
+  timeSelector: {
+    flexDirection: 'row',
+    backgroundColor: colors.background.secondary,
+    borderRadius: radii.lg,
+    padding: spacing.xs,
+  },
+  timeSelectorOption: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.md,
+    alignItems: 'center',
+  },
+  timeSelectorActive: {
+    backgroundColor: colors.primary,
+  },
+  timeSelectorText: {
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.medium,
+    color: colors.text.secondary,
+  },
+  timeSelectorActiveText: {
+    color: colors.text.inverse,
+    fontWeight: typography.fontWeights.semibold,
+  },
+
+  // Revenue Card
+  revenueCard: {
+    backgroundColor: colors.background.primary,
+    margin: spacing.lg,
+    padding: spacing.xl,
+    borderRadius: radii.xl,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.success,
+  },
+  revenueHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  revenueTitle: {
+    fontSize: typography.fontSizes.lg,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.primary,
+    marginLeft: spacing.sm,
+  },
+  revenueAmount: {
+    fontSize: typography.fontSizes.hero,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.success,
+    marginBottom: spacing.lg,
+  },
+  revenueStats: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
   },
-  timeSpanSelect: {
-    minWidth: 140,
+  revenueStat: {
+    flex: 1,
   },
-  analyticsHeader: {
+  revenueStatLabel: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.tertiary,
+    marginBottom: spacing.xs,
+  },
+  revenueStatValue: {
+    fontSize: typography.fontSizes.lg,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.primary,
+  },
+
+  // Sections
+  section: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  sectionTitle: {
+    fontSize: typography.fontSizes.lg,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.primary,
+    marginBottom: spacing.lg,
+  },
+
+  // Metrics Grid
+  metricsGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
+    flexWrap: 'wrap',
+    gap: spacing.md,
   },
-  metricsRowSingle: {
+  metricCard: {
+    backgroundColor: colors.background.primary,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    width: '48%',
+    minHeight: 120,
+  },
+  metricHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  metricLabel: {
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.medium,
+    color: colors.text.secondary,
+    marginLeft: spacing.sm,
+    flex: 1,
+  },
+  metricValue: {
+    fontSize: typography.fontSizes.xxl,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  metricSubtext: {
+    fontSize: typography.fontSizes.xs,
+    color: colors.text.tertiary,
+  },
+
+  // Performance Grid
+  performanceGrid: {
+    gap: spacing.md,
+  },
+  performanceCard: {
+    backgroundColor: colors.background.primary,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  performanceIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.background.secondary,
     justifyContent: 'center',
-    marginBottom: 20,
-  },
-  analyticsCardSingle: {
-    flex: 1,
-    borderRadius: 16,
-    paddingVertical: 32,
-    paddingHorizontal: 16,
     alignItems: 'center',
-    minHeight: 110,
-    elevation: 2,
-    marginHorizontal: 0,
+    marginRight: spacing.md,
   },
-  metricsRowThree: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 20,
-    marginBottom: 20,
-  },
-  analyticsCardThree: {
+  performanceContent: {
     flex: 1,
-    borderRadius: 16,
-    paddingVertical: 32,
-    paddingHorizontal: 10,
-    alignItems: 'center',
-    minHeight: 110,
-    elevation: 2,
-    marginHorizontal: 6,
   },
-  BoxValue: {
-    marginTop: 12,
-    fontSize: 28,
-    fontWeight: 'bold',
+  performanceLabel: {
+    fontSize: typography.fontSizes.md,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+  },
+  performanceValue: {
+    fontSize: typography.fontSizes.xl,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text.primary,
+  },
+
+  // Top Products
+  topProducts: {
+    backgroundColor: colors.background.primary,
+    borderRadius: radii.lg,
+    overflow: 'hidden',
+  },
+
+  // Empty State
+  emptyState: {
+    padding: spacing.xl,
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    fontSize: typography.fontSizes.lg,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+  },
+  emptyStateSubtext: {
+    fontSize: typography.fontSizes.md,
+    color: colors.text.tertiary,
     textAlign: 'center',
   },
-  productsContainer: {
-    flex: 1,
-    borderRadius: 8,
-    padding: 16,
-  },
-  productsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  productsList: {
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  }
 });
 
 export default InsightsTab; 

@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text, Layout, useTheme } from '@ui-kitten/components';
+import { View, StyleSheet, Text } from 'react-native';
 import { Eye, ShoppingBag, ShoppingCart } from 'lucide-react-native';
+import { colors, spacing, typography } from '@/constants/theme';
 
 interface TopProductItemProps {
   item: {
@@ -16,54 +16,103 @@ interface TopProductItemProps {
 }
 
 const TopProductItem: React.FC<TopProductItemProps> = ({ item, index }) => {
-  const theme = useTheme();
-  
+  const getRankStyle = (rank: number) => {
+    if (rank === 1) return { backgroundColor: colors.warning + '20', borderColor: colors.warning };
+    if (rank === 2) return { backgroundColor: colors.info + '20', borderColor: colors.info };
+    if (rank === 3) return { backgroundColor: colors.success + '20', borderColor: colors.success };
+    return { backgroundColor: colors.background.secondary, borderColor: colors.border.primary };
+  };
+
+  const rankStyle = getRankStyle(index + 1);
+
   return (
-    <Layout level='3' style={styles.container}>
-      <Text category="s1" style={styles.rank}>{index + 1}.</Text>
+    <View style={styles.container}>
+      <View style={[styles.rankBadge, rankStyle]}>
+        <Text style={styles.rank}>{index + 1}</Text>
+      </View>
       <View style={styles.infoContainer}>
-        <Text category="s1" style={styles.productName}>{item.productName}</Text>
+        <Text style={styles.productName}>{item.productName}</Text>
         <View style={styles.statsRow}>
-          <Eye size={15} color={theme['color-basic-600']}/> 
-          <Text appearance="hint" style={styles.stat}>{item.views}</Text>
-          <ShoppingCart size={15} color={theme['color-basic-600']}/> 
-          <Text appearance="hint" style={styles.stat}>{item.cartAdds}</Text>
-          <ShoppingBag size={15} color={theme['color-basic-600']}/>
-          <Text appearance="hint" style={styles.stat}>{item.purchases}</Text>
+          <View style={styles.statItem}>
+            <Eye size={14} color={colors.info} />
+            <Text style={styles.statValue}>{item.views}</Text>
+          </View>
+          <View style={styles.statItem}>
+            <ShoppingCart size={14} color={colors.warning} />
+            <Text style={styles.statValue}>{item.cartAdds}</Text>
+          </View>
+          <View style={styles.statItem}>
+            <ShoppingBag size={14} color={colors.success} />
+            <Text style={styles.statValue}>{item.purchases}</Text>
+          </View>
         </View>
       </View>
-    </Layout>
-  )};
+      <View style={styles.scoreContainer}>
+        <Text style={styles.scoreLabel}>Score</Text>
+        <Text style={styles.scoreValue}>{item.engagementScore.toFixed(1)}</Text>
+      </View>
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 4,
+    padding: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.primary,
+  },
+  rankBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
   },
   rank: {
-    width: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text.primary,
   },
   infoContainer: {
     flex: 1,
-    flexDirection: 'column',
   },
   productName: {
-    fontWeight: 'bold',
-    marginBottom: 4,
+    fontSize: typography.fontSizes.lg,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
   },
   statsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    gap: spacing.md,
   },
-  stat: {
-    marginRight: 12,
-    fontSize: 12,
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  statValue: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+    fontWeight: typography.fontWeights.medium,
+  },
+  scoreContainer: {
+    alignItems: 'center',
+    paddingLeft: spacing.md,
+  },
+  scoreLabel: {
+    fontSize: typography.fontSizes.xs,
+    color: colors.text.tertiary,
+    marginBottom: spacing.xs,
+  },
+  scoreValue: {
+    fontSize: typography.fontSizes.lg,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.primary,
   },
 });
 
