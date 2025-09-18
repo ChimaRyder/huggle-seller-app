@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { StyleSheet, View, ScrollView, Alert } from "react-native";
+import { StyleSheet, View, ScrollView, Alert, TouchableOpacity, ActivityIndicator, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import {
@@ -29,6 +29,8 @@ import { useAuth } from "@clerk/clerk-expo";
 import { showToast } from "@/components/Toast";
 import React from "react";
 import { getProductbyID, Product, updateProduct } from "@/utils/data/ProductController";
+import { colors, spacing, typography, radii } from "@/constants/theme";
+import { ArrowLeft, Info, X, Calendar } from "lucide-react-native";
 
 // Icons
 const BackIcon = (props: IconProps): IconElement => (
@@ -233,22 +235,46 @@ const EditProduct = () => {
     ]);
   };
 
+  const handleBackPress = () => {
+    router.back();
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
+            <ArrowLeft size={24} color={colors.text.primary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Edit Product</Text>
+          <View style={styles.headerPlaceholder} />
+        </View>
+
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading product details...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <>
-      {!loading && (
-        <Layout level="1" style={styles.container}>
-          <SafeAreaView style={styles.container}>
-            <TopNavigation
-              title={() => <Text category="h5">Edit Product</Text>}
-              accessoryLeft={() => (
-                <TopNavigationAction
-                  onPress={() => router.back()}
-                  icon={BackIcon}
-                />
-              )}
-            />
-            <ScrollView>
-              <Formik
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
+          <ArrowLeft size={24} color={colors.text.primary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Edit Product</Text>
+        <View style={styles.headerPlaceholder} />
+      </View>
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContainer}
+      >
+        <Formik
                 initialValues={form}
                 validationSchema={ProductSchema}
                 onSubmit={handleSubmit}
@@ -263,8 +289,8 @@ const EditProduct = () => {
                   touched,
                 }) => (
                   <View style={styles.formContainer}>
-                    <View style={styles.section}>
-                      <Text category="h6" style={styles.sectionTitle}>
+                    <Card style={styles.sectionCard}>
+                      <Text style={styles.sectionTitle}>
                         Product Details
                       </Text>
 
@@ -323,10 +349,10 @@ const EditProduct = () => {
                           {errors.productType}
                         </Text>
                       )}
-                    </View>
+                    </Card>
 
-                    <View style={styles.section}>
-                      <Text category="h6" style={styles.sectionTitle}>
+                    <Card style={styles.sectionCard}>
+                      <Text style={styles.sectionTitle}>
                         Product Photos
                       </Text>
 
@@ -359,10 +385,10 @@ const EditProduct = () => {
                           />
                         ))}
                       </View>
-                    </View>
+                    </Card>
 
-                    <View style={styles.section}>
-                      <Text category="h6" style={styles.sectionTitle}>
+                    <Card style={styles.sectionCard}>
+                      <Text style={styles.sectionTitle}>
                         Category
                       </Text>
 
@@ -402,10 +428,10 @@ const EditProduct = () => {
                           </Button>
                         ))}
                       </View>
-                    </View>
+                    </Card>
 
-                    <View style={styles.section}>
-                      <Text category="h6" style={styles.sectionTitle}>
+                    <Card style={styles.sectionCard}>
+                      <Text style={styles.sectionTitle}>
                         Prices
                       </Text>
 
@@ -472,10 +498,10 @@ const EditProduct = () => {
                           "00.00"}
                         %
                       </Text>
-                    </View>
+                    </Card>
 
-                    <View style={styles.section}>
-                      <Text category="h6" style={styles.sectionTitle}>
+                    <Card style={styles.sectionCard}>
+                      <Text style={styles.sectionTitle}>
                         Stock
                       </Text>
 
@@ -491,10 +517,10 @@ const EditProduct = () => {
                       {touched.stock && errors.stock && (
                         <Text style={styles.errorText}>{errors.stock}</Text>
                       )}
-                    </View>
+                    </Card>
 
-                    <View style={styles.section}>
-                      <Text category="h6" style={styles.sectionTitle}>
+                    <Card style={styles.sectionCard}>
+                      <Text style={styles.sectionTitle}>
                         Duration
                         <Popover
                           anchor={() => (
@@ -535,16 +561,23 @@ const EditProduct = () => {
                       {touched.duration && errors.duration && (
                         <Text style={styles.errorText}>{errors.duration}</Text>
                       )}
-                    </View>
+                    </Card>
 
-                    <View style={{flexDirection: "row", padding: 16}}>
-                      <Toggle
-                        checked={isActive}
-                        onChange={isActive ? handleUnlist : handleActive}
-                      >
-                        Active Status
-                      </Toggle>
-                    </View>
+                    <Card style={styles.sectionCard}>
+                      <Text style={styles.sectionTitle}>
+                        Product Status
+                      </Text>
+                      <View style={styles.toggleContainer}>
+                        <Text style={styles.label}>Active Status</Text>
+                        <Toggle
+                          checked={isActive}
+                          onChange={isActive ? handleUnlist : handleActive}
+                        />
+                      </View>
+                      <Text style={styles.statusDescription}>
+                        {isActive ? "Product is visible to customers" : "Product is hidden from customers"}
+                      </Text>
+                    </Card>
 
                     <View style={styles.buttonContainer}>
                       <Button
@@ -553,134 +586,166 @@ const EditProduct = () => {
                         onPress={() => formikSubmit()}
                         disabled={submitting}
                       >
-                        {!submitting ? "Update" : "Updating..."}
+                        {!submitting ? "Update Product" : "Updating..."}
                       </Button>
                     </View>
                   </View>
                 )}
               </Formik>
-            </ScrollView>
-          </SafeAreaView>
-        </Layout>
-      )}
-
-      {loading && (
-        <View style={[styles.container, styles.loadingContainer]}>
-          <Spinner />
-        </View>
-      )}
-    </>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background.tertiary,
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.background.primary,
     borderBottomWidth: 1,
+    borderBottomColor: colors.border.primary,
+  },
+  backButton: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerPlaceholder: {
+    width: 24,
+  },
+  headerTitle: {
+    fontSize: typography.fontSizes.xxl,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text.primary,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: spacing.xl,
+  },
+  loadingText: {
+    marginTop: spacing.sm,
+    fontSize: typography.fontSizes.lg,
+    color: colors.text.secondary,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContainer: {
+    paddingTop: spacing.md,
+    paddingBottom: 120,
+    paddingHorizontal: spacing.md,
   },
   formContainer: {
-    padding: 16,
+    gap: spacing.lg,
   },
-  section: {
-    marginBottom: 15,
-    borderRadius: 8,
-    padding: 16,
+  sectionCard: {
+    borderRadius: radii.lg,
+    padding: spacing.xs,
+    borderWidth: 0,
   },
   sectionTitle: {
-    marginBottom: 16,
+    fontSize: typography.fontSizes.lg,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text.primary,
+    marginBottom: spacing.lg,
   },
   label: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 8,
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
   },
   input: {
-    marginBottom: 16,
+    marginBottom: spacing.md,
+    borderRadius: radii.lg,
+    borderWidth: 0,
   },
   errorText: {
-    color: "#FF3D71",
-    fontSize: 12,
-    marginTop: -12,
-    marginBottom: 16,
+    color: colors.danger,
+    fontSize: typography.fontSizes.xs,
+    marginTop: -spacing.sm,
+    marginBottom: spacing.md,
   },
   coverImageUploader: {
     width: "100%",
     height: 200,
-    marginBottom: 16,
+    marginBottom: spacing.md,
+    borderRadius: radii.lg,
   },
   additionalImagesContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 16,
+    marginBottom: spacing.md,
+    gap: spacing.sm,
   },
   additionalImageUploader: {
-    width: "30%",
+    flex: 1,
     height: 80,
+    borderRadius: radii.md,
   },
   discountText: {
-    color: "#548C2F",
+    color: colors.primary,
+    fontWeight: typography.fontWeights.medium,
   },
   durationRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  ongoingText: {
-    fontSize: 12,
-    color: "#8F9BB3",
-    backgroundColor: "#EDF1F7",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  buttonContainer: {
+  toggleContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 16,
+    alignItems: "center",
+    marginBottom: spacing.sm,
   },
-  unlistButton: {
-    flex: 1,
-    marginRight: 8,
+  statusDescription: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.tertiary,
+    fontStyle: 'italic',
+  },
+  buttonContainer: {
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.sm,
   },
   publishButton: {
-    flex: 1,
-    marginLeft: 8,
+    borderRadius: radii.lg,
+    paddingVertical: spacing.md,
   },
   durationButton: {
-    borderRadius: 40,
+    borderRadius: radii.full,
     width: 25,
     height: 25,
   },
   modalText: {
-    fontSize: 11,
+    fontSize: typography.fontSizes.sm,
   },
   modalCard: {
     width: 250,
-  },
-  loadingContainer: {
-    justifyContent: "center",
-    alignItems: "center",
+    borderRadius: radii.lg,
   },
   categoryText: {
-    fontSize: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    marginRight: 8,
+    fontSize: typography.fontSizes.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.sm,
+    marginRight: spacing.xs,
   },
   categories: {
-    display: "flex",
     flexDirection: "row",
     alignItems: "center",
     flexWrap: "wrap",
-    gap: 5,
-    marginBottom: 16,
+    gap: spacing.xs,
+    marginBottom: spacing.md,
   },
 });
 

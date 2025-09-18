@@ -65,9 +65,10 @@ const mockNotifications: Notification[] = [
 const getNotifications = async (token: string, id: string) => {
     return new Promise((resolve) => {
         setTimeout(() => {
-            const userNotifications = mockNotifications.filter(n => n.userId === id);
+            // For demo purposes, return all notifications regardless of user ID
+            // In a real app, you would filter by the actual user ID
             resolve({
-                data: userNotifications,
+                data: mockNotifications,
                 status: 200
             });
         }, 400);
@@ -77,9 +78,8 @@ const getNotifications = async (token: string, id: string) => {
 const getUnreadCount = async (token: string, id: string) => {
     return new Promise((resolve) => {
         setTimeout(() => {
-            const unreadCount = mockNotifications.filter(n => 
-                n.userId === id && !n.isRead
-            ).length;
+            // For demo purposes, count all unread notifications
+            const unreadCount = mockNotifications.filter(n => !n.isRead).length;
             resolve({
                 data: { count: unreadCount },
                 status: 200
@@ -91,10 +91,9 @@ const getUnreadCount = async (token: string, id: string) => {
 const markRead = async (token: string, id: string) => {
     return new Promise((resolve) => {
         setTimeout(() => {
+            // For demo purposes, mark all notifications as read
             mockNotifications.forEach(n => {
-                if (n.userId === id) {
-                    n.isRead = true;
-                }
+                n.isRead = true;
             });
             resolve({
                 data: { message: "All notifications marked as read" },

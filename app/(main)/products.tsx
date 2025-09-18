@@ -1,65 +1,49 @@
 import React from "react";
-import { StyleSheet } from "react-native";
+import { StyleSheet, View, SafeAreaView } from "react-native";
 import {
   Layout,
-  Text,
   TopNavigation,
   TopNavigationAction,
   useTheme,
   Icon,
   IconProps,
-  IconElement
+  IconElement,
+  Text
 } from "@ui-kitten/components";
 
 import ProductsTab from "./products/productsTab";
 import { useRouter } from "expo-router";
-import { BellDot, BellDotIcon } from "lucide-react-native";
+import { BellDot, Plus } from "lucide-react-native";
+import { useUser } from "@clerk/clerk-expo";
+import { colors, spacing } from "@/constants/theme";
 
 // Icons for the tabs
 const BellIcon = (props: IconProps): IconElement => (
   <Icon {...props} name="Bell" />
 );
 
+const PlusIcon = (props: IconProps): IconElement => (
+  <Plus {...props} size={20} color={colors.primary} />
+);
+
 export default function ProductsScreen({unread} : {unread : number}) {
   const theme = useTheme();
-  const router = useRouter();
-
-  const renderRightActions = () => (
-    <TopNavigationAction icon={unread > 0 ? () => <BellDot size={25} color={theme['color-primary-500']}/> : BellIcon} onPress={() => router.push('/(main)/notifications/notificationsScreen')} />
-  );
 
   return (
-    <Layout style={styles.container}>
-      <TopNavigation
-        title={() => (
-          <Text category="h5">
-            Good{" "}
-            <Text status="primary" category="h5">
-              {new Date().getHours() < 12
-                ? "morning"
-                : new Date().getHours() < 18
-                ? "afternoon"
-                : "evening"}
-              !
-            </Text>
-          </Text>
-        )}
-        alignment="start"
-        accessoryRight={renderRightActions}
-        style={styles.topNavigation}
-      />
-
-      <ProductsTab theme={theme} />
-    </Layout>
+    <View style={styles.container}>
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'top']}>
+        <ProductsTab theme={theme} unread={unread} />
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background.tertiary,
   },
-  topNavigation: {
-    marginTop: 10,
-    marginHorizontal: 5,
+  safeArea: {
+    flex: 1,
   },
 });

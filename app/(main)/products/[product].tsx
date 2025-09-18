@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View, ScrollView, Image, Alert, FlatList } from 'react-native';
+import { StyleSheet, View, ScrollView, Image, Alert, FlatList, TouchableOpacity } from 'react-native';
 import { Layout, Text, Icon, Button, TopNavigation, TopNavigationAction, Divider, Spinner, IconProps, IconElement, ViewPager, useTheme } from '@ui-kitten/components';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,7 +9,8 @@ import { Product } from '@/utils/data/ProductController';
 import { showToast } from '@/components/Toast';
 import { getProductReviews, Review } from '@/utils/data/ReviewsController';
 import ReviewItem from '../profile/components/reviewItem';
-import { CookingPot } from 'lucide-react-native';
+import { CookingPot, ArrowLeft, Edit3, Trash2 } from 'lucide-react-native';
+import { colors, spacing, typography, radii } from '@/constants/theme';
 
 // Icons
 const BackIcon = (props: IconProps): IconElement => (
@@ -137,239 +138,277 @@ export default function ProductPage() {
   return (
     <>
     {!loading && (
-    <Layout style={styles.container} level='1'>
-      <SafeAreaView style={styles.safeArea}>
-        <TopNavigation
-          accessoryLeft={renderBackAction}
-          title={() => <Text category='s1'>Product Details</Text>}
-        />
-        <Divider />
-        
-        <Layout level="2" style={styles.imageContainer}>
-          <ViewPager
-            selectedIndex={selectedIndex}
-            onSelect={index => setSelectedIndex(index)}
-            style={styles.viewPager}
-          >
-            {[
-              <View key="cover">
-                <Image 
-                  source={{ uri: product.coverImage }} 
-                  style={styles.productImage}
-                  resizeMode="cover"
-                />
-              </View>,
-              ...(product.additionalImages?.map((imageUri, index) => (
-                <View key={`additional-${index}`}>
-                  <Image 
-                    source={{ uri: imageUri }} 
-                    style={styles.productImage}
-                    resizeMode="cover"
-                  />
+      <View style={styles.container}>
+        <ScrollView style={styles.scrollContainer}>
+          <View style={styles.imageContainer}>
+            <Image source={{ uri: product.coverImage }} style={styles.image} />
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={navigateBack}
+            >
+              <ArrowLeft size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.content}>
+            {/* Product name and price */}
+            <View style={styles.nameRow}>
+              <Text style={styles.title}>{product.name}</Text>
+            </View>
+
+            {/* Price section */}
+            <View style={styles.priceSection}>
+              <Text style={styles.price}>₱{product.discountedPrice?.toFixed(2)}</Text>
+              {product.originalPrice > product.discountedPrice && (
+                <View style={styles.discountBadge}>
+                  <Text style={styles.discountText}>
+                    -{(((product.originalPrice - product.discountedPrice) / product.originalPrice) * 100).toFixed()}% OFF
+                  </Text>
                 </View>
-              )) || [])
-            ]}
-          </ViewPager>
-          {renderImageIndicators()}
-        </Layout>
-
-        <ScrollView style={styles.scrollView}>
-          <View style={styles.contentContainer}>
-            <View style={{flexDirection: "row", gap: 8, alignItems: "center", marginBottom: 3}}>
-              <Text category='h6' status='primary' style={styles.productPrice}>₱{product.discountedPrice.toFixed(2)}</Text>
-
-              <Layout style={{backgroundColor: theme['color-primary-200'], justifyContent: "center", alignItems: "center", padding: 5, paddingHorizontal: 7, borderRadius: 5}}>
-                <Text category='p1' status='primary' style={styles.productPrice}>-{(((product.originalPrice - product.discountedPrice) / product.originalPrice) * 100).toFixed()}%</Text>
-              </Layout>
+              )}
             </View>
 
-            <Text category='h6' style={styles.productTitle}>{product.name}</Text>
-            
-            <View style={styles.section}>
-              <Text category='s1'>Description</Text>
-              <Text category='p2' style={styles.description}>{product.description}</Text>
-            </View>
-            
-            <View style={styles.section}>
-              <Text category='s1'>Categories</Text>
+            {/* Divider */}
+            <View style={styles.divider} />
 
-              <View style={styles.categoryContainer}>
-                {product.category.map((category, index) => <Text key={index} category='c1' appearance='alternative' style={[styles.categoryText, {backgroundColor: theme['color-primary-500']}]}>{category}</Text>)}
+            {/* Description */}
+            <View style={styles.section}>
+              <Text style={styles.description}>{product.description}</Text>
+
+              {/* Categories */}
+              <View style={styles.categoriesContainer}>
+                {product.category?.map((category, index) => (
+                  <View key={index} style={styles.categoryBadge}>
+                    <Text style={styles.categoryText}>{category}</Text>
+                  </View>
+                ))}
               </View>
             </View>
 
-            <View style={styles.section}>
-              <View style={{flexDirection: "row", justifyContent: "space-between"}}>
-                <Text category='s1'>Reviews</Text>
-                <Text category='p2' style={{textDecorationLine: "underline", color: theme['color-primary-500']}} onPress={() => router.push('/(main)/profile/reviewsSummary')}>See all</Text>
-              </View>
+            {/* Divider */}
+            <View style={styles.divider} />
 
-              <View>
-                <FlatList
-                  scrollEnabled={false}
-                  data={reviews}
-                  renderItem={({item} : {item : Review}) => <ReviewItem review={item} key={item.id}/>}
-                  ListEmptyComponent={
-                    <View style={{justifyContent: "center", alignItems: "center", gap: 10}}>
-                      <CookingPot color={theme['color-basic-600']}/>
-                      <Text appearance='hint'>No Reviews</Text>
-                    </View>
-                  }
-                  contentContainerStyle={{paddingVertical: 10}}
-                />
+            {/* Reviews section */}
+            <View style={styles.reviewsHeader}>
+              <View style={styles.reviewsTitleContainer}>
+                <Text style={styles.sectionTitle}>Reviews</Text>
               </View>
+              <TouchableOpacity onPress={() => router.push('/(main)/profile/reviewsSummary')}>
+                <Text style={styles.viewAllText}>View All</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Reviews list */}
+            <View style={styles.reviewsContainer}>
+              <FlatList
+                scrollEnabled={false}
+                data={reviews}
+                renderItem={({item} : {item : Review}) => <ReviewItem review={item} key={item.id}/>}
+                ListEmptyComponent={
+                  <View style={styles.noReviewsContainer}>
+                    <CookingPot size={60} color={colors.icon.secondary}/>
+                    <Text style={styles.noReviewsText}>No Reviews</Text>
+                  </View>
+                }
+                contentContainerStyle={styles.reviewsList}
+              />
             </View>
           </View>
         </ScrollView>
 
-        <Button 
-          style={styles.deleteButton} 
-          onPress={handleDelete}
-          activeOpacity={0.7}
-          accessoryLeft={<DeleteIcon/>}
-          status='danger'
-        >
-        </Button>
-        
-        <Button 
-          style={styles.editButton} 
-          onPress={navigateToEdit}
-          activeOpacity={0.7}
-          accessoryLeft={<EditIcon/>}
-          status='warning'
-        >
-        </Button>
-      </SafeAreaView>
-    </Layout>
-  )}
+        {/* Bottom bar with Edit and Delete actions */}
+        <View style={styles.bottomBarContainer}>
+          <View style={styles.bottomBar}>
+            <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
+              <Trash2 size={20} color={colors.danger} />
+              <Text style={styles.deleteButtonText}>Delete</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.editButton} onPress={navigateToEdit}>
+              <Edit3 size={20} color={colors.white} />
+              <Text style={styles.editButtonText}>Edit Product</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    )}
 
-  {loading && (
-    <View style={[styles.container, styles.loadingContainer]}>
-      <Spinner size='giant'/>
-    </View>
-  )}
-  </>
+    {loading && (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <Spinner size='giant'/>
+      </View>
+    )}
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background.tertiary,
   },
-  safeArea: {
-    flex: 1,
-  },
-  scrollView: {
+  scrollContainer: {
     flex: 1,
   },
   imageContainer: {
-    width: '100%',
     height: 300,
+    position: "relative",
   },
-  productImage: {
-    width: '100%',
-    height: '100%',
+  image: {
+    width: "100%",
+    height: "100%",
   },
-  contentContainer: {
-    padding: 16,
+  backButton: {
+    position: "absolute",
+    top: 50,
+    left: 20,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    borderRadius: 20,
+    padding: 10,
   },
-  productTitle: {
-    marginBottom: 30,
+  content: {
+    padding: spacing.lg,
   },
-  productPrice: {
+  nameRow: {
+    marginBottom: spacing.sm,
+  },
+  title: {
+    fontSize: typography.fontSizes.title,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text.primary,
+  },
+  priceSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
+  },
+  price: {
+    fontSize: typography.fontSizes.title,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.primary,
+  },
+  discountBadge: {
+    backgroundColor: colors.danger,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  discountText: {
+    color: colors.text.inverse,
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.semibold,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border.primary,
+    marginVertical: spacing.lg,
   },
   section: {
-    marginBottom: 12,
+    marginBottom: spacing.sm,
   },
   description: {
-    margin: 5,
-    lineHeight: 20,
+    fontSize: typography.fontSizes.md,
+    color: colors.text.secondary,
+    lineHeight: typography.fontSizes.md * typography.lineHeights.relaxed,
+    marginBottom: spacing.md,
   },
-  reviewItem: {
-    marginTop: 16,
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: '#F7F9FC',
+  categoriesContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
   },
-  reviewerName: {
-    marginBottom: 4,
+  categoryBadge: {
+    backgroundColor: colors.primary,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    gap: 4,
+  categoryText: {
+    color: colors.text.inverse,
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.medium,
   },
-  editButton: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+  reviewsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.md,
+  },
+  reviewsTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  sectionTitle: {
+    fontSize: typography.fontSizes.xl,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text.primary,
+  },
+  viewAllText: {
+    fontSize: typography.fontSizes.md,
+    color: colors.primary,
+    fontWeight: typography.fontWeights.medium,
+  },
+  reviewsContainer: {
+    marginBottom: spacing.lg,
+  },
+  reviewsList: {
+    paddingVertical: spacing.sm,
+  },
+  noReviewsContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: spacing.xxxl,
+    gap: spacing.md,
+  },
+  noReviewsText: {
+    fontSize: typography.fontSizes.md,
+    color: colors.text.tertiary,
+  },
+  bottomBarContainer: {
+    backgroundColor: colors.background.primary,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+  },
+  bottomBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
   },
   deleteButton: {
-    position: 'absolute',
-    bottom: 24,
-    left: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.background.dangerSubtle,
+    borderRadius: radii.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.xs,
+    flex: 1,
+  },
+  deleteButtonText: {
+    color: colors.danger,
+    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.semibold,
+  },
+  editButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primary,
+    borderRadius: radii.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.xs,
+    flex: 2,
+  },
+  editButtonText: {
+    color: colors.text.inverse,
+    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.semibold,
   },
   loadingContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  viewPager: {
-    width: '100%',
-    height: '100%',
-  },
-  indicatorContainer: {
-    position: 'absolute',
-    bottom: 16,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  indicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-  },
-  activeIndicator: {
-    backgroundColor: '#FFFFFF',
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  categoryContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 5,
-    margin: 8,
-  },
-  categoryText: {
-    backgroundColor: '#F7F9FC',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 5,
   },
 });

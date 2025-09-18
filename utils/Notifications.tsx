@@ -3,6 +3,7 @@ import * as Device from "expo-device";
 import { Platform } from "react-native";
 
 export async function registerForPushNotificationsAsync() {
+  /*
   let token;
   if (Device.isDevice) {
     const { status: existingStatus } =
@@ -30,4 +31,5 @@ export async function registerForPushNotificationsAsync() {
   }
 
   return token;
+  */
 }
