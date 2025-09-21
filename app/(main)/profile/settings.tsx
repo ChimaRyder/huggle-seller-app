@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Bell, MapPin, Moon, Store, Shield, FileText, Info, ChevronRight } from 'lucide-react-native';
+import { ArrowLeft, Bell, MapPin, Moon, Shield, FileText, Info, ChevronRight } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/constants/theme';
 
 const SettingsScreen = () => {
@@ -20,10 +20,6 @@ const SettingsScreen = () => {
 
   const handleBackPress = () => {
     router.back();
-  };
-
-  const navigateToEditStore = () => {
-    router.push('/(main)/profile/shopDetails');
   };
 
   const navigateToVerification = () => {
@@ -46,14 +42,6 @@ const SettingsScreen = () => {
   };
 
   const accountItems = [
-    {
-      id: 'editStore',
-      title: 'Edit Store',
-      subtitle: 'Update your store information and settings',
-      type: 'navigate',
-      icon: Store,
-      onPress: navigateToEditStore,
-    },
     {
       id: 'verification',
       title: 'Store Verification',

@@ -23,7 +23,7 @@ export const sellerProfileMenuItems: SellerProfileMenuItem[] = [
     id: 'store-settings',
     title: 'Store Settings',
     icon: 'store',
-    screen: '/(main)/profile/storeSettings',
+    screen: '/(main)/profile/shopDetails',
     description: 'Update store information'
   },
   {
