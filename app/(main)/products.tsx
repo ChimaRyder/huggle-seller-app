@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, View, SafeAreaView } from "react-native";
+import { StyleSheet, View } from "react-native";
 import {
   Layout,
   TopNavigation,
@@ -10,7 +10,7 @@ import {
   IconElement,
   Text
 } from "@ui-kitten/components";
-
+import { SafeAreaView } from "react-native-safe-area-context";
 import ProductsTab from "./products/productsTab";
 import { useRouter } from "expo-router";
 import { BellDot, Plus } from "lucide-react-native";
@@ -31,7 +31,7 @@ export default function ProductsScreen({unread} : {unread : number}) {
 
   return (
     <View style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'top']}>
+      <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
         <ProductsTab theme={theme} unread={unread} />
       </SafeAreaView>
     </View>

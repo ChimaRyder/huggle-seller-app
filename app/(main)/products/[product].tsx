@@ -193,7 +193,10 @@ export default function ProductPage() {
               <View style={styles.reviewsTitleContainer}>
                 <Text style={styles.sectionTitle}>Reviews</Text>
               </View>
-              <TouchableOpacity onPress={() => router.push('/(main)/profile/reviewsSummary')}>
+              <TouchableOpacity onPress={() => router.push({
+                pathname: '/(main)/profile/reviewsSummary',
+                params: { productId: product.id, productName: product.name }
+              })}>
                 <Text style={styles.viewAllText}>View All</Text>
               </TouchableOpacity>
             </View>

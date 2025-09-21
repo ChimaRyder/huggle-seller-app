@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { Text, Button, Icon, IconProps, IconElement, ThemeType, OverflowMenu, MenuItem, Layout, useTheme, ViewPager, Avatar } from '@ui-kitten/components';
 import { ChartLine, EllipsisVertical, Heart } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 
 // Icons
 const MoreIcon = (props: IconProps): IconElement => (
@@ -35,6 +36,7 @@ interface PromotionPostProps {
 
 const PromotionPost = ({ post, onEdit, onDelete, store }: PromotionPostProps) => {
   const theme = useTheme();
+  const router = useRouter();
   const [menuVisible, setMenuVisible] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
@@ -60,12 +62,20 @@ const PromotionPost = ({ post, onEdit, onDelete, store }: PromotionPostProps) =>
     );
   };
 
+  // Navigate to post detail screen
+  const handlePostPress = () => {
+    router.push({
+      pathname: '/(main)/promotions/PostScreen',
+      params: { id: post.id.toString() }
+    });
+  };
+
   // Render images with ViewPager
   const renderImages = () => {
     if (!post.imageUrls || post.imageUrls.length === 0) return null;
 
     return (
-      <View style={styles.imageContainer}>
+      <TouchableOpacity style={styles.imageContainer} onPress={handlePostPress}>
         <ViewPager
           selectedIndex={selectedImageIndex}
           onSelect={index => setSelectedImageIndex(index)}
@@ -82,7 +92,7 @@ const PromotionPost = ({ post, onEdit, onDelete, store }: PromotionPostProps) =>
           ))}
         </ViewPager>
         {post.imageUrls.length > 1 && renderImageIndicators()}
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -147,9 +157,9 @@ const PromotionPost = ({ post, onEdit, onDelete, store }: PromotionPostProps) =>
       </View>
 
       {/* Content */}
-      <View style={styles.content}>
+      <TouchableOpacity style={styles.content} onPress={handlePostPress}>
         <Text style={styles.postText}>{post.content}</Text>
-      </View>
+      </TouchableOpacity>
 
       {/* Images */}
       {renderImages()}

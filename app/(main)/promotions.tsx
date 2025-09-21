@@ -9,11 +9,12 @@ import {
   Alert,
   Dimensions,
   Image,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
-import { Heart, MessageCircle, Share, Plus, TrendingUp, Eye, MoreHorizontal } from 'lucide-react-native';
+import { Heart, MessageCircle, Share, Plus, TrendingUp, Eye, MoreHorizontal, Edit, Trash2 } from 'lucide-react-native';
 import { colors, spacing, typography, radii } from '@/constants/theme';
 import { mockPosts, mockEngagementStats, type MockPost } from '@/data/mockPromotionData';
 
@@ -26,6 +27,8 @@ export default function PromotionsScreen() {
   const [posts, setPosts] = useState<MockPost[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<MockPost | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -78,6 +81,50 @@ export default function PromotionsScreen() {
         },
       ]
     );
+  };
+
+  const handlePostPress = (postId: string) => {
+    router.push({
+      pathname: '/(main)/promotions/PostScreen',
+      params: { id: postId }
+    });
+  };
+
+  const handleOptionsPress = (post: MockPost, event: any) => {
+    event.stopPropagation(); // Prevent post navigation when clicking options
+    setSelectedPost(post);
+    setShowOptionsMenu(true);
+  };
+
+  const handleModalEditPost = () => {
+    setShowOptionsMenu(false);
+    if (selectedPost) {
+      router.push({
+        pathname: '/(main)/promotions/editPost',
+        params: { postId: selectedPost.id }
+      });
+    }
+  };
+
+  const handleModalDeletePost = () => {
+    setShowOptionsMenu(false);
+    if (selectedPost) {
+      Alert.alert(
+        'Delete Post',
+        'Are you sure you want to delete this post? This action cannot be undone.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: () => {
+              setPosts(posts.filter(post => post.id !== selectedPost.id));
+              Alert.alert('Post Deleted', 'Your post has been deleted successfully.');
+            },
+          },
+        ]
+      );
+    }
   };
 
   const formatNumber = (num: number) => {
@@ -165,7 +212,7 @@ export default function PromotionsScreen() {
   );
 
   const renderPost = ({ item }: { item: MockPost }) => (
-    <View style={styles.postCard}>
+    <TouchableOpacity style={styles.postCard} onPress={() => handlePostPress(item.id)}>
       {/* Post Header */}
       <View style={styles.postHeader}>
         <View style={styles.postHeaderLeft}>
@@ -178,17 +225,7 @@ export default function PromotionsScreen() {
         </View>
         <TouchableOpacity
           style={styles.moreButton}
-          onPress={() => {
-            Alert.alert(
-              'Post Options',
-              'What would you like to do?',
-              [
-                { text: 'Edit', onPress: () => handleEditPost(item.id) },
-                { text: 'Delete', style: 'destructive', onPress: () => handleDeletePost(item.id) },
-                { text: 'Cancel', style: 'cancel' },
-              ]
-            );
-          }}
+          onPress={(event) => handleOptionsPress(item, event)}
         >
           <MoreHorizontal size={20} color={colors.text.secondary} />
         </TouchableOpacity>
@@ -249,7 +286,7 @@ export default function PromotionsScreen() {
           <Text style={styles.statText}>{formatNumber(item.shares)}</Text>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   const renderEmptyState = () => (
@@ -272,7 +309,6 @@ export default function PromotionsScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.headerTitle}>Promotions</Text>
-          <Text style={styles.headerSubtitle}>Share your latest products and updates</Text>
         </View>
         <TouchableOpacity style={styles.createButton} onPress={handleCreatePost}>
           <Plus size={20} color={colors.primary} />
@@ -295,6 +331,34 @@ export default function PromotionsScreen() {
           posts.length === 0 && { flex: 1 }
         ]}
       />
+
+      {/* Options Menu Modal */}
+      <Modal
+        visible={showOptionsMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowOptionsMenu(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowOptionsMenu(false)}
+        >
+          <View style={styles.optionsMenu}>
+            <TouchableOpacity style={styles.optionItem} onPress={handleModalEditPost}>
+              <Edit size={20} color={colors.primary} />
+              <Text style={styles.optionText}>Edit Post</Text>
+            </TouchableOpacity>
+
+            <View style={styles.optionDivider} />
+
+            <TouchableOpacity style={styles.optionItem} onPress={handleModalDeletePost}>
+              <Trash2 size={20} color={colors.error} />
+              <Text style={[styles.optionText, { color: colors.error }]}>Delete Post</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -532,5 +596,44 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.md,
     fontWeight: typography.fontWeights.semibold,
     color: colors.text.inverse,
+  },
+  // Options Menu styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  optionsMenu: {
+    backgroundColor: colors.background.primary,
+    borderRadius: radii.lg,
+    paddingVertical: spacing.sm,
+    minWidth: 200,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.md,
+  },
+  optionText: {
+    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.medium,
+    color: colors.text.primary,
+  },
+  optionDivider: {
+    height: 1,
+    backgroundColor: colors.border.primary,
+    marginHorizontal: spacing.lg,
   },
 });
