@@ -1,576 +1,806 @@
-import { useState } from "react";
-import { StyleSheet, View, ScrollView } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import React, { useState } from 'react';
 import {
+  StyleSheet,
+  View,
+  ScrollView,
   Text,
-  Input,
-  Button,
-  Select,
-  SelectItem,
-  Icon,
-  Datepicker,
-  IconElement,
-  IconProps,
-  Card,
-  Layout,
-  TopNavigation,
-  TopNavigationAction,
-} from "@ui-kitten/components";
-import { Formik } from "formik";
-import * as Yup from "yup";
-import { IndexPath, Popover } from "@ui-kitten/components";
-import ImageUploader from "../components/ImageUploader";
-import axios from "axios";
-import { useAuth, useUser } from "@clerk/clerk-expo";
-import { showToast } from "@/components/Toast";
-import { createProduct } from "@/utils/data/ProductController";
+  TextInput,
+  TouchableOpacity,
+  Image,
+  Alert,
+  Dimensions,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { useAuth, useUser } from '@clerk/clerk-expo';
+import {
+  ArrowLeft,
+  Camera,
+  X,
+  Hash,
+  Type,
+  Image as ImageIcon,
+  Check,
+  AlertCircle,
+  Loader,
+  Package,
+  DollarSign,
+  Calendar,
+  BarChart3,
+} from 'lucide-react-native';
+import { colors, spacing, typography, radii } from '@/constants/theme';
+import { createProduct } from '@/utils/data/ProductController';
+import { showToast } from '@/components/Toast';
+import * as ImagePicker from 'expo-image-picker';
 
-// Icons
-const BackIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="ArrowLeft" />
-);
-
-const CalendarIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="Calendar" />
-);
-
-const InfoIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="Info" />
-);
-
-const ExitIcon = (props: IconProps): IconElement => (
-  <Icon {...props} name="CircleX" />
-);
+const { width } = Dimensions.get('window');
+const IMAGE_SIZE = (width - spacing.lg * 3) / 2;
 
 // Product Types
 const productTypes = ["Food", "Electronics", "Clothing", "Home Appliances", "Books", "Health & Beauty", "Sports & Outdoors", "Toys & Games", "Pets", "Automotives", "Baby Products", "Office Supplies", "Arts & Crafts"];
 
-// Validation Schema
-const ProductSchema = Yup.object().shape({
-  name: Yup.string().required("Product Name is required."),
-  description: Yup.string().required("Description is required."),
-  productType: Yup.string().required("Product Type is required."),
-  coverImage: Yup.string().required("Cover Image is required."),
-  additionalImages: Yup.array().of(Yup.string()),
-  discountedPrice: Yup.number()
-    .required("Discounted Price is required")
-    .positive("Discounted Price must be positive"),
-  originalPrice: Yup.number()
-    .required("Original Price is required")
-    .positive("Original Price must be positive")
-    .test(
-      "is-greater-than-discount",
-      "Original price must be greater than the discounted price",
-      function (value) {
-        const { discountedPrice } = this.parent;
-        return (
-          !discountedPrice ||
-          !value ||
-          parseFloat(String(value)) > parseFloat(String(discountedPrice))
-        );
-      }
-    ),
-  duration: Yup.date()
-    .required("Duration is required")
-    .min(new Date(), "Duration must be a future date"),
-  stock: Yup.number()
-    .required("Initial Stock is required")
-    .positive("Initial Stock must be positive"),
-  category: Yup.string(),
-});
 
-interface ProductFormValues {
-  name: string;
-  description: string;
-  productType: string;
-  coverImage: string;
-  additionalImages: string[];
-  discountedPrice: number;
-  originalPrice: number;
-  duration: Date;
-  stock: number;
-  category: string;
-}
 
 // Create Product Screen
 const CreateProduct = () => {
   const router = useRouter();
-  const [selectedIndex, setSelectedIndex] = useState<IndexPath | IndexPath[]>(
-    new IndexPath(0)
-  );
-  const [visible, setVisible] = useState(false);
-  const [category, setCategory] = useState<string[]>([]);
   const { getToken } = useAuth();
   const { user } = useUser();
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [productType, setProductType] = useState('');
+  const [coverImage, setCoverImage] = useState('');
+  const [additionalImages, setAdditionalImages] = useState<string[]>([]);
+  const [originalPrice, setOriginalPrice] = useState('');
+  const [discountedPrice, setDiscountedPrice] = useState('');
+  const [stock, setStock] = useState('');
+  const [duration, setDuration] = useState(new Date());
+  const [category, setCategory] = useState<string[]>([]);
+  const [currentCategory, setCurrentCategory] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Initial form values
-  const initialValues: ProductFormValues = {
-    name: "",
-    description: "",
-    productType: "",
-    coverImage: "",
-    additionalImages: [],
-    discountedPrice: 0,
-    originalPrice: 0,
-    duration: new Date(),
-    stock: 0,
-    category: "",
+  const navigateBack = () => {
+    if (name.trim() || description.trim() || coverImage || additionalImages.length > 0) {
+      Alert.alert(
+        'Discard Changes',
+        'Are you sure you want to discard your changes?',
+        [
+          { text: 'Keep Editing', style: 'cancel' },
+          { text: 'Discard', style: 'destructive', onPress: () => router.back() },
+        ]
+      );
+    } else {
+      router.back();
+    }
   };
 
-  // Handle form submission
-  const handleSubmit = async (values: ProductFormValues) => {
-    const productData = {
-      name: values.name,
-      description: values.description,
-      productType: values.productType,
-      coverImage: values.coverImage,
-      additionalImages: values.additionalImages,
-      discountedPrice: parseFloat(values.discountedPrice.toString()),
-      originalPrice: parseFloat(values.originalPrice.toString()),
-      expirationDate: values.duration.toISOString(),
-      stock: values.stock,
-      category: category,
-      storeId: user?.publicMetadata.storeId as string,
-    };
-
-    // Save to database
-    const token = await getToken({ template: "seller_app" });
-
-    try {
-      const response = await createProduct(productData, token ?? "");
-
-      console.log("Product created successfully:", ((response as any).data));
-      router.dismissTo("/(main)");
-      showToast('success', 'Product Created!', `${productData.name} has been created successfully.`);
-    } catch (error) {
-      console.error("Error creating product:", error);
-      showToast('error', 'Uh oh!', `Something went wrong while creating the product. Please try again.`);
+  const pickImage = async () => {
+    if (additionalImages.length >= 3) {
+      Alert.alert('Limit Reached', 'You can add up to 3 additional images.');
+      return;
     }
 
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setAdditionalImages(prev => [...prev, result.assets[0].uri]);
+    }
   };
 
-  // Handle save as draft
-  const handleSaveAsDraft = () => {
-    console.log("Saved As Draft");
+  const pickCoverImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setCoverImage(result.assets[0].uri);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setAdditionalImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const addCategory = () => {
+    const cat = currentCategory.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (cat && !category.includes(cat) && category.length < 10) {
+      setCategory(prev => [...prev, cat]);
+      setCurrentCategory('');
+    }
+  };
+
+  const removeCategory = (categoryToRemove: string) => {
+    setCategory(prev => prev.filter(cat => cat !== categoryToRemove));
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: { [key: string]: string } = {};
+
+    if (!name.trim()) {
+      newErrors.name = 'Product name is required';
+    }
+
+    if (!description.trim()) {
+      newErrors.description = 'Description is required';
+    } else if (description.length < 10) {
+      newErrors.description = 'Description must be at least 10 characters';
+    }
+
+    if (!productType) {
+      newErrors.productType = 'Product type is required';
+    }
+
+    if (!coverImage) {
+      newErrors.coverImage = 'Cover image is required';
+    }
+
+    if (!originalPrice || parseFloat(originalPrice) <= 0) {
+      newErrors.originalPrice = 'Valid original price is required';
+    }
+
+    if (!discountedPrice || parseFloat(discountedPrice) <= 0) {
+      newErrors.discountedPrice = 'Valid discounted price is required';
+    }
+
+    if (parseFloat(originalPrice) <= parseFloat(discountedPrice)) {
+      newErrors.originalPrice = 'Original price must be greater than discounted price';
+    }
+
+    if (!stock || parseInt(stock) <= 0) {
+      newErrors.stock = 'Valid stock quantity is required';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+
+    setIsSubmitting(true);
+
+    try {
+      const productData = {
+        name: name,
+        description: description,
+        productType: productType,
+        coverImage: coverImage,
+        additionalImages: additionalImages,
+        discountedPrice: parseFloat(discountedPrice),
+        originalPrice: parseFloat(originalPrice),
+        expirationDate: duration.toISOString(),
+        stock: parseInt(stock),
+        category: category,
+        storeId: user?.publicMetadata.storeId as string,
+      };
+
+      const token = await getToken({ template: "seller_app" });
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      const response = await createProduct(productData, token ?? "");
+
+      Alert.alert(
+        'Product Created!',
+        'Your product has been created successfully.',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.back(),
+          },
+        ]
+      );
+    } catch (error) {
+      console.error("Error creating product:", error);
+      Alert.alert('Error', 'Failed to create product. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const getProductTypeColor = (type: string) => {
+    switch (type.toLowerCase()) {
+      case 'food': return colors.primary;
+      case 'electronics': return colors.warning;
+      case 'clothing': return colors.info;
+      case 'home appliances': return colors.success;
+      default: return colors.text.secondary;
+    }
   };
 
   return (
-    <Layout level="1" style={styles.container}>
-      <SafeAreaView style={styles.container}>
-        <TopNavigation
-          title={() => <Text category="h5">Add Product</Text>}
-          accessoryLeft={() => (
-            <TopNavigationAction
-              onPress={() => router.back()}
-              icon={BackIcon}
-            />
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={navigateBack}>
+          <ArrowLeft size={24} color={colors.text.primary} />
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>Create Product</Text>
+          <Text style={styles.headerSubtitle}>Add a new product to your store</Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.publishButton, (!name.trim() || !description.trim() || !coverImage) && styles.publishButtonDisabled]}
+          onPress={handleSubmit}
+          disabled={!name.trim() || !description.trim() || !coverImage || isSubmitting}
+        >
+          {isSubmitting ? (
+            <View style={styles.loadingIndicator} />
+          ) : (
+            <Check size={20} color={colors.text.inverse} />
           )}
-        />
-        <ScrollView>
-          <Formik
-            initialValues={initialValues}
-            validationSchema={ProductSchema}
-            onSubmit={handleSubmit}
-          >
-            {({
-              handleChange,
-              handleBlur,
-              handleSubmit: formikSubmit,
-              setFieldValue,
-              values,
-              errors,
-              touched,
-            }) => (
-              <View style={styles.formContainer}>
-                <View style={styles.section}>
-                  <Text category="h6" style={styles.sectionTitle}>
-                    Product Details
-                  </Text>
+        </TouchableOpacity>
+      </View>
 
-                  <Text style={styles.label}>Product Name</Text>
-                  <Input
-                    placeholder=""
-                    value={values.name}
-                    onChangeText={handleChange("name")}
-                    onBlur={handleBlur("name")}
-                    style={styles.input}
-                  />
-                  {touched.name && errors.name && (
-                    <Text style={styles.errorText}>{errors.name}</Text>
-                  )}
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Product Details Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Package size={20} color={colors.primary} />
+            <Text style={styles.sectionTitle}>Product Details</Text>
+          </View>
+          <Text style={styles.sectionDescription}>
+            Basic information about your product
+          </Text>
 
-                  <Text style={styles.label}>Description</Text>
-                  <Input
-                    placeholder=""
-                    value={values.description}
-                    onChangeText={handleChange("description")}
-                    onBlur={handleBlur("description")}
-                    multiline={true}
-                    textStyle={{ minHeight: 100 }}
-                    style={styles.input}
-                  />
-                  {touched.description && errors.description && (
-                    <Text style={styles.errorText}>{errors.description}</Text>
-                  )}
+          <Text style={styles.label}>Product Name</Text>
+          {errors.name && (
+            <View style={styles.errorContainer}>
+              <AlertCircle size={16} color={colors.error} />
+              <Text style={styles.errorText}>{errors.name}</Text>
+            </View>
+          )}
+          <TextInput
+            style={[
+              styles.textInput,
+              errors.name && { borderColor: colors.error }
+            ]}
+            placeholder="Enter product name..."
+            placeholderTextColor={colors.text.tertiary}
+            value={name}
+            onChangeText={setName}
+          />
 
-                  <Text style={styles.label}>Product Type</Text>
-                  <Select
-                    placeholder="Choose Type of Product"
-                    value={
-                      !values.productType
-                        ? "Select Type of Product"
-                        : productTypes[(selectedIndex as IndexPath).row]
-                    }
-                    selectedIndex={selectedIndex}
-                    onSelect={(index: IndexPath | IndexPath[]) => {
-                      setSelectedIndex(index);
-                      setFieldValue(
-                        "productType",
-                        productTypes[(index as IndexPath).row]
-                      );
-                    }}
-                    style={styles.input}
-                  >
-                    {productTypes.map((type, index) => (
-                      <SelectItem key={index} title={type} />
-                    ))}
-                  </Select>
-                  {touched.productType && errors.productType && (
-                    <Text style={styles.errorText}>{errors.productType}</Text>
-                  )}
-                </View>
+          <Text style={styles.label}>Description</Text>
+          {errors.description && (
+            <View style={styles.errorContainer}>
+              <AlertCircle size={16} color={colors.error} />
+              <Text style={styles.errorText}>{errors.description}</Text>
+            </View>
+          )}
+          <TextInput
+            style={[
+              styles.descriptionInput,
+              errors.description && { borderColor: colors.error }
+            ]}
+            multiline
+            placeholder="Describe your product in detail..."
+            placeholderTextColor={colors.text.tertiary}
+            value={description}
+            onChangeText={setDescription}
+            textAlignVertical="top"
+          />
 
-                <View style={styles.section}>
-                  <Text category="h6" style={styles.sectionTitle}>
-                    Product Photos
-                  </Text>
+          <Text style={styles.label}>Product Type</Text>
+          {errors.productType && (
+            <View style={styles.errorContainer}>
+              <AlertCircle size={16} color={colors.error} />
+              <Text style={styles.errorText}>{errors.productType}</Text>
+            </View>
+          )}
+          <View style={styles.productTypeGrid}>
+            {productTypes.map((type) => (
+              <TouchableOpacity
+                key={type}
+                style={[
+                  styles.productTypeOption,
+                  productType === type && { backgroundColor: getProductTypeColor(type) + '20', borderColor: getProductTypeColor(type) }
+                ]}
+                onPress={() => setProductType(type)}
+              >
+                <Text style={[
+                  styles.productTypeText,
+                  productType === type && { color: getProductTypeColor(type), fontWeight: typography.fontWeights.semibold }
+                ]}>
+                  {type}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
 
-                  <Text style={styles.label}>Cover Photo</Text>
-                  <ImageUploader
-                    image={values.coverImage}
-                    onImageSelected={(uri: string) =>
-                      setFieldValue("coverImage", uri)
-                    }
-                    style={styles.coverImageUploader}
-                  />
-                  {touched.coverImage && errors.coverImage && (
-                    <Text style={styles.errorText}>{errors.coverImage}</Text>
-                  )}
+        {/* Images Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <ImageIcon size={20} color={colors.primary} />
+            <Text style={styles.sectionTitle}>Product Images</Text>
+            <Text style={styles.sectionCounter}>({(coverImage ? 1 : 0) + additionalImages.length}/{1 + 3})</Text>
+          </View>
+          {errors.coverImage && (
+            <View style={styles.errorContainer}>
+              <AlertCircle size={16} color={colors.error} />
+              <Text style={styles.errorText}>{errors.coverImage}</Text>
+            </View>
+          )}
+          <Text style={styles.sectionDescription}>
+            Add high-quality images to showcase your product
+          </Text>
 
-                  <Text style={styles.label}>Additional Photos</Text>
-                  <View style={styles.additionalImagesContainer}>
-                    {[0, 1, 2].map((index) => (
-                      <ImageUploader
-                        key={index}
-                        image={values.additionalImages[index] || ""}
-                        onImageSelected={(uri: string) => {
-                          const newImages = [...values.additionalImages];
-                          newImages[index] = uri;
-                          setFieldValue("additionalImages", newImages);
-                        }}
-                        style={styles.additionalImageUploader}
-                      />
-                    ))}
-                  </View>
-                </View>
-
-                <View style={styles.section}>
-                  <Text category="h6" style={styles.sectionTitle}>
-                    Category
-                  </Text>
-
-                  <Text style={styles.label}>Keywords/Tags</Text>
-                  <Input
-                    placeholder="Add a Keyword"
-                    value={values.category}
-                    onChangeText={handleChange("category")}
-                    onBlur={handleBlur("category")}
-                    style={styles.input}
-                    onSubmitEditing={() => {
-                      category.push(values.category);
-                      setFieldValue("category", "");
-                      values.category = "";
-                    }}
-                  />
-                  {touched.category && errors.category && (
-                    <Text style={styles.errorText}>{errors.category}</Text>
-                  )}
-                  <View style={styles.categories}>
-                    <Text style={styles.label}>Categories:</Text>
-                    {category.map((c, index) => (
-                      <Button
-                        style={styles.categoryText}
-                        key={index}
-                        status="primary"
-                        size="tiny"
-                        accessoryLeft={ExitIcon}
-                        onPress={() => {
-                          const newCategories = category
-                            .splice(0, index)
-                            .concat(category.splice(index + 1));
-                          setCategory(newCategories);
-                        }}
-                      >
-                        {c}
-                      </Button>
-                    ))}
-                  </View>
-                </View>
-
-                <View style={styles.section}>
-                  <Text category="h6" style={styles.sectionTitle}>
-                    Prices
-                  </Text>
-
-                  <Text style={styles.label}>Original Price</Text>
-                  <Input
-                    placeholder="00.00"
-                    value={
-                      values.originalPrice.toString() === "0"
-                        ? ""
-                        : values.originalPrice.toString()
-                    }
-                    onChangeText={handleChange("originalPrice")}
-                    onBlur={handleBlur("originalPrice")}
-                    keyboardType="numeric"
-                    accessoryLeft={(props) => <Text {...props}>₱</Text>}
-                    style={styles.input}
-                  />
-                  {touched.originalPrice && errors.originalPrice && (
-                    <Text style={styles.errorText}>{errors.originalPrice}</Text>
-                  )}
-
-                  <Text style={styles.label}>Discounted Price</Text>
-                  <Input
-                    placeholder="00.00"
-                    value={
-                      values.discountedPrice.toString() === "0"
-                        ? ""
-                        : values.discountedPrice.toString()
-                    }
-                    onChangeText={handleChange("discountedPrice")}
-                    onBlur={handleBlur("discountedPrice")}
-                    keyboardType="numeric"
-                    accessoryLeft={(props) => <Text {...props}>₱</Text>}
-                    style={styles.input}
-                  />
-                  {touched.discountedPrice && errors.discountedPrice && (
-                    <Text style={styles.errorText}>
-                      {errors.discountedPrice}
-                    </Text>
-                  )}
-
-                  <Text style={[styles.discountText, styles.label]}>
-                    Price Reduction: ₱{" "}
-                    {values.originalPrice &&
-                      values.discountedPrice &&
-                      (values.originalPrice - values.discountedPrice).toFixed(
-                        2
-                      )}
-                    {isNaN(values.originalPrice - values.discountedPrice) &&
-                      "00.00"}
-                  </Text>
-                  <Text style={[styles.discountText, styles.label]}>
-                    Discount:{" "}
-                    {values.originalPrice &&
-                      values.discountedPrice &&
-                      (
-                        ((values.originalPrice - values.discountedPrice) /
-                          values.originalPrice) *
-                        100
-                      ).toFixed(2)}
-                    {isNaN(values.originalPrice - values.discountedPrice) &&
-                      "00.00"}
-                    %
-                  </Text>
-                </View>
-
-                <View style={styles.section}>
-                  <Text category="h6" style={styles.sectionTitle}>
-                    Stock
-                  </Text>
-
-                  <Text style={styles.label}>Initial Stock</Text>
-                  <Input
-                    placeholder="0"
-                    value={values.stock ? values.stock.toString() : ""}
-                    onChangeText={handleChange("stock")}
-                    onBlur={handleBlur("stock")}
-                    keyboardType="numeric"
-                    style={styles.input}
-                  />
-                  {touched.stock && errors.stock && (
-                    <Text style={styles.errorText}>{errors.stock}</Text>
-                  )}
-                </View>
-
-                <View style={styles.section}>
-                  <Text category="h6" style={styles.sectionTitle}>
-                    Duration
-                    <Popover
-                      anchor={() => (
-                        <Button
-                          appearance="ghost"
-                          size="small"
-                          status="primary"
-                          onPress={() => setVisible(!visible)}
-                          style={styles.durationButton}
-                          accessoryLeft={InfoIcon}
-                        ></Button>
-                      )}
-                      visible={visible}
-                      onBackdropPress={() => setVisible(false)}
-                      placement={"bottom start"}
-                    >
-                      <Card disabled={true} style={styles.modalCard}>
-                        <Text style={styles.modalText}>
-                          The duration is the time period during which the
-                          product will be available for purchase.
-                        </Text>
-                      </Card>
-                    </Popover>
-                  </Text>
-
-                  <View style={styles.durationRow}>
-                    <Text style={styles.label}>Time Duration</Text>
-                  </View>
-
-                  <Datepicker
-                    date={values.duration}
-                    onSelect={(date) => setFieldValue("duration", date)}
-                    accessoryRight={CalendarIcon}
-                    placeholder="MM/DD/YYYY HH:MM:SS"
-                    style={styles.input}
-                    min={new Date()}
-                  />
-                  {touched.duration && errors.duration && (
-                    <Text style={styles.errorText}>{errors.duration}</Text>
-                  )}
-                </View>
-
-                <View style={styles.buttonContainer}>
-                  <Button
-                    style={styles.publishButton}
-                    status="success"
-                    onPress={() => formikSubmit()}
-                  >
-                    Publish now
-                  </Button>
-                </View>
+          <Text style={styles.label}>Cover Image</Text>
+          <View style={styles.imageGrid}>
+            {coverImage ? (
+              <View style={styles.coverImageItem}>
+                <Image source={{ uri: coverImage }} style={styles.coverImagePreview} />
+                <TouchableOpacity
+                  style={styles.removeImageButton}
+                  onPress={() => setCoverImage('')}
+                >
+                  <X size={16} color={colors.text.inverse} />
+                </TouchableOpacity>
               </View>
+            ) : (
+              <TouchableOpacity style={styles.addCoverImageButton} onPress={pickCoverImage}>
+                <Camera size={24} color={colors.primary} />
+                <Text style={styles.addImageText}>Add Cover Image</Text>
+              </TouchableOpacity>
             )}
-          </Formik>
-        </ScrollView>
-      </SafeAreaView>
-    </Layout>
+          </View>
+
+          <Text style={styles.label}>Additional Images</Text>
+          <View style={styles.imageGrid}>
+            {additionalImages.map((imageUri, index) => (
+              <View key={index} style={styles.imageItem}>
+                <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+                <TouchableOpacity
+                  style={styles.removeImageButton}
+                  onPress={() => removeImage(index)}
+                >
+                  <X size={16} color={colors.text.inverse} />
+                </TouchableOpacity>
+              </View>
+            ))}
+
+            {additionalImages.length < 3 && (
+              <TouchableOpacity style={styles.addImageButton} onPress={pickImage}>
+                <Camera size={24} color={colors.primary} />
+                <Text style={styles.addImageText}>Add Photo</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Pricing Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <DollarSign size={20} color={colors.primary} />
+            <Text style={styles.sectionTitle}>Pricing</Text>
+          </View>
+          <Text style={styles.sectionDescription}>
+            Set competitive prices for your product
+          </Text>
+
+          <Text style={styles.label}>Original Price (₱)</Text>
+          {errors.originalPrice && (
+            <View style={styles.errorContainer}>
+              <AlertCircle size={16} color={colors.error} />
+              <Text style={styles.errorText}>{errors.originalPrice}</Text>
+            </View>
+          )}
+          <TextInput
+            style={[
+              styles.textInput,
+              errors.originalPrice && { borderColor: colors.error }
+            ]}
+            placeholder="0.00"
+            placeholderTextColor={colors.text.tertiary}
+            value={originalPrice}
+            onChangeText={setOriginalPrice}
+            keyboardType="numeric"
+          />
+
+          <Text style={styles.label}>Discounted Price (₱)</Text>
+          {errors.discountedPrice && (
+            <View style={styles.errorContainer}>
+              <AlertCircle size={16} color={colors.error} />
+              <Text style={styles.errorText}>{errors.discountedPrice}</Text>
+            </View>
+          )}
+          <TextInput
+            style={[
+              styles.textInput,
+              errors.discountedPrice && { borderColor: colors.error }
+            ]}
+            placeholder="0.00"
+            placeholderTextColor={colors.text.tertiary}
+            value={discountedPrice}
+            onChangeText={setDiscountedPrice}
+            keyboardType="numeric"
+          />
+
+          {originalPrice && discountedPrice && parseFloat(originalPrice) > parseFloat(discountedPrice) && (
+            <View style={styles.priceCalculation}>
+              <Text style={styles.discountText}>
+                Savings: ₱{(parseFloat(originalPrice) - parseFloat(discountedPrice)).toFixed(2)}
+              </Text>
+              <Text style={styles.discountText}>
+                Discount: {(((parseFloat(originalPrice) - parseFloat(discountedPrice)) / parseFloat(originalPrice)) * 100).toFixed(1)}%
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Stock Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <BarChart3 size={20} color={colors.primary} />
+            <Text style={styles.sectionTitle}>Inventory</Text>
+          </View>
+          <Text style={styles.sectionDescription}>
+            Manage your product stock levels
+          </Text>
+
+          <Text style={styles.label}>Stock Quantity</Text>
+          {errors.stock && (
+            <View style={styles.errorContainer}>
+              <AlertCircle size={16} color={colors.error} />
+              <Text style={styles.errorText}>{errors.stock}</Text>
+            </View>
+          )}
+          <TextInput
+            style={[
+              styles.textInput,
+              errors.stock && { borderColor: colors.error }
+            ]}
+            placeholder="0"
+            placeholderTextColor={colors.text.tertiary}
+            value={stock}
+            onChangeText={setStock}
+            keyboardType="numeric"
+          />
+        </View>
+
+        {/* Categories Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Hash size={20} color={colors.primary} />
+            <Text style={styles.sectionTitle}>Categories</Text>
+            <Text style={styles.sectionCounter}>({category.length}/10)</Text>
+          </View>
+          <Text style={styles.sectionDescription}>
+            Add relevant categories to help customers find your product
+          </Text>
+
+          {/* Category Input */}
+          <View style={styles.tagInputContainer}>
+            <TextInput
+              style={styles.tagInput}
+              placeholder="Add a category..."
+              placeholderTextColor={colors.text.tertiary}
+              value={currentCategory}
+              onChangeText={setCurrentCategory}
+              onSubmitEditing={addCategory}
+              maxLength={20}
+            />
+            <TouchableOpacity
+              style={[styles.addTagButton, !currentCategory.trim() && styles.addTagButtonDisabled]}
+              onPress={addCategory}
+              disabled={!currentCategory.trim() || category.length >= 10}
+            >
+              <Text style={styles.addTagText}>Add</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Categories Display */}
+          {category.length > 0 && (
+            <View style={styles.tagsContainer}>
+              {category.map((cat, index) => (
+                <View key={index} style={styles.tag}>
+                  <Text style={styles.tagText}>#{cat}</Text>
+                  <TouchableOpacity onPress={() => removeCategory(cat)}>
+                    <X size={14} color={colors.primary} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        <View style={{ height: spacing.xxxl }} />
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background.tertiary,
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.background.primary,
     borderBottomWidth: 1,
+    borderBottomColor: colors.border.primary,
   },
-  formContainer: {
-    padding: 16,
+  backButton: {
+    padding: spacing.sm,
+    marginRight: spacing.md,
   },
-  section: {
-    marginBottom: 24,
-    borderRadius: 8,
-    padding: 16,
-  },
-  sectionTitle: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 8,
-  },
-  input: {
-    marginBottom: 16,
-  },
-  errorText: {
-    color: "#FF3D71",
-    fontSize: 12,
-    marginTop: -12,
-    marginBottom: 16,
-  },
-  coverImageUploader: {
-    width: "100%",
-    height: 200,
-    marginBottom: 16,
-  },
-  additionalImagesContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 16,
-  },
-  additionalImageUploader: {
-    width: "30%",
-    height: 80,
-  },
-  discountText: {
-    color: "#548C2F",
-  },
-  durationRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  ongoingText: {
-    fontSize: 12,
-    color: "#8F9BB3",
-    backgroundColor: "#EDF1F7",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  buttonContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 16,
-  },
-  draftButton: {
+  headerCenter: {
     flex: 1,
-    marginRight: 8,
+  },
+  headerTitle: {
+    fontSize: typography.fontSizes.xl,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text.primary,
+  },
+  headerSubtitle: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+    marginTop: spacing.xs,
   },
   publishButton: {
+    backgroundColor: colors.primary,
+    borderRadius: radii.md,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  publishButtonDisabled: {
+    backgroundColor: colors.text.tertiary,
+  },
+  loadingIndicator: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.text.inverse,
+    borderTopColor: 'transparent',
+  },
+  scrollView: {
     flex: 1,
-    marginLeft: 8,
   },
-  durationButton: {
-    borderRadius: 40,
-    width: 25,
-    height: 25,
+
+  // Sections
+  section: {
+    backgroundColor: colors.background.primary,
+    marginBottom: spacing.md,
+    padding: spacing.lg,
   },
-  modalText: {
-    fontSize: 11,
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
   },
-  modalCard: {
-    width: 250,
+  sectionTitle: {
+    fontSize: typography.fontSizes.lg,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.primary,
+    marginLeft: spacing.sm,
+    flex: 1,
   },
-  categoryText: {
-    fontSize: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    marginRight: 8,
+  sectionCounter: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.tertiary,
   },
-  categories: {
-    display: "flex",
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 5,
-    marginBottom: 16,
+  sectionDescription: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+    marginBottom: spacing.lg,
+    lineHeight: 20,
+  },
+  label: {
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+    marginTop: spacing.md,
+  },
+
+  // Error handling
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.sm,
+  },
+  errorText: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.error,
+    marginLeft: spacing.xs,
+  },
+
+  // Text Inputs
+  textInput: {
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    fontSize: typography.fontSizes.md,
+    color: colors.text.primary,
+    backgroundColor: colors.background.secondary,
+    marginBottom: spacing.md,
+  },
+  descriptionInput: {
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    fontSize: typography.fontSizes.md,
+    color: colors.text.primary,
+    backgroundColor: colors.background.secondary,
+    minHeight: 120,
+    lineHeight: 22,
+    marginBottom: spacing.md,
+  },
+
+  // Product Type Selection
+  productTypeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  productTypeOption: {
+    flex: 1,
+    minWidth: '45%',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+    backgroundColor: colors.background.secondary,
+    alignItems: 'center',
+  },
+  productTypeText: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+    textAlign: 'center',
+  },
+
+  // Images
+  imageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
+  imageItem: {
+    position: 'relative',
+    width: IMAGE_SIZE,
+    height: IMAGE_SIZE,
+  },
+  coverImageItem: {
+    position: 'relative',
+    width: '100%',
+    height: 200,
+  },
+  imagePreview: {
+    width: '100%',
+    height: '100%',
+    borderRadius: radii.lg,
+    backgroundColor: colors.background.secondary,
+  },
+  coverImagePreview: {
+    width: '100%',
+    height: '100%',
+    borderRadius: radii.lg,
+    backgroundColor: colors.background.secondary,
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    backgroundColor: colors.error,
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addImageButton: {
+    width: IMAGE_SIZE,
+    height: IMAGE_SIZE,
+    borderRadius: radii.lg,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: colors.primary,
+    backgroundColor: colors.background.successSubtle,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addCoverImageButton: {
+    width: '100%',
+    height: 200,
+    borderRadius: radii.lg,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: colors.primary,
+    backgroundColor: colors.background.successSubtle,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addImageText: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.primary,
+    marginTop: spacing.xs,
+    fontWeight: typography.fontWeights.medium,
+  },
+
+  // Pricing
+  priceCalculation: {
+    backgroundColor: colors.background.successSubtle,
+    padding: spacing.md,
+    borderRadius: radii.md,
+    marginBottom: spacing.md,
+  },
+  discountText: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.primary,
+    fontWeight: typography.fontWeights.medium,
+    marginBottom: spacing.xs,
+  },
+
+  // Categories/Tags
+  tagInputContainer: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  tagInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    fontSize: typography.fontSizes.md,
+    color: colors.text.primary,
+    backgroundColor: colors.background.secondary,
+  },
+  addTagButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: radii.lg,
+    justifyContent: 'center',
+  },
+  addTagButtonDisabled: {
+    backgroundColor: colors.text.tertiary,
+  },
+  addTagText: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.inverse,
+    fontWeight: typography.fontWeights.semibold,
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  tag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background.secondary,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.md,
+    gap: spacing.sm,
+  },
+  tagText: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.primary,
+    fontWeight: typography.fontWeights.medium,
   },
 });
 
