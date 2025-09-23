@@ -3,12 +3,14 @@ import {
   StyleSheet,
   View,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
   Modal,
   Alert,
+  Text,
+  TouchableOpacity,
 } from "react-native";
-import { Layout, Text, Button } from "@ui-kitten/components";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { ArrowLeft, Check } from "lucide-react-native";
+import { colors, spacing, typography, radii } from "@/constants/theme";
 import { ProgressIndicator } from "./ProgressIndicator";
 import { useSellerRegistration } from "../SellerRegistrationContext";
 import { useClerk } from "@clerk/clerk-expo";
@@ -61,131 +63,121 @@ export const FormLayout: React.FC<FormLayoutProps> = ({
   };
 
   return (
-    <Layout style={styles.container}>
-        <ProgressIndicator />
-
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
-        >
-          <Text category="h1" style={styles.title}>
-            {title}
-          </Text>
-          {subtitle && (
-            <Text category="s1" style={styles.subtitle}>
-              {subtitle}
-            </Text>
-          )}
-
-          <View style={styles.formContainer}>{children}</View>
-        </ScrollView>
-
-        <View style={styles.buttonContainer}>
-          {(currentStep > 1 || currentStep === 1) && (
-            <Button
-              appearance="outline"
-              style={styles.backButton}
-              onPress={handleBackPress}
-              status="basic"
-            >
-              {currentStep === 1 ? "Exit" : "Back"}
-            </Button>
-          )}
-
-          <Button
-            style={[
-              styles.nextButton,
-              currentStep === 1 && styles.fullWidthButton,
-            ]}
-            onPress={onNext}
-            disabled={isNextDisabled}
-            status="primary"
-          >
-            {isLastStep ? "Submit" : "Continue"}
-          </Button>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+          <ArrowLeft size={24} color={colors.text.primary} />
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>{title}</Text>
+          {subtitle && <Text style={styles.headerSubtitle}>{subtitle}</Text>}
         </View>
-
-        {/* Exit Confirmation Modal */}
-        <Modal
-          visible={showExitModal}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={handleExitCancel}
+        <TouchableOpacity
+          style={[styles.continueButton, isNextDisabled && styles.continueButtonDisabled]}
+          onPress={onNext}
+          disabled={isNextDisabled}
         >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text category="h6" style={styles.modalTitle}>
-                Exit Seller Registration?
-              </Text>
-              <Text style={styles.modalText}>
-                Are you sure you want to exit? Any unsaved information will be lost.
-              </Text>
-              <View style={styles.modalButtons}>
-                <Button
-                  appearance="outline"
-                  style={styles.modalButton}
-                  onPress={handleExitCancel}
-                  status="basic"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  style={styles.modalButton}
-                  onPress={handleExitConfirm}
-                  status="danger"
-                >
-                  Exit
-                </Button>
-              </View>
+          <Check size={20} color={colors.text.inverse} />
+        </TouchableOpacity>
+      </View>
+
+      <ProgressIndicator />
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.formContainer}>{children}</View>
+      </ScrollView>
+
+      {/* Exit Confirmation Modal */}
+      <Modal
+        visible={showExitModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleExitCancel}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              Exit Seller Registration?
+            </Text>
+            <Text style={styles.modalText}>
+              Are you sure you want to exit? Any unsaved information will be lost.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonOutline]}
+                onPress={handleExitCancel}
+              >
+                <Text style={styles.modalButtonTextOutline}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonDanger]}
+                onPress={handleExitConfirm}
+              >
+                <Text style={styles.modalButtonText}>Exit</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </Modal>
-    </Layout>
+        </View>
+      </Modal>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  keyboardAvoidingView: {
-    flex: 1,
-  },
   container: {
     flex: 1,
-    padding: 16,
+    backgroundColor: colors.background.tertiary,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.background.primary,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.primary,
+  },
+  backButton: {
+    padding: spacing.sm,
+    marginRight: spacing.md,
+  },
+  headerCenter: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: typography.fontSizes.xl,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text.primary,
+  },
+  headerSubtitle: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+    marginTop: spacing.xs,
+  },
+  continueButton: {
+    backgroundColor: colors.primary,
+    borderRadius: radii.md,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  continueButtonDisabled: {
+    backgroundColor: colors.text.tertiary,
   },
   scrollView: {
     flex: 1,
   },
   contentContainer: {
-    paddingBottom: 24,
-  },
-  title: {
-    marginBottom: 8,
-    fontWeight: "bold",
-  },
-  subtitle: {
-    marginBottom: 24,
+    paddingBottom: spacing.xxxl,
   },
   formContainer: {
-    marginTop: 16,
-  },
-  buttonContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 24,
-    paddingBottom: 16,
-  },
-  backButton: {
     flex: 1,
-    marginRight: 8,
-  },
-  nextButton: {
-    flex: 1,
-    marginLeft: 8,
-  },
-  fullWidthButton: {
-    flex: 1,
-    marginLeft: 0,
   },
   modalOverlay: {
     flex: 1,
@@ -194,28 +186,55 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 20,
-    margin: 20,
+    backgroundColor: colors.background.primary,
+    borderRadius: radii.lg,
+    padding: spacing.xl,
+    margin: spacing.lg,
     minWidth: 300,
   },
   modalTitle: {
-    marginBottom: 12,
+    fontSize: typography.fontSizes.lg,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.primary,
+    marginBottom: spacing.md,
     textAlign: 'center',
   },
   modalText: {
-    marginBottom: 20,
+    fontSize: typography.fontSizes.md,
+    color: colors.text.secondary,
+    marginBottom: spacing.xl,
     textAlign: 'center',
     lineHeight: 20,
   },
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: spacing.md,
   },
   modalButton: {
     flex: 1,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.lg,
+    alignItems: 'center',
+  },
+  modalButtonOutline: {
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+    backgroundColor: colors.background.primary,
+  },
+  modalButtonDanger: {
+    backgroundColor: colors.error,
+  },
+  modalButtonText: {
+    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.inverse,
+  },
+  modalButtonTextOutline: {
+    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.primary,
   },
 });
 

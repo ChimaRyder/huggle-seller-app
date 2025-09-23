@@ -1,12 +1,12 @@
 import React from "react";
-import { StyleSheet, View, ScrollView } from "react-native";
-import { Text, CheckBox } from "@ui-kitten/components";
+import { StyleSheet, View, ScrollView, Text, TouchableOpacity } from "react-native";
 import { Formik } from "formik";
+import { Shield, Check, AlertCircle } from "lucide-react-native";
+import { colors, spacing, typography, radii } from "@/constants/theme";
 import { FormLayout } from "../components/FormLayout";
 import { useSellerRegistration } from "../SellerRegistrationContext";
 import { useRouter } from "expo-router";
-import axios from "axios";
-import { useAuth, useUser } from "@clerk/clerk-expo"; // Add this import
+import { useAuth, useUser } from "@clerk/clerk-expo";
 import { createSeller } from "@/utils/data/SellerController";
 
 const TermsScreen = () => {
@@ -57,10 +57,10 @@ const TermsScreen = () => {
 
   return (
     <Formik
-      // initialValues={{
-      //   agreeToTerms: formData.agreeToTerms,
-      // }}
-      initialValues={formData}
+      initialValues={{
+        ...formData,
+        agreeToTerms: false,
+      }}
       onSubmit={handleSubmit}
     >
       {({ handleSubmit, values, errors, touched, setFieldValue }) => (
@@ -72,103 +72,99 @@ const TermsScreen = () => {
           isLastStep={true}
           isNextDisabled={!values.agreeToTerms}
         >
-          <View style={styles.termsContainer}>
-            <ScrollView style={styles.termsScrollView}>
-              <Text category="h6" style={styles.termsHeader}>
-                Seller Agreement
-              </Text>
+          {/* Terms and Conditions Section */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Shield size={20} color={colors.primary} />
+              <Text style={styles.sectionTitle}>Terms and Conditions</Text>
+            </View>
+            <Text style={styles.sectionDescription}>
+              Please read and accept our seller agreement to continue
+            </Text>
 
-              <Text style={styles.termsParagraph}>
-                This Seller Agreement ("Agreement") is entered into between you
-                ("Seller") and Huggle ("Platform").
-              </Text>
+            <View style={styles.termsContainer}>
+              <ScrollView style={styles.termsScrollView} showsVerticalScrollIndicator={false}>
+                <Text style={styles.termsHeader}>
+                  Seller Agreement
+                </Text>
 
-              <Text style={styles.termsParagraph}>
-                <Text style={styles.bold}>1. Seller Obligations.</Text> Seller
-                agrees to:
-              </Text>
+                <Text style={styles.termsParagraph}>
+                  This Seller Agreement is entered into between you and Huggle Platform.
+                </Text>
 
-              <Text style={styles.termsList}>
-                a) Provide accurate and complete information during
-                registration;{"\n"}
-                b) Comply with all applicable laws and regulations;{"\n"}
-                c) Maintain the quality and accuracy of product listings;{"\n"}
-                d) Process and fulfill orders promptly;{"\n"}
-                e) Respond to customer inquiries within 24 hours;{"\n"}
-                f) Comply with the Platform's policies and guidelines.
-              </Text>
+                <Text style={styles.termsParagraph}>
+                  <Text style={styles.bold}>1. Seller Obligations.</Text> You agree to:
+                </Text>
 
-              <Text style={styles.termsParagraph}>
-                <Text style={styles.bold}>2. Platform Fees.</Text> Seller agrees
-                to pay the Platform a commission on each successful sale as
-                outlined in the Fee Schedule.
-              </Text>
+                <Text style={styles.termsList}>
+                  • Provide accurate and complete information during registration{"\n"}
+                  • Comply with all applicable laws and regulations{"\n"}
+                  • Maintain the quality and accuracy of product listings{"\n"}
+                  • Process and fulfill orders promptly{"\n"}
+                  • Respond to customer inquiries within 24 hours{"\n"}
+                  • Comply with the Platform's policies and guidelines
+                </Text>
 
-              <Text style={styles.termsParagraph}>
-                <Text style={styles.bold}>3. Prohibited Items.</Text> Seller
-                shall not list or sell any items that are illegal, counterfeit,
-                infringe intellectual property rights, or violate the Platform's
-                prohibited items policy.
-              </Text>
+                <Text style={styles.termsParagraph}>
+                  <Text style={styles.bold}>2. Platform Fees.</Text> You agree to pay the Platform a commission on each successful sale as outlined in the Fee Schedule.
+                </Text>
 
-              <Text style={styles.termsParagraph}>
-                <Text style={styles.bold}>4. Account Suspension.</Text> The
-                Platform reserves the right to suspend or terminate Seller's
-                account for violations of this Agreement, low performance
-                metrics, or other reasons as determined by the Platform.
-              </Text>
+                <Text style={styles.termsParagraph}>
+                  <Text style={styles.bold}>3. Prohibited Items.</Text> You shall not list or sell any items that are illegal, counterfeit, infringe intellectual property rights, or violate our prohibited items policy.
+                </Text>
 
-              <Text style={styles.termsParagraph}>
-                <Text style={styles.bold}>5. Privacy and Data.</Text> Seller
-                agrees to the Platform's Privacy Policy regarding the
-                collection, use, and sharing of data.
-              </Text>
+                <Text style={styles.termsParagraph}>
+                  <Text style={styles.bold}>4. Account Suspension.</Text> The Platform reserves the right to suspend or terminate your account for violations of this Agreement or low performance metrics.
+                </Text>
 
-              <Text style={styles.termsParagraph}>
-                <Text style={styles.bold}>6. Taxes.</Text> Seller is responsible
-                for all taxes related to their sales and business operations.
-              </Text>
+                <Text style={styles.termsParagraph}>
+                  <Text style={styles.bold}>5. Privacy and Data.</Text> You agree to our Privacy Policy regarding the collection, use, and sharing of data.
+                </Text>
 
-              <Text style={styles.termsParagraph}>
-                <Text style={styles.bold}>7. Term and Termination.</Text> This
-                Agreement remains in effect until terminated by either party
-                with written notice.
-              </Text>
+                <Text style={styles.termsParagraph}>
+                  <Text style={styles.bold}>6. Taxes.</Text> You are responsible for all taxes related to your sales and business operations.
+                </Text>
 
-              <Text style={styles.termsParagraph}>
-                <Text style={styles.bold}>8. Modifications.</Text> The Platform
-                may modify this Agreement with notice to Seller.
-              </Text>
+                <Text style={styles.termsParagraph}>
+                  <Text style={styles.bold}>7. Term and Termination.</Text> This Agreement remains in effect until terminated by either party with written notice.
+                </Text>
 
-              <Text style={styles.termsParagraph}>
-                <Text style={styles.bold}>9. Governing Law.</Text> This
-                Agreement shall be governed by the laws of [Jurisdiction].
-              </Text>
+                <Text style={styles.termsFooter}>
+                  By proceeding, you acknowledge that you have read, understood, and agree to be bound by this Agreement.
+                </Text>
+              </ScrollView>
+            </View>
 
-              <Text style={styles.termsParagraph}>
-                By checking the box below, you acknowledge that you have read,
-                understood, and agree to be bound by this Agreement.
-              </Text>
-            </ScrollView>
-          </View>
-
-          <View style={styles.checkboxContainer}>
-            <CheckBox
-              checked={values.agreeToTerms}
-              onChange={(checked) => setFieldValue("agreeToTerms", checked)}
-              status={
-                touched.agreeToTerms && errors.agreeToTerms ? "danger" : "basic"
-              }
+            {/* Agreement Checkbox */}
+            <TouchableOpacity
+              style={[
+                styles.agreementContainer,
+                values.agreeToTerms && styles.agreementContainerActive,
+                touched.agreeToTerms && errors.agreeToTerms && styles.agreementContainerError
+              ]}
+              onPress={() => setFieldValue("agreeToTerms", !values.agreeToTerms)}
             >
-              <Text>
+              <View style={[
+                styles.checkbox,
+                values.agreeToTerms && styles.checkboxActive
+              ]}>
+                {values.agreeToTerms && (
+                  <Check size={16} color={colors.text.inverse} />
+                )}
+              </View>
+              <Text style={[
+                styles.agreementText,
+                values.agreeToTerms && styles.agreementTextActive
+              ]}>
                 I agree to these Terms and Conditions and Data Privacy Policy
               </Text>
-            </CheckBox>
+            </TouchableOpacity>
 
             {touched.agreeToTerms && errors.agreeToTerms && (
-              <Text status="danger" style={styles.errorText}>
-                {errors.agreeToTerms}
-              </Text>
+              <View style={styles.errorContainer}>
+                <AlertCircle size={16} color={colors.error} />
+                <Text style={styles.errorText}>{errors.agreeToTerms}</Text>
+              </View>
             )}
           </View>
         </FormLayout>
@@ -178,37 +174,133 @@ const TermsScreen = () => {
 };
 
 const styles = StyleSheet.create({
+  // Sections
+  section: {
+    backgroundColor: colors.background.primary,
+    marginBottom: spacing.md,
+    padding: spacing.lg,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  sectionTitle: {
+    fontSize: typography.fontSizes.lg,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.primary,
+    marginLeft: spacing.sm,
+    flex: 1,
+  },
+  sectionDescription: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+    marginBottom: spacing.lg,
+    lineHeight: 20,
+  },
+
+  // Terms Container
   termsContainer: {
-    height: 300,
+    height: 350,
     borderWidth: 1,
-    borderColor: "#E8E8E8",
-    borderRadius: 4,
-    marginBottom: 16,
+    borderColor: colors.border.primary,
+    borderRadius: radii.lg,
+    marginBottom: spacing.lg,
+    backgroundColor: colors.background.secondary,
   },
   termsScrollView: {
-    padding: 16,
+    flex: 1,
+    padding: spacing.lg,
   },
   termsHeader: {
-    marginBottom: 16,
+    fontSize: typography.fontSizes.lg,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text.primary,
+    marginBottom: spacing.lg,
+    textAlign: 'center',
   },
   termsParagraph: {
-    marginBottom: 12,
-    lineHeight: 20,
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+    lineHeight: 22,
   },
   termsList: {
-    marginBottom: 12,
-    paddingLeft: 16,
-    lineHeight: 20,
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+    paddingLeft: spacing.md,
+    lineHeight: 22,
+  },
+  termsFooter: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+    marginTop: spacing.lg,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    lineHeight: 22,
   },
   bold: {
-    fontWeight: "bold",
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text.primary,
   },
-  checkboxContainer: {
-    marginTop: 16,
+
+  // Agreement Checkbox
+  agreementContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+    borderRadius: radii.lg,
+    backgroundColor: colors.background.secondary,
+    marginBottom: spacing.md,
+  },
+  agreementContainerActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.background.successSubtle,
+  },
+  agreementContainerError: {
+    borderColor: colors.error,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: radii.sm,
+    borderWidth: 2,
+    borderColor: colors.border.primary,
+    backgroundColor: colors.background.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+    marginTop: 2,
+  },
+  checkboxActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
+  },
+  agreementText: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.primary,
+    lineHeight: 22,
+    flex: 1,
+  },
+  agreementTextActive: {
+    color: colors.primary,
+    fontWeight: typography.fontWeights.medium,
+  },
+
+  // Error handling
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.sm,
   },
   errorText: {
-    marginTop: 4,
-    fontSize: 12,
+    fontSize: typography.fontSizes.sm,
+    color: colors.error,
+    marginLeft: spacing.xs,
   },
 });
 

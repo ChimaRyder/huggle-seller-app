@@ -148,7 +148,8 @@ export default function WelcomeScreen() {
               <Button
                 style={styles.facebookButton}
                 // accessoryLeft={FacebookIcon}
-                onPress={handleFacebookLogin}
+                // onPress={handleFacebookLogin}
+                onPress={() => router.push("/(seller-registration)")}
               >
                 Continue with Facebook
               </Button>

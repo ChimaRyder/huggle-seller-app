@@ -6,32 +6,24 @@ import {
   Image,
   Platform,
   Alert,
-  ImageProps,
-} from "react-native";
-import {
-  Select,
-  SelectItem,
   Text,
-  Button,
-  IndexPath,
-  Spinner,
-} from "@ui-kitten/components";
+  Modal,
+  ScrollView,
+  ActivityIndicator,
+} from "react-native";
 import { Formik } from "formik";
+import { FileText, Upload, Camera, AlertCircle, CheckCircle, ChevronDown } from "lucide-react-native";
+import { colors, spacing, typography, radii } from "@/constants/theme";
 import { FormLayout } from "../components/FormLayout";
 import { useSellerRegistration } from "../SellerRegistrationContext";
 import { taxInfoSchema } from "../../../utils/validationSchemas";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 
-const spinnerIndicator = (props : ImageProps) => (
-    <View style={[props.style, styles.spinnerContainer]}>
-      <Spinner size="small" />
-    </View>
-);
 
 const TaxInfoScreen = () => {
   const { formData, updateFormData, setCurrentStep } = useSellerRegistration();
-  const [selectedIdType, setSelectedIdType] = useState(new IndexPath(0));
+  const [showIdTypeModal, setShowIdTypeModal] = useState(false);
   const [idImageLoading, setIdImageLoading] = useState(false);
   const [permitLoading, setPermitLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ id: 0, permit: 0 });
@@ -52,10 +44,7 @@ const TaxInfoScreen = () => {
   ];
 
   const handleNext = (values: typeof formData) => {
-    updateFormData({
-      ...values,
-      governmentIdType: governmentIdTypes[selectedIdType.row],
-    });
+    updateFormData(values);
     setCurrentStep(6);
   };
 
@@ -246,60 +235,75 @@ const TaxInfoScreen = () => {
             !values.businessPermitPdf
           }
         >
-          <Text category="s1" style={styles.label}>
-            Select Government ID Type
-          </Text>
-
-          <Select
-            value={governmentIdTypes[selectedIdType.row]}
-            selectedIndex={selectedIdType}
-            onSelect={(index) => {
-              const selectedIndex = index as IndexPath;
-              setSelectedIdType(selectedIndex);
-              setFieldValue(
-                "governmentIdType",
-                governmentIdTypes[selectedIndex.row]
-              );
-            }}
-            style={styles.select}
-          >
-            {governmentIdTypes.map((type, index) => (
-              <SelectItem key={index} title={type} />
-            ))}
-          </Select>
-
-          {touched.governmentIdType && errors.governmentIdType && (
-            <Text status="danger" style={styles.errorText}>
-              {errors.governmentIdType}
-            </Text>
-          )}
-
-          <View style={styles.uploadContainer}>
-            <Text category="s1" style={styles.label}>
-              Government ID Image
-            </Text>
-
-            <View style={styles.uploadRow}>
-              <Text appearance="hint" style={styles.fileName}>
-                {formatFileName(values.governmentIdImage)}
-              </Text>
-
-              <Button
-                size="small"
-                appearance="outline"
-                accessoryLeft={
-                  idImageLoading
-                    ? spinnerIndicator
-                    : undefined
-                }
-                onPress={() => handleUploadGovernmentId(setFieldValue)}
-                disabled={idImageLoading}
-              >
-                {idImageLoading
-                  ? `${Math.round(uploadProgress.id)}%`
-                  : "Upload"}
-              </Button>
+          {/* Government ID Section */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <FileText size={20} color={colors.primary} />
+              <Text style={styles.sectionTitle}>Government ID</Text>
             </View>
+            <Text style={styles.sectionDescription}>
+              Upload a clear photo of your valid government-issued ID
+            </Text>
+
+            <Text style={styles.label}>Select ID Type</Text>
+            {touched.governmentIdType && errors.governmentIdType && (
+              <View style={styles.errorContainer}>
+                <AlertCircle size={16} color={colors.error} />
+                <Text style={styles.errorText}>{errors.governmentIdType}</Text>
+              </View>
+            )}
+            <TouchableOpacity
+              style={[
+                styles.selectInput,
+                touched.governmentIdType && errors.governmentIdType && { borderColor: colors.error }
+              ]}
+              onPress={() => setShowIdTypeModal(true)}
+            >
+              <Text style={[
+                styles.selectText,
+                !values.governmentIdType && styles.selectPlaceholder
+              ]}>
+                {values.governmentIdType || "Select ID type"}
+              </Text>
+              <ChevronDown size={20} color={colors.text.secondary} />
+            </TouchableOpacity>
+
+            <Text style={styles.label}>Upload ID Image</Text>
+            {touched.governmentIdImage && errors.governmentIdImage && (
+              <View style={styles.errorContainer}>
+                <AlertCircle size={16} color={colors.error} />
+                <Text style={styles.errorText}>{String(errors.governmentIdImage)}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[
+                styles.uploadButton,
+                idImageLoading && styles.uploadButtonDisabled,
+                values.governmentIdImage && styles.uploadButtonSuccess
+              ]}
+              onPress={() => handleUploadGovernmentId(setFieldValue)}
+              disabled={idImageLoading}
+            >
+              {idImageLoading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={styles.uploadButtonText}>Uploading... {Math.round(uploadProgress.id)}%</Text>
+                </View>
+              ) : values.governmentIdImage ? (
+                <View style={styles.loadingContainer}>
+                  <CheckCircle size={20} color={colors.success} />
+                  <Text style={[styles.uploadButtonText, { color: colors.success }]}>
+                    {formatFileName(values.governmentIdImage)}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.loadingContainer}>
+                  <Camera size={20} color={colors.primary} />
+                  <Text style={styles.uploadButtonText}>Upload ID Image</Text>
+                </View>
+              )}
+            </TouchableOpacity>
 
             {values.governmentIdImage &&
               typeof values.governmentIdImage === "object" &&
@@ -318,62 +322,112 @@ const TaxInfoScreen = () => {
                 </View>
               )}
 
-            <Text appearance="hint" style={styles.uploadHint}>
-              Please upload a clear and readable image of your government ID.
-              Supported file types: JPG, JPEG, PNG. Maximum size: 5MB
+            <Text style={styles.uploadHint}>
+              Upload a clear, readable image of your government ID.
+              Supported: JPG, PNG (max 5MB)
             </Text>
-
-            {touched.governmentIdImage && errors.governmentIdImage && (
-              <Text status="danger" style={styles.errorText}>
-                {String(errors.governmentIdImage)}
-              </Text>
-            )}
           </View>
 
-          <View style={styles.uploadContainer}>
-            <Text category="s1" style={styles.label}>
-              Business Permit PDF
+          {/* Business Permit Section */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Upload size={20} color={colors.primary} />
+              <Text style={styles.sectionTitle}>Business Permit</Text>
+            </View>
+            <Text style={styles.sectionDescription}>
+              Upload your official business permit document
             </Text>
 
-            <View style={styles.uploadRow}>
-              <Text appearance="hint" style={styles.fileName}>
-                {formatFileName(values.businessPermitPdf)}
-              </Text>
-
-              <Button
-                size="small"
-                appearance="outline"
-                accessoryLeft={
-                  permitLoading
-                    ? spinnerIndicator
-                    : undefined
-                }
-                onPress={() => handleUploadBusinessPermit(setFieldValue)}
-                disabled={permitLoading}
-              >
-                {permitLoading
-                  ? `${Math.round(uploadProgress.permit)}%`
-                  : "Upload"}
-              </Button>
-            </View>
-
-            {values.businessPermitPdf && (
-              <View style={styles.pdfIndicator}>
-                <Text appearance="hint">PDF document uploaded to server</Text>
+            <Text style={styles.label}>Upload Business Permit</Text>
+            {touched.businessPermitPdf && errors.businessPermitPdf && (
+              <View style={styles.errorContainer}>
+                <AlertCircle size={16} color={colors.error} />
+                <Text style={styles.errorText}>{String(errors.businessPermitPdf)}</Text>
               </View>
             )}
 
-            <Text appearance="hint" style={styles.uploadHint}>
-              Please upload a PDF copy of your business permit. Supported file
-              type: PDF. Maximum size: 10MB
-            </Text>
+            <TouchableOpacity
+              style={[
+                styles.uploadButton,
+                permitLoading && styles.uploadButtonDisabled,
+                values.businessPermitPdf && styles.uploadButtonSuccess
+              ]}
+              onPress={() => handleUploadBusinessPermit(setFieldValue)}
+              disabled={permitLoading}
+            >
+              {permitLoading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={styles.uploadButtonText}>Uploading... {Math.round(uploadProgress.permit)}%</Text>
+                </View>
+              ) : values.businessPermitPdf ? (
+                <View style={styles.loadingContainer}>
+                  <CheckCircle size={20} color={colors.success} />
+                  <Text style={[styles.uploadButtonText, { color: colors.success }]}>
+                    {formatFileName(values.businessPermitPdf)}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.loadingContainer}>
+                  <FileText size={20} color={colors.primary} />
+                  <Text style={styles.uploadButtonText}>Upload Business Permit</Text>
+                </View>
+              )}
+            </TouchableOpacity>
 
-            {touched.businessPermitPdf && errors.businessPermitPdf && (
-              <Text status="danger" style={styles.errorText}>
-                {String(errors.businessPermitPdf)}
-              </Text>
-            )}
+            <Text style={styles.uploadHint}>
+              Upload a PDF copy of your business permit.
+              Supported: PDF (max 10MB)
+            </Text>
           </View>
+
+          {/* ID Type Selection Modal */}
+          <Modal
+            visible={showIdTypeModal}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setShowIdTypeModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Select ID Type</Text>
+                  <TouchableOpacity
+                    style={styles.modalCloseButton}
+                    onPress={() => setShowIdTypeModal(false)}
+                  >
+                    <Text style={styles.modalCloseText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView style={styles.idTypeList}>
+                  {governmentIdTypes.map((idType) => (
+                    <TouchableOpacity
+                      key={idType}
+                      style={[
+                        styles.idTypeItem,
+                        values.governmentIdType === idType && styles.idTypeItemSelected
+                      ]}
+                      onPress={() => {
+                        setFieldValue("governmentIdType", idType);
+                        setShowIdTypeModal(false);
+                      }}
+                    >
+                      <Text style={[
+                        styles.idTypeItemText,
+                        values.governmentIdType === idType && styles.idTypeItemTextSelected
+                      ]}>
+                        {idType}
+                      </Text>
+                      {values.governmentIdType === idType && (
+                        <CheckCircle size={20} color={colors.primary} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+          </Modal>
         </FormLayout>
       )}
     </Formik>
@@ -381,58 +435,178 @@ const TaxInfoScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  label: {
-    marginBottom: 8,
+  // Sections
+  section: {
+    backgroundColor: colors.background.primary,
+    marginBottom: spacing.md,
+    padding: spacing.lg,
   },
-  select: {
-    marginBottom: 16,
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  sectionTitle: {
+    fontSize: typography.fontSizes.lg,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.primary,
+    marginLeft: spacing.sm,
+    flex: 1,
+  },
+  sectionDescription: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+    marginBottom: spacing.lg,
+    lineHeight: 20,
+  },
+  label: {
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+    marginTop: spacing.md,
+  },
+
+  // Error handling
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.sm,
   },
   errorText: {
-    marginBottom: 16,
-    fontSize: 12,
+    fontSize: typography.fontSizes.sm,
+    color: colors.error,
+    marginLeft: spacing.xs,
   },
-  uploadContainer: {
-    marginBottom: 24,
+
+  // Select Input
+  selectInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    backgroundColor: colors.background.secondary,
+    marginBottom: spacing.md,
   },
-  uploadRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  fileName: {
+  selectText: {
+    fontSize: typography.fontSizes.md,
+    color: colors.text.primary,
     flex: 1,
-    marginRight: 8,
+  },
+  selectPlaceholder: {
+    color: colors.text.tertiary,
+  },
+
+  // Upload Button
+  uploadButton: {
+    borderWidth: 2,
+    borderColor: colors.border.primary,
+    borderStyle: 'dashed',
+    borderRadius: radii.lg,
+    padding: spacing.xl,
+    alignItems: 'center',
+    backgroundColor: colors.background.secondary,
+    marginBottom: spacing.md,
+  },
+  uploadButtonDisabled: {
+    opacity: 0.6,
+  },
+  uploadButtonSuccess: {
+    borderColor: colors.success,
+    backgroundColor: colors.background.successSubtle,
+    borderStyle: 'solid',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  uploadButtonText: {
+    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.medium,
+    color: colors.primary,
   },
   uploadHint: {
-    fontSize: 12,
-    marginTop: 4,
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 18,
   },
+
+  // Image Preview
   previewContainer: {
-    marginVertical: 10,
-    alignItems: "center",
-    borderRadius: 8,
-    overflow: "hidden",
+    marginTop: spacing.md,
+    marginBottom: spacing.md,
+    borderRadius: radii.lg,
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: "#E8E8E8",
+    borderColor: colors.border.primary,
   },
   imagePreview: {
-    width: "100%",
-    height: 180,
-    backgroundColor: "#F7F9FC",
+    width: '100%',
+    height: 200,
   },
-  pdfIndicator: {
-    marginVertical: 10,
-    padding: 12,
-    backgroundColor: "#F7F9FC",
-    borderRadius: 8,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#E8E8E8",
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
   },
-  spinnerContainer: {
-    alignItems: "center",
-    justifyContent: "center",
+  modalContent: {
+    backgroundColor: colors.background.primary,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.primary,
+  },
+  modalTitle: {
+    fontSize: typography.fontSizes.lg,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.primary,
+  },
+  modalCloseButton: {
+    padding: spacing.sm,
+  },
+  modalCloseText: {
+    fontSize: typography.fontSizes.md,
+    color: colors.primary,
+    fontWeight: typography.fontWeights.medium,
+  },
+  idTypeList: {
+    maxHeight: 400,
+  },
+  idTypeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.primary,
+  },
+  idTypeItemSelected: {
+    backgroundColor: colors.background.successSubtle,
+  },
+  idTypeItemText: {
+    fontSize: typography.fontSizes.md,
+    color: colors.text.primary,
+    flex: 1,
+  },
+  idTypeItemTextSelected: {
+    color: colors.primary,
+    fontWeight: typography.fontWeights.semibold,
   },
 });
 

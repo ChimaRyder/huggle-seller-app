@@ -1,39 +1,99 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text } from '@ui-kitten/components';
+import { View, StyleSheet, Text } from 'react-native';
 import { useSellerRegistration } from '../SellerRegistrationContext';
-import { useTheme } from '@ui-kitten/components';
+import { colors, spacing, typography, radii } from '@/constants/theme';
 
 export const ProgressIndicator = () => {
-  const theme = useTheme();
   const { currentStep, totalSteps } = useSellerRegistration();
-  
+
+  const progressPercentage = (currentStep / totalSteps) * 100;
+
   return (
     <View style={styles.container}>
-      <Text category="s1" status="control" style={[styles.progressText, { backgroundColor: theme['color-primary-500'] }]}>
-        {currentStep} <Text style={styles.Of}>of</Text> {totalSteps}
-      </Text>
+      <View style={styles.stepInfo}>
+        <Text style={styles.stepText}>
+          Step {currentStep} of {totalSteps}
+        </Text>
+        <Text style={styles.progressPercentage}>
+          {Math.round(progressPercentage)}%
+        </Text>
+      </View>
+
+      <View style={styles.progressBarContainer}>
+        <View style={styles.progressBarBackground}>
+          <View style={[styles.progressBarFill, { width: `${progressPercentage}%` }]} />
+        </View>
+      </View>
+
+      <View style={styles.stepDots}>
+        {Array.from({ length: totalSteps }, (_, index) => (
+          <View
+            key={index}
+            style={[
+              styles.stepDot,
+              index + 1 <= currentStep && styles.stepDotActive,
+              index + 1 === currentStep && styles.stepDotCurrent,
+            ]}
+          />
+        ))}
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 20,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.background.primary,
   },
-  progressText: {
-    textAlign: 'center',
-    fontWeight: 'bold',
-    marginTop: 20,
-    padding: 10,
-    marginLeft: 150,
-    marginRight: 150,
-    borderRadius: 10,
+  stepInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
   },
-  Of: {
-    color: "#F8F8F8",
-    fontWeight: 'bold',
-    opacity: 0.5,
+  stepText: {
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.medium,
+    color: colors.text.secondary,
+  },
+  progressPercentage: {
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.primary,
+  },
+  progressBarContainer: {
+    marginBottom: spacing.md,
+  },
+  progressBarBackground: {
+    height: 4,
+    backgroundColor: colors.background.tertiary,
+    borderRadius: radii.full,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: radii.full,
+  },
+  stepDots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  stepDot: {
+    width: 8,
+    height: 8,
+    borderRadius: radii.full,
+    backgroundColor: colors.background.tertiary,
+  },
+  stepDotActive: {
+    backgroundColor: colors.primary,
+  },
+  stepDotCurrent: {
+    backgroundColor: colors.primary,
+    transform: [{ scale: 1.2 }],
   },
 });
 
