@@ -11,7 +11,7 @@ import {
 } from "@ui-kitten/components";
 import ProductsScreen from "./products";
 import OrdersScreen from "./orders";
-import AnalyticsScreen from "./analytics";
+import ChatsScreen from "./chats";
 import ProfileScreen from "./profile";
 import PromotionsScreen from "./promotions";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -33,10 +33,10 @@ const OrdersIcon = (props: IconProps): IconElement => (
   />
 );
 
-const AnalyticsIcon = (props: IconProps): IconElement => (
+const ChatIcon = (props: IconProps): IconElement => (
   <Icon
     {...props}
-    name="ChartColumn"
+    name="MessageCircle"
   />
 );
 
@@ -96,7 +96,7 @@ export default function BottomNav() {
         >
           <ProductsScreen unread={unread} />
           <OrdersScreen unread={unread}/>
-          <AnalyticsScreen />
+          <ChatsScreen unread={unread} />
           <PromotionsScreen />
           <ProfileScreen />
         </ViewPager>
@@ -113,7 +113,7 @@ export default function BottomNav() {
           icon={OrdersIcon}
           />
           <BottomNavigationTab
-          icon={AnalyticsIcon}
+          icon={ChatIcon}
           />
           <BottomNavigationTab
           icon={GiftIcon}

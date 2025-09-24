@@ -6,7 +6,7 @@ import { useAuth, useUser } from '@clerk/clerk-expo';
 import { StoreAnalytics, getStoreAnalytics } from '@/utils/data/AnalyticsController';
 import { getAllOrders, Order } from '@/utils/data/OrderController';
 import { useFocusEffect } from 'expo-router';
-import { Bell, DollarSign, TrendingUp, TrendingDown, Eye, ShoppingCart, ShoppingBag, Target, Users, Zap, Clock, Calendar } from 'lucide-react-native';
+import { Bell, DollarSign, TrendingUp, TrendingDown, Eye, ShoppingCart, ShoppingBag, Target, Users, Zap, Clock, Calendar, ArrowLeft } from 'lucide-react-native';
 import { colors, spacing, typography, radii } from '@/constants/theme';
 
 const TIME_PERIODS = ['1 Month', '3 Months', '6 Months', '1 Year'];
@@ -146,8 +146,11 @@ export default function AnalyticsScreen({ unread = 0 }: { unread?: number }) {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['left', 'right']}>
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <ArrowLeft size={24} color={colors.text.primary} />
+          </TouchableOpacity>
           <View style={styles.headerLeft}>
             <Text style={styles.headerTitle}>Analytics</Text>
           </View>
@@ -173,9 +176,12 @@ export default function AnalyticsScreen({ unread = 0 }: { unread?: number }) {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       {/* Header */}
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <ArrowLeft size={24} color={colors.text.primary} />
+        </TouchableOpacity>
         <View style={styles.headerLeft}>
           <Text style={styles.headerTitle}>Business Analytics</Text>
         </View>
@@ -363,6 +369,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.primary,
     borderBottomWidth: 1,
     borderBottomColor: colors.border.primary,
+  },
+  backButton: {
+    padding: spacing.xs,
+    marginRight: spacing.sm,
   },
   headerLeft: {
     flex: 1,

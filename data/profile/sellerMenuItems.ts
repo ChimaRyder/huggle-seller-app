@@ -44,6 +44,13 @@ export const sellerProfileMenuItems: SellerProfileMenuItem[] = [
 
 export const quickActionItems: SellerProfileMenuItem[] = [
   {
+    id: 'view-analytics',
+    title: 'Analytics',
+    icon: 'trending-up',
+    screen: '/(main)/analytics',
+    description: 'View sales insights'
+  },
+  {
     id: 'create-product',
     title: 'Add Product',
     icon: 'plus-circle',

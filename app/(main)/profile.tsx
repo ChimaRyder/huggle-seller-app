@@ -342,14 +342,15 @@ const styles = StyleSheet.create({
   quickActionsGrid: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
-    gap: spacing.md,
+    gap: spacing.sm,
     paddingBottom: spacing.lg,
+    flexWrap: 'wrap',
   },
   quickActionItem: {
-    flex: 1,
+    width: '31%',
     backgroundColor: colors.background.secondary,
     borderRadius: radii.lg,
-    padding: spacing.lg,
+    padding: spacing.md,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border.primary,
