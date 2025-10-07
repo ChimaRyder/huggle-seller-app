@@ -27,11 +27,18 @@ import {
   DollarSign,
   Calendar,
   BarChart3,
+  ChevronDown,
+  ChevronUp,
+  Zap,
+  Info,
+  TrendingDown,
 } from 'lucide-react-native';
 import { colors, spacing, typography, radii } from '@/constants/theme';
-import { createProduct } from '@/utils/data/ProductController';
+import { createProduct } from '@/utils/Controllers/ProductController';
+import { validateSellerAccess } from '@/utils/sellerUtils';
 import { showToast } from '@/components/Toast';
 import * as ImagePicker from 'expo-image-picker';
+import { useImageUpload } from '@/hooks/useImageUpload';
 
 const { width } = Dimensions.get('window');
 const IMAGE_SIZE = (width - spacing.lg * 3) / 2;
@@ -59,6 +66,15 @@ const CreateProduct = () => {
   const [currentCategory, setCurrentCategory] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  
+  // Dynamic pricing state
+  const [isDynamicPricingEnabled, setIsDynamicPricingEnabled] = useState(false);
+  const [productCost, setProductCost] = useState('');
+  const [dynamicPricingStartDays, setDynamicPricingStartDays] = useState('14');
+  const [isDynamicPricingExpanded, setIsDynamicPricingExpanded] = useState(false);
+
+  // Image upload hook
+  const { uploadState, uploadImageUri } = useImageUpload();
 
   const navigateBack = () => {
     if (name.trim() || description.trim() || coverImage || additionalImages.length > 0) {
@@ -81,28 +97,68 @@ const CreateProduct = () => {
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
+    try {
+      // Request permissions
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('Permission Required', 'Please grant photo library permissions to upload images.');
+        return;
+      }
 
-    if (!result.canceled && result.assets[0]) {
-      setAdditionalImages(prev => [...prev, result.assets[0].uri]);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        exif: false,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const imageUri = result.assets[0].uri;
+        
+        // Upload to Firebase Storage
+        const downloadURL = await uploadImageUri(imageUri, 'products/additional');
+        
+        if (downloadURL) {
+          setAdditionalImages(prev => [...prev, downloadURL]);
+        }
+      }
+    } catch (error) {
+      console.error('❌ [CreateProduct] Additional image upload failed:', error);
+      showToast('error', 'Upload Failed', 'Failed to upload additional image. Please try again.');
     }
   };
 
   const pickCoverImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
+    try {
+      // Request permissions
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('Permission Required', 'Please grant photo library permissions to upload images.');
+        return;
+      }
 
-    if (!result.canceled && result.assets[0]) {
-      setCoverImage(result.assets[0].uri);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        exif: false,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const imageUri = result.assets[0].uri;
+        
+        // Upload to Firebase Storage
+        const downloadURL = await uploadImageUri(imageUri, 'products/covers');
+        
+        if (downloadURL) {
+          setCoverImage(downloadURL);
+        }
+      }
+    } catch (error) {
+      console.error('❌ [CreateProduct] Cover image upload failed:', error);
+      showToast('error', 'Upload Failed', 'Failed to upload cover image. Please try again.');
     }
   };
 
@@ -129,9 +185,8 @@ const CreateProduct = () => {
       newErrors.name = 'Product name is required';
     }
 
-    if (!description.trim()) {
-      newErrors.description = 'Description is required';
-    } else if (description.length < 10) {
+    // Description is now optional, but if provided, must meet minimum length
+    if (description.trim() && description.trim().length < 10) {
       newErrors.description = 'Description must be at least 10 characters';
     }
 
@@ -159,6 +214,19 @@ const CreateProduct = () => {
       newErrors.stock = 'Valid stock quantity is required';
     }
 
+    // Dynamic pricing validation
+    if (isDynamicPricingEnabled) {
+      if (!productCost || parseFloat(productCost) <= 0) {
+        newErrors.productCost = 'Valid product cost is required for dynamic pricing';
+      } else if (parseFloat(productCost) >= parseFloat(discountedPrice)) {
+        newErrors.productCost = 'Product cost must be less than the current price';
+      }
+      
+      if (!dynamicPricingStartDays || parseInt(dynamicPricingStartDays) <= 0) {
+        newErrors.dynamicPricingStartDays = 'Valid start days is required';
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -169,9 +237,20 @@ const CreateProduct = () => {
     setIsSubmitting(true);
 
     try {
+      const token = await getToken({ template: "seller_app" });
+      if (!token) {
+        throw new Error('Authentication token not available');
+      }
+
+      // Validate seller access and get storeId
+      const validation = validateSellerAccess(token, user);
+      if (!validation.isValid || !validation.storeId) {
+        throw new Error(validation.error || 'Seller access validation failed');
+      }
+
       const productData = {
-        name: name,
-        description: description,
+        name: name.trim(),
+        description: description.trim() || '',
         productType: productType,
         coverImage: coverImage,
         additionalImages: additionalImages,
@@ -180,26 +259,28 @@ const CreateProduct = () => {
         expirationDate: duration.toISOString(),
         stock: parseInt(stock),
         category: category,
-        storeId: user?.publicMetadata.storeId as string,
+        storeId: validation.storeId,
+        // Add dynamic pricing fields
+        isDynamicPricingEnabled: isDynamicPricingEnabled,
+        productCost: isDynamicPricingEnabled ? parseFloat(productCost) : parseFloat(originalPrice) * 0.7,
+        dynamicPricingStartDays: isDynamicPricingEnabled ? parseInt(dynamicPricingStartDays) : 14,
       };
 
-      const token = await getToken({ template: "seller_app" });
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      const response = await createProduct(productData, token ?? "");
+      const response = await createProduct(productData, token);
 
-      Alert.alert(
-        'Product Created!',
-        'Your product has been created successfully.',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.back(),
-          },
-        ]
-      );
-    } catch (error) {
-      console.error("Error creating product:", error);
-      Alert.alert('Error', 'Failed to create product. Please try again.');
+      showToast('success', 'Product Created!', 'Your product has been created successfully.');
+      router.back();
+    } catch (error: any) {
+      console.error("❌ [CreateProduct] Error creating product:", error);
+      
+      let errorMessage = 'Failed to create product. Please try again.';
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      showToast('error', 'Creation Failed', errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -227,9 +308,9 @@ const CreateProduct = () => {
           <Text style={styles.headerSubtitle}>Add a new product to your store</Text>
         </View>
         <TouchableOpacity
-          style={[styles.publishButton, (!name.trim() || !description.trim() || !coverImage) && styles.publishButtonDisabled]}
+          style={[styles.publishButton, (!name.trim() || !coverImage) && styles.publishButtonDisabled]}
           onPress={handleSubmit}
-          disabled={!name.trim() || !description.trim() || !coverImage || isSubmitting}
+          disabled={!name.trim() || !coverImage || isSubmitting}
         >
           {isSubmitting ? (
             <View style={styles.loadingIndicator} />
@@ -268,7 +349,7 @@ const CreateProduct = () => {
             onChangeText={setName}
           />
 
-          <Text style={styles.label}>Description</Text>
+          <Text style={styles.label}>Description <Text style={styles.optionalText}>(Optional)</Text></Text>
           {errors.description && (
             <View style={styles.errorContainer}>
               <AlertCircle size={16} color={colors.error} />
@@ -341,14 +422,32 @@ const CreateProduct = () => {
                 <TouchableOpacity
                   style={styles.removeImageButton}
                   onPress={() => setCoverImage('')}
+                  disabled={uploadState.isUploading}
                 >
                   <X size={16} color={colors.text.inverse} />
                 </TouchableOpacity>
               </View>
             ) : (
-              <TouchableOpacity style={styles.addCoverImageButton} onPress={pickCoverImage}>
-                <Camera size={24} color={colors.primary} />
-                <Text style={styles.addImageText}>Add Cover Image</Text>
+              <TouchableOpacity 
+                style={[styles.addCoverImageButton, uploadState.isUploading && styles.uploadingButton]} 
+                onPress={pickCoverImage}
+                disabled={uploadState.isUploading}
+              >
+                {uploadState.isUploading ? (
+                  <>
+                    <View style={styles.uploadProgressContainer}>
+                      <View style={[styles.uploadProgressBar, { width: `${uploadState.progress}%` }]} />
+                    </View>
+                    <Text style={styles.addImageText}>
+                      Uploading... {Math.round(uploadState.progress)}%
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Camera size={24} color={colors.primary} />
+                    <Text style={styles.addImageText}>Add Cover Image</Text>
+                  </>
+                )}
               </TouchableOpacity>
             )}
           </View>
@@ -368,9 +467,26 @@ const CreateProduct = () => {
             ))}
 
             {additionalImages.length < 3 && (
-              <TouchableOpacity style={styles.addImageButton} onPress={pickImage}>
-                <Camera size={24} color={colors.primary} />
-                <Text style={styles.addImageText}>Add Photo</Text>
+              <TouchableOpacity 
+                style={[styles.addImageButton, uploadState.isUploading && styles.uploadingButton]} 
+                onPress={pickImage}
+                disabled={uploadState.isUploading}
+              >
+                {uploadState.isUploading ? (
+                  <>
+                    <View style={styles.uploadProgressContainer}>
+                      <View style={[styles.uploadProgressBar, { width: `${uploadState.progress}%` }]} />
+                    </View>
+                    <Text style={styles.addImageText}>
+                      Uploading... {Math.round(uploadState.progress)}%
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Camera size={24} color={colors.primary} />
+                    <Text style={styles.addImageText}>Add Photo</Text>
+                  </>
+                )}
               </TouchableOpacity>
             )}
           </View>
@@ -405,7 +521,7 @@ const CreateProduct = () => {
             keyboardType="numeric"
           />
 
-          <Text style={styles.label}>Discounted Price (₱)</Text>
+          <Text style={styles.label}>Current Price (₱)</Text>
           {errors.discountedPrice && (
             <View style={styles.errorContainer}>
               <AlertCircle size={16} color={colors.error} />
@@ -432,6 +548,127 @@ const CreateProduct = () => {
               <Text style={styles.discountText}>
                 Discount: {(((parseFloat(originalPrice) - parseFloat(discountedPrice)) / parseFloat(originalPrice)) * 100).toFixed(1)}%
               </Text>
+            </View>
+          )}
+
+          {/* Dynamic Pricing Toggle */}
+          <TouchableOpacity 
+            style={styles.dynamicPricingToggle}
+            onPress={() => {
+              setIsDynamicPricingEnabled(!isDynamicPricingEnabled);
+              if (!isDynamicPricingEnabled) {
+                setIsDynamicPricingExpanded(true);
+              }
+            }}
+          >
+            <View style={styles.toggleLeft}>
+              <Zap size={20} color={isDynamicPricingEnabled ? colors.primary : colors.text.secondary} />
+              <Text style={[styles.toggleText, isDynamicPricingEnabled && { color: colors.primary }]}>
+                Enable Dynamic Pricing
+              </Text>
+            </View>
+            <View style={[styles.toggleSwitch, isDynamicPricingEnabled && styles.toggleSwitchActive]}>
+              <View style={[styles.toggleIndicator, isDynamicPricingEnabled && styles.toggleIndicatorActive]} />
+            </View>
+          </TouchableOpacity>
+
+          {isDynamicPricingEnabled && (
+            <View style={styles.dynamicPricingInfo}>
+              <View style={styles.infoBox}>
+                <Info size={16} color={colors.info} />
+                <Text style={styles.infoText}>
+                  Dynamic pricing automatically reduces the price daily as the product approaches its expiration date, reaching the product cost on the final day.
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Expandable Dynamic Pricing Section */}
+          {isDynamicPricingEnabled && (
+            <TouchableOpacity 
+              style={styles.expandToggle}
+              onPress={() => setIsDynamicPricingExpanded(!isDynamicPricingExpanded)}
+            >
+              <Text style={styles.expandToggleText}>Dynamic Pricing Settings</Text>
+              {isDynamicPricingExpanded ? (
+                <ChevronUp size={20} color={colors.primary} />
+              ) : (
+                <ChevronDown size={20} color={colors.primary} />
+              )}
+            </TouchableOpacity>
+          )}
+
+          {isDynamicPricingEnabled && isDynamicPricingExpanded && (
+            <View style={styles.dynamicPricingSection}>
+              <Text style={styles.label}>Product Cost (₱)</Text>
+              <Text style={styles.fieldDescription}>
+                The minimum price the product will reach on its final day before expiration
+              </Text>
+              {errors.productCost && (
+                <View style={styles.errorContainer}>
+                  <AlertCircle size={16} color={colors.error} />
+                  <Text style={styles.errorText}>{errors.productCost}</Text>
+                </View>
+              )}
+              <TextInput
+                style={[
+                  styles.textInput,
+                  errors.productCost && { borderColor: colors.error }
+                ]}
+                placeholder="0.00"
+                placeholderTextColor={colors.text.tertiary}
+                value={productCost}
+                onChangeText={setProductCost}
+                keyboardType="numeric"
+              />
+
+              <Text style={styles.label}>Start Dynamic Pricing (Days Before Expiration)</Text>
+              <Text style={styles.fieldDescription}>
+                Number of days before expiration when dynamic pricing begins
+              </Text>
+              {errors.dynamicPricingStartDays && (
+                <View style={styles.errorContainer}>
+                  <AlertCircle size={16} color={colors.error} />
+                  <Text style={styles.errorText}>{errors.dynamicPricingStartDays}</Text>
+                </View>
+              )}
+              <TextInput
+                style={[
+                  styles.textInput,
+                  errors.dynamicPricingStartDays && { borderColor: colors.error }
+                ]}
+                placeholder="14"
+                placeholderTextColor={colors.text.tertiary}
+                value={dynamicPricingStartDays}
+                onChangeText={setDynamicPricingStartDays}
+                keyboardType="numeric"
+              />
+
+              {/* Dynamic Pricing Preview */}
+              {discountedPrice && productCost && dynamicPricingStartDays && 
+               parseFloat(discountedPrice) > parseFloat(productCost) && 
+               parseInt(dynamicPricingStartDays) > 0 && (
+                <View style={styles.pricingPreview}>
+                  <View style={styles.previewHeader}>
+                    <TrendingDown size={16} color={colors.info} />
+                    <Text style={styles.previewTitle}>Pricing Preview</Text>
+                  </View>
+                  <View style={styles.previewRow}>
+                    <Text style={styles.previewLabel}>Current Price:</Text>
+                    <Text style={styles.previewValue}>₱{parseFloat(discountedPrice).toFixed(2)}</Text>
+                  </View>
+                  <View style={styles.previewRow}>
+                    <Text style={styles.previewLabel}>Final Price (Day {dynamicPricingStartDays}):</Text>
+                    <Text style={styles.previewValue}>₱{parseFloat(productCost).toFixed(2)}</Text>
+                  </View>
+                  <View style={styles.previewRow}>
+                    <Text style={styles.previewLabel}>Daily Reduction:</Text>
+                    <Text style={styles.previewValue}>
+                      ₱{((parseFloat(discountedPrice) - parseFloat(productCost)) / parseInt(dynamicPricingStartDays)).toFixed(2)}
+                    </Text>
+                  </View>
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -736,6 +973,22 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     fontWeight: typography.fontWeights.medium,
   },
+  uploadingButton: {
+    opacity: 0.7,
+  },
+  uploadProgressContainer: {
+    width: '80%',
+    height: 4,
+    backgroundColor: colors.border.primary,
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: spacing.xs,
+  },
+  uploadProgressBar: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 2,
+  },
 
   // Pricing
   priceCalculation: {
@@ -749,6 +1002,142 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: typography.fontWeights.medium,
     marginBottom: spacing.xs,
+  },
+  optionalText: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.tertiary,
+    fontWeight: typography.fontWeights.normal,
+  },
+  fieldDescription: {
+    fontSize: typography.fontSizes.xs,
+    color: colors.text.tertiary,
+    marginBottom: spacing.sm,
+    lineHeight: 16,
+  },
+
+  // Dynamic Pricing Toggle
+  dynamicPricingToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.background.secondary,
+    borderRadius: radii.lg,
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  toggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  toggleText: {
+    fontSize: typography.fontSizes.md,
+    color: colors.text.secondary,
+    fontWeight: typography.fontWeights.medium,
+    marginLeft: spacing.sm,
+  },
+  toggleSwitch: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.border.primary,
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  toggleSwitchActive: {
+    backgroundColor: colors.primary,
+  },
+  toggleIndicator: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.background.primary,
+    alignSelf: 'flex-start',
+  },
+  toggleIndicatorActive: {
+    alignSelf: 'flex-end',
+  },
+
+  // Dynamic Pricing Info
+  dynamicPricingInfo: {
+    marginBottom: spacing.md,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.background.infoSubtle,
+    padding: spacing.md,
+    borderRadius: radii.md,
+    gap: spacing.sm,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: typography.fontSizes.sm,
+    color: colors.info,
+    lineHeight: 18,
+  },
+
+  // Expandable Section
+  expandToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.background.secondary,
+    borderRadius: radii.md,
+    marginBottom: spacing.md,
+  },
+  expandToggleText: {
+    fontSize: typography.fontSizes.md,
+    color: colors.primary,
+    fontWeight: typography.fontWeights.medium,
+  },
+
+  // Dynamic Pricing Section
+  dynamicPricingSection: {
+    backgroundColor: colors.background.secondary,
+    padding: spacing.lg,
+    borderRadius: radii.lg,
+    marginBottom: spacing.md,
+  },
+
+  // Pricing Preview
+  pricingPreview: {
+    backgroundColor: colors.background.primary,
+    padding: spacing.md,
+    borderRadius: radii.md,
+    marginTop: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  previewTitle: {
+    fontSize: typography.fontSizes.md,
+    color: colors.info,
+    fontWeight: typography.fontWeights.semibold,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  previewLabel: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+  },
+  previewValue: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.primary,
+    fontWeight: typography.fontWeights.semibold,
   },
 
   // Categories/Tags

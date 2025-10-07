@@ -9,23 +9,35 @@ const ProductItem = ({ item, theme }: { item: any, theme: ThemeType }) => {
     const router = useRouter();
     
     const getStatusColor = () => {
-        if (!item.isActive) return colors.danger;
-        if (item.stock <= 10) return colors.warning;
+        if (!item || !item.isActive) return colors.danger;
+        const stock = Number(item.stock || 0);
+        if (stock <= 10) return colors.warning;
         return colors.success;
     };
 
     const getStatusIcon = () => {
-        if (!item.isActive) return <X size={12} color={colors.danger} />;
-        if (item.stock <= 10) return <AlertCircle size={12} color={colors.warning} />;
+        if (!item || !item.isActive) return <X size={12} color={colors.danger} />;
+        const stock = Number(item.stock || 0);
+        if (stock <= 10) return <AlertCircle size={12} color={colors.warning} />;
         return <CheckCircle size={12} color={colors.success} />;
     };
 
     const getStockStatus = () => {
-        if (!item.isActive) return 'Inactive';
-        if (item.stock <= 5) return 'Very Low';
-        if (item.stock <= 10) return 'Low Stock';
+        if (!item || !item.isActive) return 'Inactive';
+        const stock = Number(item.stock || 0);
+        if (stock <= 5) return 'Very Low';
+        if (stock <= 10) return 'Low Stock';
         return 'In Stock';
     };
+
+    // Safety check for item
+    if (!item) {
+        return (
+            <Card style={styles.productCard}>
+                <Text>Loading...</Text>
+            </Card>
+        );
+    }
     
     return (
         <Card
@@ -44,48 +56,48 @@ const ProductItem = ({ item, theme }: { item: any, theme: ThemeType }) => {
                         </View>
 
                         {/* Original Price Badge (if discounted) */}
-                        {item.originalPrice > item.discountedPrice && (
+                        {Number(item.originalPrice || 0) > Number(item.discountedPrice || 0) ? (
                             <View style={styles.discountBadge}>
                                 <Text category="c2" style={styles.discountText}>
-                                    {Math.round(((item.originalPrice - item.discountedPrice) / item.originalPrice) * 100)}% OFF
+                                    {`${Math.round(((Number(item.originalPrice || 0) - Number(item.discountedPrice || 0)) / Number(item.originalPrice || 1)) * 100)}% OFF`}
                                 </Text>
                             </View>
-                        )}
+                        ) : null}
                     </ImageBackground>
                 </Layout>
 
                 <View style={styles.productInfo}>
                     <Text category="s1" style={styles.productName} numberOfLines={2}>
-                        {item.name}
+                        {String(item.name || 'Untitled Product')}
                     </Text>
 
                     <View style={styles.priceSection}>
-                        <Text category="h6" status='primary'>₱{item.discountedPrice.toFixed(2)}</Text>
-                        {item.originalPrice > item.discountedPrice && (
+                        <Text category="h6" status='primary'>{`₱${Number(item.discountedPrice || 0).toFixed(2)}`}</Text>
+                        {Number(item.originalPrice || 0) > Number(item.discountedPrice || 0) ? (
                             <Text category="c2" appearance='hint' style={styles.originalPrice}>
-                                ₱{item.originalPrice.toFixed(2)}
+                                {`₱${Number(item.originalPrice || 0).toFixed(2)}`}
                             </Text>
-                        )}
+                        ) : null}
                     </View>
 
                     <View style={styles.productDetails}>
                         <View style={styles.stockInfo}>
                             <Text category="c2" appearance='hint' style={[styles.stockText, { color: getStatusColor() }]}>
-                                {item.stock} {item.stock !== 1 ? 'items' : 'item'}
+                                {`${Number(item.stock || 0)} ${Number(item.stock || 0) !== 1 ? 'items' : 'item'}`}
                             </Text>
                             <Text category="c2" appearance='hint'>
-                                • {getStockStatus()}
+                                {`• ${getStockStatus()}`}
                             </Text>
                         </View>
 
-                        {item.rating && item.ratingCount > 0 && (
+                        {item.rating && Number(item.ratingCount || 0) > 0 ? (
                             <View style={styles.ratingContainer}>
                                 <Star width={10} height={10} fill={colors.warning} color={colors.warning} />
                                 <Text category="c2" appearance='hint'>
-                                    {item.rating.toFixed(1)} ({item.ratingCount})
+                                    {`${Number(item.rating || 0).toFixed(1)} (${Number(item.ratingCount || 0)})`}
                                 </Text>
                             </View>
-                        )}
+                        ) : null}
                     </View>
                 </View>
             </View>

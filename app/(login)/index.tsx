@@ -6,7 +6,7 @@ import {
   ImageBackground,
   Dimensions,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter , Redirect } from "expo-router";
 import * as eva from "@eva-design/eva";
 import {
   IconRegistry,
@@ -18,13 +18,10 @@ import {
   IconElement,
 } from "@ui-kitten/components";
 import { ClerkAPIError } from "@clerk/types";
-import { Redirect } from "expo-router";
 
 import * as WebBrowser from "expo-web-browser";
-import { isClerkAPIResponseError, useSSO } from "@clerk/clerk-expo";
+import { isClerkAPIResponseError, useSSO , useUser , useClerk } from "@clerk/clerk-expo";
 import * as AuthSession from "expo-auth-session";
-import { useUser } from "@clerk/clerk-expo";
-import { useClerk } from "@clerk/clerk-expo";
 import * as SecureStore from "expo-secure-store";
 import axios from "axios";
 import Svg, { Circle } from "react-native-svg";

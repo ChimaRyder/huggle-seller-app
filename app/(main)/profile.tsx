@@ -27,7 +27,8 @@ import {
   Package,
 } from 'lucide-react-native';
 import { colors, spacing, typography, radii } from '@/constants/theme';
-import { getStore, Store } from '@/utils/data/StoreController';
+import { getMyStore, Store } from '@/utils/Controllers/StoreController';
+import { getStoreStatistics, StoreStatistics } from '@/utils/storeStats';
 import { sellerProfileMenuItems, quickActionItems, type SellerProfileMenuItem } from '@/data/profile/sellerMenuItems';
 
 const getIconComponent = (iconName: string, size: number = 24, color: string = colors.primary) => {
@@ -51,26 +52,101 @@ export default function ProfileScreen() {
   const { user } = useUser();
   const { getToken } = useAuth();
   const [storeDetails, setStoreDetails] = useState<Store>({} as Store);
+  const [storeStats, setStoreStats] = useState<StoreStatistics>({
+    productCount: 0,
+    totalViews: 0,
+    totalOrders: 0,
+    totalRevenue: 0,
+    averageRating: 0,
+    totalReviews: 0
+  });
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
-      loadStoreDetails();
-    }, [])
+      // Only load data if not already loaded or not currently loading
+      if (!dataLoaded && !loading) {
+        loadStoreData();
+      }
+    }, [dataLoaded, loading])
   );
 
-  const loadStoreDetails = async () => {
+  const loadStoreDetails = async (token: string) => {
+    try {
+      const response = await getMyStore(token);
+      
+      // Handle the nested response structure from backend
+      const storeData = response.data?.data || response.data;
+      
+      // Ensure business hours are properly structured
+      if (storeData) {
+        const normalizedStore = {
+          ...storeData,
+          businessHours: storeData.businessHours && Array.isArray(storeData.businessHours) 
+            ? storeData.businessHours.map((hours: any) => ({
+                isOpen: hours?.isOpen || false,
+                openTime: hours?.openTime || '',
+                closeTime: hours?.closeTime || ''
+              }))
+            : Array(7).fill({ isOpen: false, openTime: '', closeTime: '' })
+        };
+        setStoreDetails(normalizedStore);
+      }
+    } catch (error) {
+      console.error('Error getting store: ', error);
+      // Set empty store details to prevent undefined errors
+      setStoreDetails({
+        id: '',
+        sellerId: '',
+        name: 'Store',
+        storeType: '',
+        description: '',
+        profileImageUrl: '',
+        coverImageUrl: '',
+        tags: [],
+        businessHours: Array(7).fill({ isOpen: false, openTime: '', closeTime: '' }),
+        isOpen: true,
+        isVerified: false,
+        address: '',
+        city: '',
+        province: '',
+        phoneNumber: '',
+        Location: undefined,
+        createdAt: '',
+        updatedAt: '',
+      });
+    }
+  };
+
+  const loadStoreStats = async (token: string) => {
+    try {
+      const stats = await getStoreStatistics(token);
+      setStoreStats(stats);
+    } catch (error) {
+      console.error('Error getting store stats: ', error);
+    }
+  };
+
+  const loadStoreData = async () => {
+    // Prevent multiple concurrent requests
+    if (loading) return;
+    
     try {
       setLoading(true);
       const token = await getToken({ template: 'seller_app' });
-      const response = await getStore(
-        user?.publicMetadata.storeId as string,
-        token ?? ''
-      );
-      setStoreDetails((response as any).data);
+      
+      if (token) {
+        // Load store details and stats in parallel
+        await Promise.all([
+          loadStoreDetails(token),
+          loadStoreStats(token)
+        ]);
+        setDataLoaded(true);
+      }
     } catch (error) {
-      console.error('Error getting store: ', error);
+      console.error('Error loading store data: ', error);
     } finally {
       setLoading(false);
     }
@@ -78,7 +154,8 @@ export default function ProfileScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadStoreDetails();
+    setDataLoaded(false); // Reset the flag to allow refresh
+    await loadStoreData();
     setRefreshing(false);
   }, []);
 
@@ -164,8 +241,8 @@ export default function ProfileScreen() {
           {/* Banner Image */}
           <Image
             source={
-              storeDetails?.storeCoverUrl
-                ? { uri: storeDetails.storeCoverUrl }
+              storeDetails?.coverImageUrl
+                ? { uri: storeDetails.coverImageUrl }
                 : require('../../assets/images/welcome-screen-background.jpg')
             }
             style={styles.bannerImage}
@@ -177,8 +254,8 @@ export default function ProfileScreen() {
             <View style={styles.avatarContainer}>
               <Image
                 source={
-                  storeDetails?.storeImageUrl
-                    ? { uri: storeDetails.storeImageUrl }
+                  storeDetails?.profileImageUrl
+                    ? { uri: storeDetails.profileImageUrl }
                     : require('../../assets/images/profile-placeholder.jpg')
                 }
                 style={styles.avatar}
@@ -188,17 +265,51 @@ export default function ProfileScreen() {
               {storeDetails?.name || 'Your Store'}
             </Text>
             <Text style={styles.userEmail}>{user?.emailAddresses[0]?.emailAddress}</Text>
+            
+            {/* Store Description */}
+            {storeDetails?.description && (
+              <Text style={styles.storeDescription}>{storeDetails.description}</Text>
+            )}
+            
+            {/* Store Type and Verification Badge */}
+            <View style={styles.storeBadges}>
+              {storeDetails?.storeType && (
+                <View style={styles.storeTypeBadge}>
+                  <Text style={styles.storeTypeText}>{storeDetails.storeType}</Text>
+                </View>
+              )}
+              {storeDetails?.isVerified && (
+                <View style={styles.verifiedBadge}>
+                  <Text style={styles.verifiedText}>✓ Verified</Text>
+                </View>
+              )}
+              <View style={[styles.statusBadge, storeDetails?.isOpen ? styles.openBadge : styles.closedBadge]}>
+                <Text style={[styles.statusText, storeDetails?.isOpen ? styles.openText : styles.closedText]}>
+                  {storeDetails?.isOpen ? 'Open' : 'Closed'}
+                </Text>
+              </View>
+            </View>
+            
             <View style={styles.storeStats}>
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>4.8</Text>
+                <Text style={styles.statValue}>
+                  {storeStats.averageRating > 0 ? storeStats.averageRating.toFixed(1) : '--'}
+                </Text>
                 <Text style={styles.statLabel}>Rating</Text>
               </View>
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>248</Text>
+                <Text style={styles.statValue}>
+                  {storeStats.productCount.toLocaleString()}
+                </Text>
                 <Text style={styles.statLabel}>Products</Text>
               </View>
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>1.2k</Text>
+                <Text style={styles.statValue}>
+                  {storeStats.totalReviews > 999 
+                    ? `${(storeStats.totalReviews / 1000).toFixed(1)}k` 
+                    : storeStats.totalReviews.toString()
+                  }
+                </Text>
                 <Text style={styles.statLabel}>Reviews</Text>
               </View>
             </View>
@@ -212,6 +323,7 @@ export default function ProfileScreen() {
             {quickActionItems.map(renderQuickAction)}
           </View>
         </View>
+
 
         {/* Menu Items */}
         <View style={styles.section}>
@@ -304,7 +416,65 @@ const styles = StyleSheet.create({
   userEmail: {
     fontSize: typography.fontSizes.md,
     color: colors.text.tertiary,
+    marginBottom: spacing.md,
+  },
+  storeDescription: {
+    fontSize: typography.fontSizes.md,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+    lineHeight: 20,
+    paddingHorizontal: spacing.md,
+  },
+  storeBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: spacing.sm,
     marginBottom: spacing.lg,
+  },
+  storeTypeBadge: {
+    backgroundColor: colors.primary + '20',
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  storeTypeText: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.primary,
+    fontWeight: typography.fontWeights.medium,
+  },
+  verifiedBadge: {
+    backgroundColor: colors.success + '20',
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  verifiedText: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.success,
+    fontWeight: typography.fontWeights.medium,
+  },
+  statusBadge: {
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  openBadge: {
+    backgroundColor: colors.success + '20',
+  },
+  closedBadge: {
+    backgroundColor: colors.error + '20',
+  },
+  statusText: {
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.medium,
+  },
+  openText: {
+    color: colors.success,
+  },
+  closedText: {
+    color: colors.error,
   },
   storeStats: {
     flexDirection: 'row',
@@ -438,4 +608,5 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeights.semibold,
     color: colors.text.inverse,
   },
+
 });

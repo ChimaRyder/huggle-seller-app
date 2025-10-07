@@ -1,100 +1,84 @@
+import { apiClient, handleApiResponse, handleApiError } from '../api';
+import { getAllProducts } from '../Controllers/ProductController';
+
 interface Review {
     id: string;
     productId: string;
     buyerId: string;
+    buyerName?: string;
     orderId: string;
+    orderItemId?: string;
     content: string;
-    imageUrls: string[];
+    imageUrls: string[]; // Multiple images array - matches backend ImageUrlsList
     rating: number;
     createdAt: string;
     updatedAt: string;
 }
 
-const mockReviews: Review[] = [
-    {
-        id: "review-001",
-        productId: "2",
-        buyerId: "buyer-1", 
-        orderId: "ord-001",
-        content: "Absolutely love this organic tea collection! The variety is amazing and the quality is top-notch. The Earl Grey is my favorite.",
-        imageUrls: [
-            "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=200&h=200&fit=crop"
-        ],
-        rating: 5,
-        createdAt: "2024-02-14T16:30:00Z",
-        updatedAt: "2024-02-14T16:30:00Z"
-    },
-    {
-        id: "review-002",
-        productId: "1",
-        buyerId: "buyer-2",
-        orderId: "ord-003", 
-        content: "Great coffee beans! Rich flavor and perfect roast. Will definitely order again.",
-        imageUrls: [],
-        rating: 5,
-        createdAt: "2024-02-13T14:20:00Z",
-        updatedAt: "2024-02-13T14:20:00Z"
-    },
-    {
-        id: "review-003",
-        productId: "3",
-        buyerId: "buyer-3",
-        orderId: "ord-002",
-        content: "The chocolate box was a delightful surprise. Each piece had unique flavors and the presentation was beautiful.",
-        imageUrls: [
-            "https://images.unsplash.com/photo-1549007953-2f2dc0b24019?w=200&h=200&fit=crop",
-            "https://images.unsplash.com/photo-1511381939415-e44015466834?w=200&h=200&fit=crop"
-        ],
-        rating: 4,
-        createdAt: "2024-02-12T11:45:00Z",
-        updatedAt: "2024-02-12T11:45:00Z"
-    },
-    {
-        id: "review-004",
-        productId: "1",
-        buyerId: "buyer-4",
-        orderId: "ord-005",
-        content: "Good coffee but the packaging could be improved. The flavor is excellent though.",
-        imageUrls: [],
-        rating: 4,
-        createdAt: "2024-02-11T09:30:00Z", 
-        updatedAt: "2024-02-11T09:30:00Z"
-    },
-    {
-        id: "review-005",
-        productId: "2",
-        buyerId: "buyer-2",
-        orderId: "ord-006",
-        content: "The chamomile tea is very soothing. Perfect for evening relaxation.",
-        imageUrls: [],
-        rating: 5,
-        createdAt: "2024-02-10T19:15:00Z",
-        updatedAt: "2024-02-10T19:15:00Z"
-    }
-];
-
 const getReviews = async (token: string, storeId: string) => {
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            // For demo purposes, return all reviews (in real app would filter by store)
-            resolve({
-                data: mockReviews,
+    try {
+        // Try the store endpoint first
+        const response = await apiClient.get(`/api/reviews/store/${storeId}`, token);
+        return {
+            data: handleApiResponse<Review[]>(response),
+            status: response.status
+        };
+    } catch (error: any) {
+        console.error('Store reviews endpoint not available, trying alternative approach:', error);
+        
+        // If store endpoint doesn't exist, we need to get all products for the store
+        // and then get reviews for each product to aggregate them
+        try {
+            console.log('Getting all products for store to aggregate reviews...');
+            // Get all products for the store using the existing function
+            const productsResponse = await getAllProducts('', token, storeId);
+            const products = productsResponse.data || [];
+            console.log(`Found ${products.length} products for store ${storeId}`);
+            
+            // Get reviews for each product and aggregate them
+            let allReviews: Review[] = [];
+            for (const product of products) {
+                try {
+                    console.log(`Getting reviews for product ${product.id}`);
+                    const reviewsResponse = await getProductReviews(token, product.id);
+                    const productReviews = reviewsResponse.data || [];
+                    console.log(`Found ${productReviews.length} reviews for product ${product.id}`);
+                    allReviews = [...allReviews, ...productReviews];
+                } catch (reviewError) {
+                    console.log(`No reviews for product ${product.id}:`, reviewError);
+                }
+            }
+            
+            console.log(`Total aggregated reviews: ${allReviews.length}`);
+            
+            // Sort by creation date, newest first
+            allReviews.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            
+            return {
+                data: allReviews,
                 status: 200
-            });
-        }, 500);
-    });
+            };
+        } catch (productsError) {
+            console.error('Could not get products to aggregate reviews:', productsError);
+            return {
+                data: [] as Review[],
+                status: 200
+            };
+        }
+    }
 };
 
 const getProductReviews = async (token: string, productId: string) => {
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            const productReviews = mockReviews.filter(r => r.productId === productId);
-            resolve({
-                data: productReviews,
-                status: 200
-            });
-        }, 400);
-    });
+    try {
+        const response = await apiClient.get(`/api/reviews/product/${productId}`, token);
+        return {
+            data: handleApiResponse<Review[]>(response),
+            status: response.status
+        };
+    } catch (error: any) {
+        console.error('Error fetching product reviews:', error);
+        throw error;
+    }
 };
 
 export { Review, getReviews, getProductReviews };

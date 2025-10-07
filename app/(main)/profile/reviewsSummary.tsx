@@ -5,106 +5,61 @@ import {
   View,
   TouchableOpacity,
   RefreshControl,
-  Dimensions
-} from 'react-native';
-import { Text } from 'react-native';
+  Dimensions,
+  Image,
+  Text } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Star, MessageCircle, User } from 'lucide-react-native';
+import { ArrowLeft, Star, MessageCircle, User, Filter } from 'lucide-react-native';
 import { colors, spacing, typography, radii } from '@/constants/theme';
-import { Review } from '@/utils/data/ReviewsController';
-import { Product, getProductbyID } from '@/utils/data/ProductController';
+import { Review, getReviews, getProductReviews } from '@/utils/data/ReviewsController';
+import { getProductbyID } from '@/utils/Controllers/ProductController';
+import { FullProduct } from '@/types/product';
 import { Buyer, getBuyer } from '@/utils/data/BuyerController';
 import { useAuth, useUser } from '@clerk/clerk-expo';
+import ImageViewing from 'react-native-image-viewing';
 
-// Mock reviews data using the actual Review interface
-const mockReviews: Review[] = [
-  {
-    id: '1',
-    productId: 'p1',
-    buyerId: 'b1',
-    orderId: 'o1',
-    content: 'I found a very special love in you. It\'s a feeling that\'s totally new. Over and over, it\'s burnin\' inside and I found a very special love in you and it almost breaks me in two',
-    imageUrls: [],
-    rating: 4.5,
-    createdAt: '2025-01-20T08:13:23.715Z',
-    updatedAt: '2025-01-20T08:13:23.715Z',
-  },
-  {
-    id: '2',
-    productId: 'p2',
-    buyerId: 'b2',
-    orderId: 'o2',
-    content: 'Amazing quality vegetables! Fresh, crispy, and delivered quickly. Will definitely order again. The packaging was also very good.',
-    imageUrls: [],
-    rating: 5,
-    createdAt: '2025-01-19T08:13:23.715Z',
-    updatedAt: '2025-01-19T08:13:23.715Z',
-  },
-  {
-    id: '3',
-    productId: 'p3',
-    buyerId: 'b3',
-    orderId: 'o3',
-    content: 'Good quality but could be better.',
-    imageUrls: [],
-    rating: 3,
-    createdAt: '2025-01-18T08:13:23.715Z',
-    updatedAt: '2025-01-18T08:13:23.715Z',
-  },
-  {
-    id: '4',
-    productId: 'p4',
-    buyerId: 'b4',
-    orderId: 'o4',
-    content: 'Perfect vegetables! Fresh and exactly what I was looking for.',
-    imageUrls: [],
-    rating: 5,
-    createdAt: '2025-01-17T08:13:23.715Z',
-    updatedAt: '2025-01-17T08:13:23.715Z',
-  },
-  {
-    id: '5',
-    productId: 'p5',
-    buyerId: 'b5',
-    orderId: 'o5',
-    content: 'Excellent product quality and fast delivery. Highly recommended!',
-    imageUrls: [],
-    rating: 4,
-    createdAt: '2025-01-16T08:13:23.715Z',
-    updatedAt: '2025-01-16T08:13:23.715Z',
-  },
-];
 
 const ReviewCard = ({ review, hideProductName = false }: { review: Review; hideProductName?: boolean }) => {
   const [expanded, setExpanded] = useState(false);
-  const [product, setProduct] = useState<Product | null>(null);
+  const [product, setProduct] = useState<FullProduct | null>(null);
   const [buyer, setBuyer] = useState<Buyer | null>(null);
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const { getToken } = useAuth();
 
-  // For mock data, we'll use placeholder data instead of API calls
+  // Load product and buyer data from API
   useEffect(() => {
-    // Simulate product and buyer data for mock reviews
-    const mockProducts: { [key: string]: string } = {
-      'p1': 'Fresh Organic Tomatoes',
-      'p2': 'Organic Carrots Bundle',
-      'p3': 'Fresh Spinach Leaves',
-      'p4': 'Organic Bell Peppers',
-      'p5': 'Fresh Cucumber',
+    const loadProductAndBuyer = async () => {
+      try {
+        const token = await getToken({ template: "seller_app" });
+        
+        // Load product data
+        if (review.productId && token) {
+          try {
+            const productResponse = await getProductbyID(review.productId, token);
+            setProduct((productResponse as any).data);
+          } catch (error) {
+            console.error('Error loading product:', error);
+            setProduct({ name: 'Unknown Product' } as FullProduct);
+          }
+        }
+        
+        // For buyer data, we'll use the buyerName from the review if available
+        // or set a default name since we don't have a buyer API endpoint yet
+        setBuyer({ 
+          name: review.buyerName || 'Anonymous Customer' 
+        } as Buyer);
+        
+      } catch (error) {
+        console.error('Error in loadProductAndBuyer:', error);
+        setProduct({ name: 'Unknown Product' } as FullProduct);
+        setBuyer({ name: 'Anonymous Customer' } as Buyer);
+      }
     };
-
-    const mockBuyers: { [key: string]: string } = {
-      'b1': 'Sarah M.',
-      'b2': 'John D.',
-      'b3': 'Emily R.',
-      'b4': 'Mike L.',
-      'b5': 'Lisa K.',
-    };
-
-    // Set mock data
-    setProduct({ name: mockProducts[review.productId] || 'Unknown Product' } as Product);
-    setBuyer({ name: mockBuyers[review.buyerId] || 'Anonymous User' } as Buyer);
-  }, [review]);
+    
+    loadProductAndBuyer();
+  }, [review, getToken]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -121,6 +76,15 @@ const ReviewCard = ({ review, hideProductName = false }: { review: Review; hideP
 
   const shouldShowExpanded = expanded;
   const messageToShow = shouldShowExpanded ? review.content : review.content?.slice(0, 100) + (review.content && review.content.length > 100 ? '...' : '');
+
+  // Function to open image viewer
+  const openImageViewer = (index: number) => {
+    setSelectedImageIndex(index);
+    setImageViewerVisible(true);
+  };
+
+  // Prepare images for react-native-image-viewing
+  const imageViewerData = (review.imageUrls || []).map(url => ({ uri: url }));
 
   return (
     <View style={styles.reviewCard}>
@@ -177,15 +141,30 @@ const ReviewCard = ({ review, hideProductName = false }: { review: Review; hideP
               showsHorizontalScrollIndicator={false}
               data={review.imageUrls}
               keyExtractor={(item, index) => index.toString()}
-              renderItem={({ item }) => (
-                <View style={styles.imageContainer}>
-                  <Text style={styles.imagePlaceholder}>📷</Text>
-                </View>
+              renderItem={({ item, index }) => (
+                <TouchableOpacity 
+                  style={styles.imageContainer}
+                  onPress={() => openImageViewer(index)}
+                >
+                  <Image 
+                    source={{ uri: item }} 
+                    style={styles.reviewImage}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
               )}
             />
           </View>
         )}
       </View>
+      
+      {/* Image Viewer Modal */}
+      <ImageViewing
+        images={imageViewerData}
+        imageIndex={selectedImageIndex}
+        visible={imageViewerVisible}
+        onRequestClose={() => setImageViewerVisible(false)}
+      />
     </View>
   );
 };
@@ -195,51 +174,130 @@ export default function ReviewsSummaryScreen() {
   const { productId, productName } = useLocalSearchParams();
   const [loading, setLoading] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [allReviews] = useState<Review[]>(mockReviews);
+  const [allReviews, setAllReviews] = useState<Review[]>([]);
+  const [filteredReviews, setFilteredReviews] = useState<Review[]>([]);
+  const [filterRating, setFilterRating] = useState<number | null>(null);
+  const [showFilterOptions, setShowFilterOptions] = useState(false);
+  const { getToken } = useAuth();
+  const { user } = useUser();
 
-  // Load reviews based on whether we're filtering by product or showing all
-  useEffect(() => {
-    if (productId) {
-      // Filter reviews for specific product
-      const productReviews = allReviews.filter(review => review.productId === productId);
-      setReviews(productReviews);
-    } else {
-      // Show all reviews
-      setReviews(allReviews);
+  // Load reviews from API
+  const loadReviews = async () => {
+    try {
+      setLoading(true);
+      const token = await getToken({ template: "seller_app" });
+      
+      if (!token) {
+        console.error('No authentication token available');
+        setAllReviews([]);
+        setReviews([]);
+        setFilteredReviews([]);
+        return;
+      }
+      
+      let reviewsData: Review[] = [];
+      
+      if (productId) {
+        // Get reviews for specific product
+        console.log('Loading reviews for product:', productId);
+        const response = await getProductReviews(token, productId as string);
+        reviewsData = (response as any).data || [];
+        console.log('Product reviews loaded:', reviewsData.length);
+      } else {
+        // Get all store reviews
+        const storeId = user?.publicMetadata?.storeId as string;
+        console.log('Loading reviews for store:', storeId);
+        
+        if (storeId) {
+          const response = await getReviews(token, storeId);
+          reviewsData = (response as any).data || [];
+          console.log('Store reviews loaded:', reviewsData.length);
+        } else {
+          console.error('No store ID available');
+        }
+      }
+      
+      setAllReviews(reviewsData);
+      setReviews(reviewsData);
+      setFilteredReviews(reviewsData);
+      
+    } catch (error) {
+      console.error('Error loading reviews:', error);
+      setAllReviews([]);
+      setReviews([]);
+      setFilteredReviews([]);
+    } finally {
+      setLoading(false);
     }
-  }, [productId, allReviews]);
+  };
+
+  useEffect(() => {
+    loadReviews();
+  }, [productId, user?.publicMetadata?.storeId]);
+
+  // Filter reviews by rating
+  const applyRatingFilter = (rating: number | null) => {
+    setFilterRating(rating);
+    let filtered = allReviews;
+    
+    if (rating !== null) {
+      if (rating === 5) {
+        filtered = allReviews.filter(review => review.rating === 5);
+      } else {
+        filtered = allReviews.filter(review => review.rating >= rating && review.rating < rating + 1);
+      }
+    }
+    
+    setFilteredReviews(filtered);
+    setShowFilterOptions(false);
+  };
 
   const handleRefresh = useCallback(() => {
-    setLoading(true);
-    // Simulate API delay
-    setTimeout(() => {
-      setLoading(false);
-      // Reload reviews based on productId
-      if (productId) {
-        const productReviews = allReviews.filter(review => review.productId === productId);
-        setReviews(productReviews);
-      } else {
-        setReviews(allReviews);
-      }
-    }, 1000);
-  }, [productId, allReviews]);
+    loadReviews();
+  }, [productId]);
 
-  // Calculate rating statistics
+  // Use filtered reviews for display
+  const displayReviews = filteredReviews;
+
+  // Calculate rating statistics based on all reviews (not filtered)
   const ratingStats = {
-    total: reviews.length,
-    average: reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0,
+    total: allReviews.length,
+    average: allReviews.length > 0 ? allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length : 0,
     distribution: {
-      5: reviews.filter(r => r.rating === 5).length,
-      4: reviews.filter(r => r.rating >= 4 && r.rating < 5).length,
-      3: reviews.filter(r => r.rating >= 3 && r.rating < 4).length,
-      2: reviews.filter(r => r.rating >= 2 && r.rating < 3).length,
-      1: reviews.filter(r => r.rating >= 1 && r.rating < 2).length,
+      5: allReviews.filter(r => r.rating === 5).length,
+      4: allReviews.filter(r => r.rating >= 4 && r.rating < 5).length,
+      3: allReviews.filter(r => r.rating >= 3 && r.rating < 4).length,
+      2: allReviews.filter(r => r.rating >= 2 && r.rating < 3).length,
+      1: allReviews.filter(r => r.rating >= 1 && r.rating < 2).length,
     },
-    withPhotos: reviews.filter(r => r.imageUrls && r.imageUrls.length > 0).length,
+    withPhotos: allReviews.filter(r => r.imageUrls && r.imageUrls.length > 0).length,
   };
 
   const renderReview = ({ item }: { item: Review }) => (
     <ReviewCard review={item} hideProductName={!!productId} />
+  );
+
+  const renderFilterOptions = () => (
+    <View style={styles.filterOptionsContainer}>
+      <TouchableOpacity
+        style={[styles.filterOption, filterRating === null && styles.activeFilterOption]}
+        onPress={() => applyRatingFilter(null)}
+      >
+        <Text style={[styles.filterOptionText, filterRating === null && styles.activeFilterOptionText]}>All</Text>
+      </TouchableOpacity>
+      {[5, 4, 3, 2, 1].map((rating) => (
+        <TouchableOpacity
+          key={rating}
+          style={[styles.filterOption, filterRating === rating && styles.activeFilterOption]}
+          onPress={() => applyRatingFilter(rating)}
+        >
+          <View style={styles.filterOptionContent}>
+            <Star size={14} color={filterRating === rating ? colors.text.inverse : colors.warning} fill={colors.warning} />
+            <Text style={[styles.filterOptionText, filterRating === rating && styles.activeFilterOptionText]}>{rating}</Text>
+          </View>
+        </TouchableOpacity>
+      ))}
+    </View>
   );
 
   return (
@@ -258,10 +316,21 @@ export default function ReviewsSummaryScreen() {
             {productId && productName ? `${productName} - ` : ''}{ratingStats.total} Reviews
           </Text>
         </View>
+        
+        {/* Filter Button */}
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => setShowFilterOptions(!showFilterOptions)}
+        >
+          <Filter size={20} color={colors.primary} />
+        </TouchableOpacity>
       </View>
+      
+      {/* Filter Options */}
+      {showFilterOptions && renderFilterOptions()}
 
       {/* Rating Overview */}
-      {reviews.length > 0 && (
+      {allReviews.length > 0 && (
         <View style={styles.ratingOverviewContainer}>
           <View style={styles.ratingOverview}>
             <Text style={styles.averageRating}>{ratingStats.average.toFixed(1)}</Text>
@@ -303,7 +372,11 @@ export default function ReviewsSummaryScreen() {
       )}
 
       {/* Reviews List */}
-      {reviews.length === 0 ? (
+      {loading ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.loadingText}>Loading reviews...</Text>
+        </View>
+      ) : displayReviews.length === 0 ? (
         <View style={styles.emptyContainer}>
           <MessageCircle size={48} color={colors.text.tertiary} />
           <Text style={styles.emptyText}>No reviews yet</Text>
@@ -313,10 +386,15 @@ export default function ReviewsSummaryScreen() {
               : 'Your customers\' reviews will appear here once they start reviewing your products.'
             }
           </Text>
+          {!productId && (
+            <Text style={styles.debugText}>
+              Store ID: {user?.publicMetadata?.storeId || 'Not found'}
+            </Text>
+          )}
         </View>
       ) : (
         <FlatList
-          data={reviews}
+          data={displayReviews}
           renderItem={renderReview}
           keyExtractor={item => item.id}
           style={styles.reviewsList}
@@ -548,5 +626,69 @@ const styles = StyleSheet.create({
   },
   imagePlaceholder: {
     fontSize: 24,
+  },
+  reviewImage: {
+    width: 60,
+    height: 60,
+    borderRadius: radii.sm,
+    backgroundColor: colors.background.secondary,
+  },
+  
+  // Filter styles
+  filterButton: {
+    padding: spacing.sm,
+    backgroundColor: colors.background.successSubtle,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  filterOptionsContainer: {
+    flexDirection: 'row',
+    backgroundColor: colors.background.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.primary,
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  filterOption: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.md,
+    backgroundColor: colors.background.secondary,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+  },
+  activeFilterOption: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  filterOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  filterOptionText: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+    fontWeight: typography.fontWeights.medium,
+  },
+  activeFilterOptionText: {
+    color: colors.text.inverse,
+  },
+  
+  // Loading and debug styles
+  loadingText: {
+    fontSize: typography.fontSizes.md,
+    color: colors.text.secondary,
+    textAlign: 'center',
+  },
+  debugText: {
+    fontSize: typography.fontSizes.xs,
+    color: colors.text.tertiary,
+    textAlign: 'center',
+    marginTop: spacing.md,
+    fontStyle: 'italic',
   },
 });

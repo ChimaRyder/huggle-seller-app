@@ -23,7 +23,7 @@ import {
   AlertCircle,
 } from 'lucide-react-native';
 import { colors, spacing, typography, radii } from '@/constants/theme';
-import { getStore, updateStore } from '@/utils/data/StoreController';
+import { getMyStore, updateStore } from '@/utils/Controllers/StoreController';
 import { showToast } from '@/components/Toast';
 import BusinessHoursPicker from '../../(seller-registration)/components/BusinessHoursPicker';
 import * as ImagePicker from 'expo-image-picker';
@@ -36,19 +36,21 @@ const initialStore = {
   id: '',
   sellerId: '',
   name: '',
-  storeDescription: '',
-  storeImageUrl: '',
-  storeCoverUrl: '',
-  storeCategory: '',
+  storeType: '',
+  description: '',
+  profileImageUrl: '',
+  coverImageUrl: '',
   tags: [],
-  businessHours: Array(7).fill({ isOpen: false, openTime: '', closeTime: '' }),
-  isClosedOverride: false,
+  businessHours: Array.from({ length: 7 }, () => ({ isOpen: false, openTime: '', closeTime: '' })),
+  isOpen: true,
+  isVerified: false,
   address: '',
   city: '',
   province: '',
-  zipCode: '',
-  latitude: 0,
-  longitude: 0,
+  phoneNumber: '',
+  Location: undefined,
+  createdAt: '',
+  updatedAt: '',
 };
 
 export default function ShopDetailsScreen() {
@@ -58,9 +60,15 @@ export default function ShopDetailsScreen() {
   const [store, setStore] = useState(initialStore);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   const handleChange = (field: string, value: any) => {
-    setStore(prev => ({ ...prev, [field]: value }));
+    console.log(`Updating ${field} with value:`, value);
+    setStore(prev => {
+      const newStore = { ...prev, [field]: value };
+      console.log('New store state:', newStore);
+      return newStore;
+    });
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
@@ -72,28 +80,42 @@ export default function ShopDetailsScreen() {
   };
 
   const pickCoverImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [16, 9],
-      quality: 0.8,
-    });
+    try {
+      console.log('Opening cover image picker...');
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
+      });
 
-    if (!result.canceled && result.assets[0]) {
-      handleChange('storeCoverUrl', result.assets[0].uri);
+      console.log('Cover image picker result:', result);
+      if (!result.canceled && result.assets[0]) {
+        console.log('Setting cover image:', result.assets[0].uri);
+        handleChange('coverImageUrl', result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error picking cover image:', error);
     }
   };
 
   const pickProfileImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
+    try {
+      console.log('Opening profile image picker...');
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
 
-    if (!result.canceled && result.assets[0]) {
-      handleChange('storeImageUrl', result.assets[0].uri);
+      console.log('Profile image picker result:', result);
+      if (!result.canceled && result.assets[0]) {
+        console.log('Setting profile image:', result.assets[0].uri);
+        handleChange('profileImageUrl', result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error picking profile image:', error);
     }
   };
 
@@ -104,14 +126,14 @@ export default function ShopDetailsScreen() {
       newErrors.name = 'Shop name is required';
     }
 
-    if (!store.storeDescription.trim()) {
-      newErrors.storeDescription = 'Shop description is required';
-    } else if (store.storeDescription.length < 20) {
-      newErrors.storeDescription = 'Description must be at least 20 characters';
+    if (!store.description.trim()) {
+      newErrors.description = 'Shop description is required';
+    } else if (store.description.length < 20) {
+      newErrors.description = 'Description must be at least 20 characters';
     }
 
-    if (!store.storeCategory) {
-      newErrors.storeCategory = 'Please select a category';
+    if (!store.storeType) {
+      newErrors.storeType = 'Please select a category';
     }
 
     if (!store.address.trim()) {
@@ -155,21 +177,70 @@ export default function ShopDetailsScreen() {
       const loadStoreDetails = async () => {
         try {
           const token = await getToken({template: "seller_app"});
-          const response = await getStore(user?.publicMetadata.storeId as string, token ?? "");
+          const response = await getMyStore(token ?? "");
 
-          const storeData = (response as any).data;
-          setStore(storeData);
+          // Handle the nested response structure from backend
+          const storeData = response.data?.data || response.data;
+          console.log('Raw store data from backend:', storeData);
+          
+          // Ensure business hours are properly structured and map backend fields to frontend
+          if (storeData) {
+            // First handle business hours - ensure we have 7 days
+            let normalizedBusinessHours = Array.from({ length: 7 }, () => ({ isOpen: false, openTime: '', closeTime: '' }));
+            
+            if (storeData.businessHours && Array.isArray(storeData.businessHours)) {
+              // Fill in the actual business hours data
+              storeData.businessHours.forEach((hours: any, index: number) => {
+                if (index < 7) {
+                  normalizedBusinessHours[index] = {
+                    isOpen: hours?.isOpen || false,
+                    openTime: hours?.openTime || '',
+                    closeTime: hours?.closeTime || ''
+                  };
+                }
+              });
+            }
+
+            const normalizedStore = {
+              id: storeData.id || '',
+              sellerId: storeData.sellerId || '',
+              name: storeData.name || '',
+              storeType: storeData.storeType || '',
+              description: storeData.description || '',
+              profileImageUrl: storeData.profileImageUrl || '',
+              coverImageUrl: storeData.coverImageUrl || '',
+              tags: storeData.tags || [],
+              businessHours: normalizedBusinessHours,
+              isOpen: storeData.isOpen !== undefined ? storeData.isOpen : true,
+              isVerified: storeData.isVerified !== undefined ? storeData.isVerified : false,
+              address: storeData.address || '',
+              city: storeData.city || '',
+              province: storeData.province || '',
+              phoneNumber: storeData.phoneNumber || '',
+              Location: storeData.Location || undefined,
+              createdAt: storeData.createdAt || '',
+              updatedAt: storeData.updatedAt || '',
+            };
+            
+            console.log('Setting normalized store data:', normalizedStore);
+            setStore(normalizedStore);
+            
+            // Debug: Check what images we have after setting
+            setTimeout(() => {
+              console.log('Current store state after setting:', {
+                coverImageUrl: normalizedStore.coverImageUrl,
+                profileImageUrl: normalizedStore.profileImageUrl,
+                name: normalizedStore.name
+              });
+            }, 100);
+          }
         } catch(error) {
           console.error('Error getting store: ', error);
         }
       };
 
       loadStoreDetails();
-
-      return () => {
-        console.log("shop details not focused");
-      }
-    }, [getToken, user?.publicMetadata.storeId])
+    }, [])
   )
 
   return (
@@ -184,9 +255,9 @@ export default function ShopDetailsScreen() {
           <Text style={styles.headerSubtitle}>Edit your store information</Text>
         </View>
         <TouchableOpacity
-          style={[styles.saveHeaderButton, (!store.name.trim() || !store.storeDescription.trim()) && styles.saveHeaderButtonDisabled]}
+          style={[styles.saveHeaderButton, (!store.name.trim() || !store.description.trim()) && styles.saveHeaderButtonDisabled]}
           onPress={handleSave}
-          disabled={!store.name.trim() || !store.storeDescription.trim() || saving}
+          disabled={!store.name.trim() || !store.description.trim() || saving}
         >
           {saving ? (
             <View style={styles.loadingIndicator} />
@@ -211,9 +282,14 @@ export default function ShopDetailsScreen() {
           <View style={styles.imageSection}>
             <Text style={styles.imageLabel}>Cover Photo</Text>
             <TouchableOpacity style={styles.coverImageContainer} onPress={pickCoverImage}>
-              {store.storeCoverUrl ? (
+              {store.coverImageUrl && store.coverImageUrl.trim() !== '' ? (
                 <>
-                  <Image source={{ uri: store.storeCoverUrl }} style={styles.coverImage} />
+                  <Image 
+                    source={{ uri: store.coverImageUrl }} 
+                    style={styles.coverImage}
+                    onLoad={() => console.log('Cover image loaded successfully')}
+                    onError={(error) => console.log('Cover image load error:', error)}
+                  />
                   <View style={styles.imageOverlay}>
                     <Camera size={20} color={colors.text.inverse} />
                     <Text style={styles.overlayText}>Change Cover</Text>
@@ -232,9 +308,14 @@ export default function ShopDetailsScreen() {
           <View style={styles.imageSection}>
             <Text style={styles.imageLabel}>Profile Photo</Text>
             <TouchableOpacity style={styles.profileImageContainer} onPress={pickProfileImage}>
-              {store.storeImageUrl ? (
+              {store.profileImageUrl && store.profileImageUrl.trim() !== '' ? (
                 <>
-                  <Image source={{ uri: store.storeImageUrl }} style={styles.profileImage} />
+                  <Image 
+                    source={{ uri: store.profileImageUrl }} 
+                    style={styles.profileImage}
+                    onLoad={() => console.log('Profile image loaded successfully')}
+                    onError={(error) => console.log('Profile image load error:', error)}
+                  />
                   <View style={styles.profileImageOverlay}>
                     <Camera size={16} color={colors.text.inverse} />
                   </View>
@@ -274,20 +355,20 @@ export default function ShopDetailsScreen() {
 
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Shop Description *</Text>
-            <Text style={styles.characterCount}>{store.storeDescription.length}/300</Text>
-            {errors.storeDescription && (
+            <Text style={styles.characterCount}>{store.description.length}/300</Text>
+            {errors.description && (
               <View style={styles.errorContainer}>
                 <AlertCircle size={16} color={colors.error} />
-                <Text style={styles.errorText}>{errors.storeDescription}</Text>
+                <Text style={styles.errorText}>{errors.description}</Text>
               </View>
             )}
             <TextInput
-              style={[styles.textAreaInput, errors.storeDescription && { borderColor: colors.error }]}
+              style={[styles.textAreaInput, errors.description && { borderColor: colors.error }]}
               multiline
               placeholder="Describe your shop, what you sell, and what makes you special..."
               placeholderTextColor={colors.text.tertiary}
-              value={store.storeDescription}
-              onChangeText={(val: string) => handleChange('storeDescription', val)}
+              value={store.description}
+              onChangeText={(val: string) => handleChange('description', val)}
               maxLength={300}
               textAlignVertical="top"
             />
@@ -295,10 +376,10 @@ export default function ShopDetailsScreen() {
 
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Shop Category *</Text>
-            {errors.storeCategory && (
+            {errors.storeType && (
               <View style={styles.errorContainer}>
                 <AlertCircle size={16} color={colors.error} />
-                <Text style={styles.errorText}>{errors.storeCategory}</Text>
+                <Text style={styles.errorText}>{errors.storeType}</Text>
               </View>
             )}
             <View style={styles.categoryGrid}>
@@ -307,13 +388,13 @@ export default function ShopDetailsScreen() {
                   key={category}
                   style={[
                     styles.categoryOption,
-                    store.storeCategory === category && { backgroundColor: colors.primary + '20', borderColor: colors.primary }
+                    store.storeType === category && { backgroundColor: colors.primary + '20', borderColor: colors.primary }
                   ]}
-                  onPress={() => handleChange('storeCategory', category)}
+                  onPress={() => handleChange('storeType', category)}
                 >
                   <Text style={[
                     styles.categoryText,
-                    store.storeCategory === category && { color: colors.primary, fontWeight: typography.fontWeights.semibold }
+                    store.storeType === category && { color: colors.primary, fontWeight: typography.fontWeights.semibold }
                   ]}>
                     {category}
                   </Text>
@@ -340,12 +421,12 @@ export default function ShopDetailsScreen() {
 
           <View style={styles.toggleContainer}>
             <View style={styles.toggleInfo}>
-              <Text style={styles.toggleLabel}>Temporarily Close Shop</Text>
-              <Text style={styles.toggleDescription}>Override business hours and close temporarily</Text>
+              <Text style={styles.toggleLabel}>Store Open Status</Text>
+              <Text style={styles.toggleDescription}>Toggle whether your store is currently open</Text>
             </View>
             <Switch
-              value={store.isClosedOverride}
-              onValueChange={(checked: boolean) => handleChange('isClosedOverride', checked)}
+              value={store.isOpen}
+              onValueChange={(checked: boolean) => handleChange('isOpen', checked)}
               trackColor={{
                 false: colors.border.secondary,
                 true: colors.primary,

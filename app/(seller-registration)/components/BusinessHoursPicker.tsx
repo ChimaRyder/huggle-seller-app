@@ -30,6 +30,15 @@ export default function BusinessHoursPicker({ value, onChange, errors, touched }
   const [currentDay, setCurrentDay] = useState(0);
   const [timeType, setTimeType] = useState<'open' | 'close'>('open');
 
+  // Ensure we have a valid business hours array
+  const safeValue = value && Array.isArray(value) && value.length === 7 
+    ? value.map(day => ({
+        isOpen: day?.isOpen || false,
+        openTime: day?.openTime || '',
+        closeTime: day?.closeTime || ''
+      }))
+    : Array(7).fill({ isOpen: false, openTime: '', closeTime: '' });
+
   const openTimePicker = (dayIndex: number, type: 'open' | 'close') => {
     setCurrentDay(dayIndex);
     setTimeType(type);
@@ -37,7 +46,7 @@ export default function BusinessHoursPicker({ value, onChange, errors, touched }
   };
 
   const selectTime = (time: string) => {
-    const newHours = [...value];
+    const newHours = [...safeValue];
     if (timeType === 'open') {
       newHours[currentDay].openTime = time;
     } else {
@@ -66,9 +75,9 @@ export default function BusinessHoursPicker({ value, onChange, errors, touched }
         <View key={day} style={styles.dayRow}>
           <View style={styles.dayHeader}>
             <TouchableOpacity
-              style={[styles.toggleButton, value[idx].isOpen && styles.toggleButtonActive]}
+              style={[styles.toggleButton, safeValue[idx].isOpen && styles.toggleButtonActive]}
               onPress={() => {
-                const newHours = [...value];
+                const newHours = [...safeValue];
                 newHours[idx].isOpen = !newHours[idx].isOpen;
                 if (!newHours[idx].isOpen) {
                   newHours[idx].openTime = undefined;
@@ -80,19 +89,19 @@ export default function BusinessHoursPicker({ value, onChange, errors, touched }
                 onChange(newHours);
               }}
             >
-              {value[idx].isOpen && <Check size={14} color={colors.primary} />}
+              {safeValue[idx].isOpen && <Check size={14} color={colors.primary} />}
             </TouchableOpacity>
             <Text style={styles.dayName}>{getDayName(day)}</Text>
           </View>
 
-          {value[idx].isOpen ? (
+          {safeValue[idx].isOpen ? (
             <View style={styles.hoursContainer}>
               <TouchableOpacity
                 style={styles.timeButton}
                 onPress={() => openTimePicker(idx, 'open')}
               >
                 <Clock size={16} color={colors.text.secondary} />
-                <Text style={styles.timeText}>{value[idx].openTime}</Text>
+                <Text style={styles.timeText}>{safeValue[idx].openTime}</Text>
                 <ChevronDown size={16} color={colors.text.secondary} />
               </TouchableOpacity>
 
@@ -103,7 +112,7 @@ export default function BusinessHoursPicker({ value, onChange, errors, touched }
                 onPress={() => openTimePicker(idx, 'close')}
               >
                 <Clock size={16} color={colors.text.secondary} />
-                <Text style={styles.timeText}>{value[idx].closeTime}</Text>
+                <Text style={styles.timeText}>{safeValue[idx].closeTime}</Text>
                 <ChevronDown size={16} color={colors.text.secondary} />
               </TouchableOpacity>
             </View>

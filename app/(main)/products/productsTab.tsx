@@ -22,8 +22,9 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { useAuth, useUser } from "@clerk/clerk-expo";
-import { getAllProducts } from "@/utils/data/ProductController";
+import { getAllProducts } from "@/utils/Controllers/ProductController";
 import { showToast } from "@/components/Toast";
+import { validateSellerAccess } from "@/utils/sellerUtils";
 import { AlertCircle, CookingPot, Filter, SortAsc, BarChart3, Package, Plus } from "lucide-react-native";
 import { colors, spacing, typography, radii } from "@/constants/theme";
 
@@ -49,8 +50,8 @@ const ProductsTab = ({ theme, unread = 0 }: { theme: ThemeType; unread?: number 
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [products, setProducts] = useState<Array<any>>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Array<any>>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState(new IndexPath(0));
@@ -61,17 +62,36 @@ const ProductsTab = ({ theme, unread = 0 }: { theme: ThemeType; unread?: number 
   const fetchProducts = async () => {
     try {
       setLoading(true);
+      // Get token with seller_app template (contains storeId in claims)
       const token = await getToken({ template: "seller_app" });
+      
+      // Validate seller access using token claims (optional - controller will also validate)
+      const sellerValidation = validateSellerAccess(token, user);
+      
+      if (!sellerValidation.isValid) {
+        throw new Error(sellerValidation.error || 'Invalid seller access');
+      }
+      
+      // Call getAllProducts - storeId will be extracted from token automatically
       const response = await getAllProducts("", token ?? "");
-
       const data = ((response as any).data);
       setProducts(data);
-    } catch (error) {
-      console.error("Error getting products: ", error);
+    } catch (error: any) {
+      
+      let errorMessage = "Something went wrong while getting your products. Please try again.";
+      
+      if (error.response?.status === 404) {
+        errorMessage = "No products found. Start by adding your first product!";
+      } else if (error.response?.status === 401) {
+        errorMessage = "Authentication failed. Please log in again.";
+      } else if (error.message?.includes('seller registration') || error.message?.includes('Store ID not found')) {
+        errorMessage = error.message;
+      }
+      
       showToast(
         "error",
         "Uh oh!",
-        `Something went wrong while getting your products. Please try again.`
+        errorMessage
       );
     } finally {
       setLoading(false);
@@ -147,7 +167,7 @@ const ProductsTab = ({ theme, unread = 0 }: { theme: ThemeType; unread?: number 
       fetchProducts();
 
       return () => {
-        console.log("product list not focused");
+        // Cleanup if needed
       };
     }, [])
   );

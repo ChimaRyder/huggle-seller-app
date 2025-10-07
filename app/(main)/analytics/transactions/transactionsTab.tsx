@@ -1,10 +1,10 @@
 import { StyleSheet, View, FlatList } from 'react-native';
 import { Text, Layout, Divider, useTheme } from '@ui-kitten/components';
 import renderTransactionItem from './components/transactionItem';
-import { StoreAnalytics } from '@/utils/data/AnalyticsController';
+import { StoreAnalytics } from '@/utils/Controllers/AnalyticsController';
 import { useCallback, useState } from 'react';
-import { useAuth } from '@clerk/clerk-expo';
-import { getAllOrders, Order } from '@/utils/data/OrderController';
+import { useAuth, useUser } from '@clerk/clerk-expo';
+import { getAllOrders, Order } from '@/utils/Controllers/OrderController';
 import { useFocusEffect } from 'expo-router';
 import { CookingPot } from 'lucide-react-native';
 
@@ -12,16 +12,18 @@ import { CookingPot } from 'lucide-react-native';
 const TransactionsTab = ({analytics} : {analytics : StoreAnalytics}) => {
   const theme = useTheme();
   const [loading, setLoading] = useState(false);
-  const [orders, setOrders] = useState<Array<Order>>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const { getToken } = useAuth();
+  const { user } = useUser();
 
   const getOrders = async () => {
     try {
       setLoading(true);
       const token = await getToken({template: "seller_app"});
-      const response = await getAllOrders(token ?? "");
+      const storeId = user?.publicMetadata?.storeId as string;
+      const response = await getAllOrders(token ?? "", storeId);
 
-      setOrders(((response as any).data).filter((data : Order) => data.status === 2));
+      setOrders(((response as any).data).filter((data : Order) => data.status === 'Ready For Pickup'));
     } catch(error) {
       console.error("Error getting orders: ", error);
     } finally {

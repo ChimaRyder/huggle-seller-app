@@ -10,9 +10,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from "expo-router";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth, useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
-import { Order, getAllOrders } from "@/utils/data/OrderController";
+import { Order, getAllOrders } from "@/utils/Controllers/OrderController";
+import { getProductbyID } from "@/utils/Controllers/ProductController";
 import { colors, spacing, typography } from "@/constants/theme";
 import { Bell } from "lucide-react-native";
 
@@ -21,6 +22,7 @@ interface EnrichedOrder extends Order {
   productNames?: string[];
   formattedDate?: string;
   orderNumber?: string;
+  statusIndex?: number;
 }
 
 const ORDER_STATUSES = [
@@ -31,9 +33,25 @@ const ORDER_STATUSES = [
   'Canceled',
 ];
 
+const STATUS_MAP: { [key: string]: number } = {
+  'Pending': 0,
+  'Confirmed': 1,
+  'Ready For Pickup': 2,
+  'Ready for Pickup': 2, // Handle both variations
+  'ReadyForPickup': 2, // Handle backend format (no spaces)
+  'Completed': 3,
+  'Canceled': 4,
+  'Cancelled': 4, // Handle both variations
+};
+
+const getStatusIndex = (status: string): number => {
+  return STATUS_MAP[status] ?? 0;
+};
+
 export default function OrdersScreen({ unread = 0 }: { unread?: number }) {
   const router = useRouter();
   const { getToken } = useAuth();
+  const { user } = useUser();
   const [selectedTab, setSelectedTab] = useState<number>(0);
   const [orders, setOrders] = useState<EnrichedOrder[]>([]);
   const [loading, setLoading] = useState(false);
@@ -44,25 +62,55 @@ export default function OrdersScreen({ unread = 0 }: { unread?: number }) {
     try {
       setLoading(true);
       setError(null);
+      
       const token = await getToken({ template: "seller_app" });
-      const response = await getAllOrders(token ?? "");
-      const ordersData = (response as any).data;
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+      
+      const storeId = user?.publicMetadata?.storeId as string;
+      if (!storeId) {
+        throw new Error('Store ID not found in user metadata');
+      }
+      
+      console.log('Fetching orders for store:', storeId);
+      const response = await getAllOrders(token, storeId);
+      const ordersData = response.data || [];
+      
+      console.log(`Found ${ordersData.length} orders for store`);
+      
+      // Debug: Log the structure of the first order to see what we're getting
+      if (ordersData.length > 0) {
+        console.log('Sample order data:', JSON.stringify(ordersData[0], null, 2));
+      }
 
       // Enrich orders with display data
       const enrichedOrders = ordersData.map((order: Order) => {
+        // Extract product names from the items array
+        const productNames = order.items.map(item => item.productName);
+        
         return {
           ...order,
-          buyerName: "John Doe", // Mock buyer name
-          productNames: ["Premium Coffee Beans"], // Mock product names
+          buyerName: order.buyerName || "Customer",
+          productNames,
           formattedDate: formatOrderDate(order.createdAt),
-          orderNumber: `#${order.createdAt.getTime().toString(36).toUpperCase()}`
+          orderNumber: generateOrderNumber(order.createdAt),
+          // Convert string status to number for compatibility
+          statusIndex: getStatusIndex(order.status)
         };
       });
 
+      // Sort by creation date, newest first
+      enrichedOrders.sort((a, b) => {
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        return dateB - dateA;
+      });
+
       setOrders(enrichedOrders);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading orders:", error);
-      setError("Failed to load orders. Please try again.");
+      setError(error.message || "Failed to load orders. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -84,7 +132,20 @@ export default function OrdersScreen({ unread = 0 }: { unread?: number }) {
     setRefreshing(false);
   };
 
-  const formatOrderDate = (date: Date): string => {
+  const generateOrderNumber = (createdAt: string | Date): string => {
+    try {
+      const date = createdAt instanceof Date ? createdAt : new Date(createdAt);
+      if (isNaN(date.getTime())) {
+        return "#UNKNOWN";
+      }
+      return `#${date.getTime().toString(36).toUpperCase()}`;
+    } catch (error) {
+      console.error("Error generating order number:", error);
+      return "#ERROR";
+    }
+  };
+
+  const formatOrderDate = (date: string | Date): string => {
     try {
       const orderDate = date instanceof Date ? date : new Date(date);
       if (isNaN(orderDate.getTime())) {
@@ -120,7 +181,7 @@ export default function OrdersScreen({ unread = 0 }: { unread?: number }) {
     }
   };
 
-  const filteredOrders = orders.filter((order) => order.status === selectedTab);
+  const filteredOrders = orders.filter((order) => (order.statusIndex ?? getStatusIndex(order.status)) === selectedTab);
 
   const handleOrderPress = (order: EnrichedOrder) => {
     router.push({
@@ -129,8 +190,9 @@ export default function OrdersScreen({ unread = 0 }: { unread?: number }) {
     });
   };
 
-  const getStatusColor = (status: number) => {
-    switch (status) {
+  const getStatusColor = (status: number | string) => {
+    const statusIndex = typeof status === 'string' ? getStatusIndex(status) : status;
+    switch (statusIndex) {
       case 0: return colors.warning; // Pending
       case 1: return colors.info; // Confirmed
       case 2: return colors.primary; // Ready For Pickup
@@ -154,7 +216,7 @@ export default function OrdersScreen({ unread = 0 }: { unread?: number }) {
           <Text style={styles.orderNumber}>{order.orderNumber}</Text>
           <Text style={styles.buyerName}>{order.buyerName}</Text>
         </View>
-        <Text style={styles.totalPrice}>₱{order.totalPrice.toFixed(2)}</Text>
+        <Text style={styles.totalPrice}>₱{order.totalAmount.toFixed(2)}</Text>
       </View>
 
       <View style={styles.productSection}>
@@ -164,16 +226,16 @@ export default function OrdersScreen({ unread = 0 }: { unread?: number }) {
             : order.productNames?.[0] || "Unknown Product"}
         </Text>
         <Text style={styles.quantityText}>
-          {order.quantity.length > 1
-            ? `${order.quantity.length} items`
-            : `Qty: ${order.quantity[0]}`}
+          {order.items.length > 1
+            ? `${order.items.length} items`
+            : `Qty: ${order.items[0]?.quantity || 1}`}
         </Text>
       </View>
 
       <View style={styles.statusSection}>
         <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(order.status)}20` }]}>
           <Text style={[styles.statusText, { color: getStatusColor(order.status) }]}>
-            {ORDER_STATUSES[order.status]}
+            {order.status}
           </Text>
         </View>
       </View>

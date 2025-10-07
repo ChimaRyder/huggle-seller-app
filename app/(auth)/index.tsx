@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Alert, View, ActivityIndicator, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { useUser, useAuth } from "@clerk/clerk-expo";
+import { useUser, useAuth , useClerk } from "@clerk/clerk-expo";
 import axios from "axios";
-import { useClerk } from "@clerk/clerk-expo";
 import { Text, Spinner, useTheme, Layout, Icon } from "@ui-kitten/components"; // Changed from react-native-svg for proper Text component
 import Animated, {
   useSharedValue,
@@ -54,7 +53,6 @@ export default function AuthScreen() {
       if (user) {
         try {
           setStatus("Checking user profile...");
-          console.log("User is signed in:", user.id);
           const exists = await checkIfUserExists(user.id);
 
           setStatus("Redirecting...");

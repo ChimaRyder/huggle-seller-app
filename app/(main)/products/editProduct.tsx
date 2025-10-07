@@ -29,9 +29,11 @@ import {
   BarChart3,
 } from 'lucide-react-native';
 import { colors, spacing, typography, radii } from '@/constants/theme';
-import { getProductbyID, Product, updateProduct } from '@/utils/data/ProductController';
+import { getProductbyID, updateProduct } from '@/utils/Controllers/ProductController';
+import { FullProduct } from '@/types/product';
 import { showToast } from '@/components/Toast';
 import * as ImagePicker from 'expo-image-picker';
+import { useImageUpload } from '@/hooks/useImageUpload';
 
 const { width } = Dimensions.get('window');
 const IMAGE_SIZE = (width - spacing.lg * 3) / 2;
@@ -52,7 +54,7 @@ const EditProduct = () => {
   const router = useRouter();
   const { getToken } = useAuth();
   const { productId } = useLocalSearchParams();
-  const [product, setProduct] = useState<any>(null);
+  const [product, setProduct] = useState<FullProduct | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [productType, setProductType] = useState('');
@@ -69,6 +71,9 @@ const EditProduct = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
+  // Image upload hook
+  const { uploadState, uploadImageUri } = useImageUpload();
 
   const getProduct = async () => {
     try {
@@ -131,28 +136,68 @@ const EditProduct = () => {
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
+    try {
+      // Request permissions
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('Permission Required', 'Please grant photo library permissions to upload images.');
+        return;
+      }
 
-    if (!result.canceled && result.assets[0]) {
-      setAdditionalImages(prev => [...prev, result.assets[0].uri]);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        exif: false,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const imageUri = result.assets[0].uri;
+        
+        // Upload to Firebase Storage
+        const downloadURL = await uploadImageUri(imageUri, 'products/additional');
+        
+        if (downloadURL) {
+          setAdditionalImages(prev => [...prev, downloadURL]);
+        }
+      }
+    } catch (error) {
+      console.error('❌ [EditProduct] Additional image upload failed:', error);
+      showToast('error', 'Upload Failed', 'Failed to upload additional image. Please try again.');
     }
   };
 
   const pickCoverImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
+    try {
+      // Request permissions
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('Permission Required', 'Please grant photo library permissions to upload images.');
+        return;
+      }
 
-    if (!result.canceled && result.assets[0]) {
-      setCoverImage(result.assets[0].uri);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        exif: false,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const imageUri = result.assets[0].uri;
+        
+        // Upload to Firebase Storage
+        const downloadURL = await uploadImageUri(imageUri, 'products/covers');
+        
+        if (downloadURL) {
+          setCoverImage(downloadURL);
+        }
+      }
+    } catch (error) {
+      console.error('❌ [EditProduct] Cover image upload failed:', error);
+      showToast('error', 'Upload Failed', 'Failed to upload cover image. Please try again.');
     }
   };
 
@@ -214,15 +259,15 @@ const EditProduct = () => {
   };
 
   const handleSubmit = async () => {
-    if (!validateForm()) return;
+    if (!validateForm() || !product) return;
 
     setIsSubmitting(true);
 
     try {
-      const productData = {
-        id: metadata?.id ?? "",
-        name: name,
-        description: description,
+      const productData: FullProduct = {
+        id: product.id,
+        name: name.trim(),
+        description: description.trim(),
         productType: productType,
         coverImage: coverImage,
         additionalImages: additionalImages,
@@ -231,31 +276,31 @@ const EditProduct = () => {
         expirationDate: duration.toISOString(),
         stock: parseInt(stock),
         category: category,
-        storeId: metadata?.storeId ?? "",
+        storeId: product.storeId,
         isActive: isActive,
-        createdAt: metadata?.createdAt ?? new Date().toISOString(),
+        createdAt: product.createdAt,
         updatedAt: new Date().toISOString(),
-        rating: 0,
-        ratingCount: 0,
+        rating: product.rating || 0,
+        ratingCount: product.ratingCount || 0,
       };
 
       const token = await getToken({ template: "seller_app" });
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      
       const response = await updateProduct(productData, token ?? "");
-
-      Alert.alert(
-        'Product Updated!',
-        'Your product has been updated successfully.',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.back(),
-          },
-        ]
-      );
-    } catch (error) {
-      console.error("Error updating product:", error);
-      Alert.alert('Error', 'Failed to update product. Please try again.');
+      
+      showToast('success', 'Product Updated!', 'Your product has been updated successfully.');
+      router.back();
+    } catch (error: any) {
+      console.error("❌ [EditProduct] Error updating product:", error);
+      
+      let errorMessage = 'Failed to update product. Please try again.';
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      showToast('error', 'Update Failed', errorMessage);
     } finally {
       setIsSubmitting(false);
     }

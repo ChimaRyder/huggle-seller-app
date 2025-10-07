@@ -1,11 +1,10 @@
 import React, { useState, useCallback } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter , useFocusEffect } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
-import { StoreAnalytics, getStoreAnalytics } from '@/utils/data/AnalyticsController';
-import { getAllOrders, Order } from '@/utils/data/OrderController';
-import { useFocusEffect } from 'expo-router';
+import { getStoreAnalyticsSummary, getStoreTopProducts, calculateConversionFunnel, StoreAnalyticsSummary, TopProductsResponse, ConversionFunnelResponse } from '@/utils/Controllers/AnalyticsController';
+import { getAllOrders, Order } from '@/utils/Controllers/OrderController';
 import { Bell, DollarSign, TrendingUp, TrendingDown, Eye, ShoppingCart, ShoppingBag, Target, Users, Zap, Clock, Calendar, ArrowLeft } from 'lucide-react-native';
 import { colors, spacing, typography, radii } from '@/constants/theme';
 
@@ -17,8 +16,10 @@ export default function AnalyticsScreen({ unread = 0 }: { unread?: number }) {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [analytics, setAnalytics] = useState<StoreAnalytics>({} as StoreAnalytics);
+  const [analyticsSummary, setAnalyticsSummary] = useState<StoreAnalyticsSummary | null>(null);
+  const [topProducts, setTopProducts] = useState<TopProductsResponse | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [conversionFunnel, setConversionFunnel] = useState<ConversionFunnelResponse | null>(null);
   const { getToken } = useAuth();
   const { user } = useUser();
 
@@ -57,17 +58,75 @@ export default function AnalyticsScreen({ unread = 0 }: { unread?: number }) {
   const getAnalytics = async () => {
     try {
       const token = await getToken({template: "seller_app"});
-      const [analyticsResponse, ordersResponse] = await Promise.all([
-        getStoreAnalytics(token ?? "", user?.publicMetadata.storeId as string, timeSpan),
-        getAllOrders(token ?? "")
-      ]);
+      const storeId = user?.publicMetadata?.storeId as string;
+      
+      if (!token || !storeId) {
+        console.log('Missing token or storeId:', { token: !!token, storeId });
+        return;
+      }
 
-      setAnalytics((analyticsResponse as any).data);
-      // Filter orders to show all orders, not just completed ones
-      const allOrders = ((ordersResponse as any).data as Order[]).sort((a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-      setOrders(allOrders);
+      // Map timeSpan to period
+      let period: 'current' | '6months' | 'year' | 'all';
+      switch (timeSpan) {
+        case 1:
+          period = 'current';
+          break;
+        case 6:
+          period = '6months';
+          break;
+        case 12:
+          period = 'year';
+          break;
+        default:
+          period = 'all';
+          break;
+      }
+      
+      // Fetch analytics summary, top products, and orders individually with better error handling
+      let summaryResponse, topProductsResponse, ordersResponse;
+      
+      try {
+        summaryResponse = await getStoreAnalyticsSummary(token, storeId, period);
+        // Handle nested data structure from backend
+        const summaryData = summaryResponse.data?.data || summaryResponse.data;
+        setAnalyticsSummary(summaryData);
+      } catch (error) {
+        console.error('Error fetching analytics summary:', error);
+      }
+      
+      try {
+        topProductsResponse = await getStoreTopProducts(token, storeId, timeSpan === 1 ? undefined : timeSpan, 5);
+        // Handle nested data structure from backend
+        const topProductsData = topProductsResponse.data?.data || topProductsResponse.data;
+        setTopProducts(topProductsData);
+      } catch (error) {
+        console.error('Error fetching top products:', error);
+      }
+      
+      try {
+        ordersResponse = await getAllOrders(token, storeId);
+        
+        // Filter orders to show all orders, not just completed ones
+        const allOrders = (ordersResponse.data as Order[]).sort((a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setOrders(allOrders);
+      } catch (error) {
+        console.error('Error fetching orders:', error);
+      }
+      
+      // Calculate conversion funnel locally if we have summary data
+      if (summaryResponse?.data) {
+        try {
+          const summaryData = summaryResponse.data?.data || summaryResponse.data;
+          const topProductsData = topProductsResponse?.data?.data || topProductsResponse?.data;
+          const funnel = calculateConversionFunnel(summaryData, topProductsData);
+          setConversionFunnel(funnel);
+        } catch (error) {
+          console.error('Error calculating conversion funnel:', error);
+        }
+      }
+      
     } catch (error) {
       console.error("Error getting analytics: ", error);
     } finally {
@@ -96,21 +155,23 @@ export default function AnalyticsScreen({ unread = 0 }: { unread?: number }) {
   );
 
   // Calculate derived metrics
-  const conversionRate = calculateConversionRate(analytics.totalPurchases || 0, analytics.totalViews || 0);
-  const totalRevenue = (analytics.totalRevenue || 0);
-  const avgOrderValue = analytics.totalPurchases > 0 ? totalRevenue / analytics.totalPurchases : 0;
-  const completedOrders = orders.filter(order => order.status === 3); // Completed orders
+  const conversionRate = calculateConversionRate(analyticsSummary?.totalOrderCount || 0, analyticsSummary?.totalViewCount || 0);
+  const totalRevenue = (analyticsSummary?.totalRevenue || 0);
+  const avgOrderValue = (analyticsSummary?.totalOrderCount || 0) > 0 ? totalRevenue / (analyticsSummary?.totalOrderCount || 1) : 0;
+  const completedOrders = orders.filter(order => order.status === 'Completed'); // Completed orders
   const recentOrders = orders.slice(0, 10); // Show 10 most recent orders
 
-  const getOrderStatusInfo = (status: number) => {
-    const statusMap = {
-      0: { label: 'Pending', color: colors.warning, icon: Clock },
-      1: { label: 'Confirmed', color: colors.info, icon: ShoppingCart },
-      2: { label: 'Ready', color: colors.primary, icon: ShoppingBag },
-      3: { label: 'Completed', color: colors.success, icon: Target },
-      4: { label: 'Cancelled', color: colors.error, icon: Clock },
+  const getOrderStatusInfo = (status: string) => {
+    const statusMap: { [key: string]: { label: string, color: string, icon: any } } = {
+      'Pending': { label: 'Pending', color: colors.warning, icon: Clock },
+      'Confirmed': { label: 'Confirmed', color: colors.info, icon: ShoppingCart },
+      'Ready For Pickup': { label: 'Ready', color: colors.primary, icon: ShoppingBag },
+      'Ready for Pickup': { label: 'Ready', color: colors.primary, icon: ShoppingBag },
+      'Completed': { label: 'Completed', color: colors.success, icon: Target },
+      'Canceled': { label: 'Cancelled', color: colors.error, icon: Clock },
+      'Cancelled': { label: 'Cancelled', color: colors.error, icon: Clock },
     };
-    return statusMap[status as keyof typeof statusMap] || statusMap[0];
+    return statusMap[status] || statusMap['Pending'];
   };
 
   const renderOrderItem = ({ item }: { item: Order }) => {
@@ -135,7 +196,7 @@ export default function AnalyticsScreen({ unread = 0 }: { unread?: number }) {
           </View>
         </View>
         <View style={styles.orderRight}>
-          <Text style={styles.orderAmount}>{formatCurrency(item.totalPrice)}</Text>
+          <Text style={styles.orderAmount}>{formatCurrency(item.totalAmount)}</Text>
           <Text style={[styles.orderStatus, { color: statusInfo.color }]}>
             {statusInfo.label}
           </Text>
@@ -143,6 +204,7 @@ export default function AnalyticsScreen({ unread = 0 }: { unread?: number }) {
       </TouchableOpacity>
     );
   };
+
 
   if (loading) {
     return (
@@ -270,7 +332,7 @@ export default function AnalyticsScreen({ unread = 0 }: { unread?: number }) {
                 <Eye size={20} color={colors.info} />
                 <Text style={styles.metricLabel}>Total Views</Text>
               </View>
-              <Text style={styles.metricValue}>{(analytics.totalViews || 0).toLocaleString()}</Text>
+              <Text style={styles.metricValue}>{(analyticsSummary?.totalViewCount || 0).toLocaleString()}</Text>
               <Text style={styles.metricSubtext}>Product impressions</Text>
             </View>
 
@@ -279,7 +341,7 @@ export default function AnalyticsScreen({ unread = 0 }: { unread?: number }) {
                 <ShoppingCart size={20} color={colors.warning} />
                 <Text style={styles.metricLabel}>Cart Adds</Text>
               </View>
-              <Text style={styles.metricValue}>{analytics.totalCartAdds || 0}</Text>
+              <Text style={styles.metricValue}>{analyticsSummary?.totalAddToCartCount || 0}</Text>
               <Text style={styles.metricSubtext}>Items added to cart</Text>
             </View>
 
@@ -288,11 +350,61 @@ export default function AnalyticsScreen({ unread = 0 }: { unread?: number }) {
                 <Users size={20} color={colors.success} />
                 <Text style={styles.metricLabel}>Active Products</Text>
               </View>
-              <Text style={styles.metricValue}>{analytics.totalProducts || 0}</Text>
+              <Text style={styles.metricValue}>{topProducts?.topProducts?.length || 0}</Text>
               <Text style={styles.metricSubtext}>Live products</Text>
             </View>
           </View>
         </View>
+
+        {/* Conversion Funnel */}
+        {conversionFunnel && conversionFunnel.funnel && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Conversion Funnel</Text>
+            <View style={styles.funnelCard}>
+              <View style={styles.funnelStep}>
+                <View style={styles.funnelStepLeft}>
+                  <Eye size={20} color={colors.info} />
+                  <View style={styles.funnelStepText}>
+                    <Text style={styles.funnelStepLabel}>Views</Text>
+                    <Text style={styles.funnelStepValue}>{(conversionFunnel.funnel.views || 0).toLocaleString()}</Text>
+                  </View>
+                </View>
+                <Text style={styles.funnelStepRate}>100%</Text>
+              </View>
+              
+              <View style={styles.funnelConnector} />
+              
+              <View style={styles.funnelStep}>
+                <View style={styles.funnelStepLeft}>
+                  <ShoppingCart size={20} color={colors.warning} />
+                  <View style={styles.funnelStepText}>
+                    <Text style={styles.funnelStepLabel}>Cart Adds</Text>
+                    <Text style={styles.funnelStepValue}>{(conversionFunnel.funnel.addToCarts || 0).toLocaleString()}</Text>
+                  </View>
+                </View>
+                <Text style={styles.funnelStepRate}>{(conversionFunnel.funnel.viewToCartRate || 0).toFixed(1)}%</Text>
+              </View>
+              
+              <View style={styles.funnelConnector} />
+              
+              <View style={styles.funnelStep}>
+                <View style={styles.funnelStepLeft}>
+                  <ShoppingBag size={20} color={colors.success} />
+                  <View style={styles.funnelStepText}>
+                    <Text style={styles.funnelStepLabel}>Orders</Text>
+                    <Text style={styles.funnelStepValue}>{(conversionFunnel.funnel.orders || 0).toLocaleString()}</Text>
+                  </View>
+                </View>
+                <Text style={styles.funnelStepRate}>{(conversionFunnel.funnel.cartToOrderRate || 0).toFixed(1)}%</Text>
+              </View>
+              
+              <View style={styles.funnelSummary}>
+                <Text style={styles.funnelSummaryLabel}>Overall Conversion Rate</Text>
+                <Text style={styles.funnelSummaryValue}>{(conversionFunnel.funnel.overallConversionRate || 0).toFixed(2)}%</Text>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Recent Transactions */}
         <View style={styles.section}>
@@ -322,11 +434,11 @@ export default function AnalyticsScreen({ unread = 0 }: { unread?: number }) {
         </View>
 
         {/* Top Products */}
-        {analytics.topProducts && analytics.topProducts.length > 0 && (
+        {topProducts?.topProducts && topProducts.topProducts.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Top Performing Products</Text>
             <View style={styles.topProducts}>
-              {analytics.topProducts.slice(0, 3).map((product, index) => (
+              {topProducts.topProducts.slice(0, 3).map((product, index) => (
                 <View key={product.productId} style={styles.topProductItem}>
                   <View style={[styles.productRank, {
                     backgroundColor: index === 0 ? colors.warning + '20' :
@@ -339,10 +451,10 @@ export default function AnalyticsScreen({ unread = 0 }: { unread?: number }) {
                   <View style={styles.productInfo}>
                     <Text style={styles.productName}>{product.productName}</Text>
                     <Text style={styles.productStats}>
-                      {product.views} views • {product.purchases} sales
+                      {product.viewCount} views • {product.orderCount} sales
                     </Text>
                   </View>
-                  <Text style={styles.productScore}>{product.engagementScore.toFixed(1)}</Text>
+                  <Text style={styles.productScore}>{(product.conversionRate * 100).toFixed(1)}</Text>
                 </View>
               ))}
             </View>
@@ -620,6 +732,66 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.border.primary,
     marginHorizontal: spacing.lg,
+  },
+
+  // Conversion Funnel
+  funnelCard: {
+    backgroundColor: colors.background.primary,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+  },
+  funnelStep: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+  },
+  funnelStepLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  funnelStepText: {
+    marginLeft: spacing.md,
+    flex: 1,
+  },
+  funnelStepLabel: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+  },
+  funnelStepValue: {
+    fontSize: typography.fontSizes.lg,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.primary,
+  },
+  funnelStepRate: {
+    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.primary,
+  },
+  funnelConnector: {
+    height: 1,
+    backgroundColor: colors.border.primary,
+    marginHorizontal: spacing.xl,
+    marginVertical: spacing.xs,
+  },
+  funnelSummary: {
+    marginTop: spacing.lg,
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.primary,
+    alignItems: 'center',
+  },
+  funnelSummaryLabel: {
+    fontSize: typography.fontSizes.md,
+    color: colors.text.secondary,
+    marginBottom: spacing.sm,
+  },
+  funnelSummaryValue: {
+    fontSize: typography.fontSizes.xxl,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.success,
   },
 
   // Top Products

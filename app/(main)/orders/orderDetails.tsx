@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Image, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Text } from 'react-native';
+import { StyleSheet, View, Image, ScrollView, TouchableOpacity, ActivityIndicator , Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '@clerk/clerk-expo';
-import { Order, getOrderbyID, updateOrder } from '@/utils/data/OrderController';
+import { useAuth, useUser } from '@clerk/clerk-expo';
+import { Order, getOrderbyID, updateOrder, cancelOrder } from '@/utils/Controllers/OrderController';
 import { Buyer, getBuyer } from '@/utils/data/BuyerController';
-import { Product, getProductbyID } from '@/utils/data/ProductController';
+import { getProductbyID } from '@/utils/Controllers/ProductController';
+import { FullProduct } from '@/types/product';
 import { showToast } from "@/components/Toast";
 import { colors, spacing, typography } from '@/constants/theme';
+import { apiClient } from '@/utils/api';
 
 const ORDER_STATUSES = [
   'Pending',
@@ -19,8 +20,23 @@ const ORDER_STATUSES = [
   'Canceled',
 ];
 
+const STATUS_MAP: { [key: string]: number } = {
+  'Pending': 0,
+  'Confirmed': 1,
+  'Ready For Pickup': 2,
+  'Ready for Pickup': 2,
+  'ReadyForPickup': 2, // Handle backend format (no spaces)
+  'Completed': 3,
+  'Canceled': 4,
+  'Cancelled': 4,
+};
+
+const getStatusIndex = (status: string): number => {
+  return STATUS_MAP[status] ?? 0;
+};
+
 interface ProductItemProps {
-  product: Product;
+  product: FullProduct;
   quantity: number,
 }
 
@@ -99,17 +115,19 @@ const productItemStyles = StyleSheet.create({
 
 export default function OrderDetailsScreen() {
   const { getToken } = useAuth();
+  const { user } = useUser();
   const params = useLocalSearchParams();
   const router = useRouter();
 
   const [order, setOrder] = useState<Order>({} as Order);
   const [buyer, setBuyer] = useState<Buyer>({} as Buyer);
-  const [products, setProducts] = useState<Array<Product>>([]);
+  const [products, setProducts] = useState<FullProduct[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const getStatusInfo = (status: number) => {
+  const getStatusInfo = (status: string | number) => {
+    const statusIndex = typeof status === 'string' ? getStatusIndex(status) : status;
     const statusMap = {
       0: { label: 'Pending', color: colors.warning, bgColor: colors.warning + '20' },
       1: { label: 'Confirmed', color: colors.info, bgColor: colors.info + '20' },
@@ -117,7 +135,7 @@ export default function OrderDetailsScreen() {
       3: { label: 'Completed', color: colors.success, bgColor: colors.success + '20' },
       4: { label: 'Cancelled', color: colors.error, bgColor: colors.error + '20' },
     };
-    return statusMap[status as keyof typeof statusMap] || statusMap[0];
+    return statusMap[statusIndex as keyof typeof statusMap] || statusMap[0];
   };
 
   const formatDate = (dateString: string): string => {
@@ -131,9 +149,11 @@ export default function OrderDetailsScreen() {
     });
   };
 
-  const getOrder = async (token : string) => {
+  const getOrder = async (token: string) => {
     try {
-      const orderResponse = await getOrderbyID(params.id as string, token ?? "");
+      console.log('Fetching order details for:', params.id);
+      const orderResponse = await getOrderbyID(params.id as string, token);
+      console.log('Order fetched successfully:', JSON.stringify(orderResponse.data, null, 2));
       setOrder(orderResponse.data);
     } catch (error) {
       console.error("Error getting order: ", error);
@@ -142,66 +162,286 @@ export default function OrderDetailsScreen() {
 
   const getUser = async (token: string) => {
     try {
-      const buyerResponse = await getBuyer(token ?? "", order.buyerId);
-      setBuyer(buyerResponse.data);
+      // If the order already has buyerName, use it as a fallback
+      if (order.buyerName) {
+        setBuyer({ 
+          name: order.buyerName,
+          emailAddress: 'No email provided',
+        } as Buyer);
+      }
+      
+      // Try to get full buyer details from API
+      try {
+        const buyerResponse = await getBuyer(token, order.buyerId);
+        setBuyer((buyerResponse as any).data);
+      } catch (buyerError) {
+        console.warn("Could not fetch buyer details from API, using fallback:", buyerError);
+        // Keep the fallback buyer data we set above
+      }
     } catch (error) {
       console.error("Error getting buyer: ", error);
+      // Set minimal buyer info as fallback
+      setBuyer({ 
+        name: order.buyerName || 'Unknown Customer',
+        emailAddress: 'No email provided',
+      } as Buyer);
     }
   }
 
   const getProducts = async (token: string) => {
     try {
-      const productPromises = order.productId.map(id =>
-        getProductbyID(id, token ?? "")
-      );
+      console.log('Processing order items:', order.items);
+      
+      if (!order.items || order.items.length === 0) {
+        console.log('No items found in order');
+        setProducts([]);
+        return;
+      }
+      
+      // Convert order items to FullProduct format for display
+      const products = order.items.map((item) => ({
+        id: item.productId,
+        name: item.productName,
+        description: '', // Not provided in order item
+        discountedPrice: item.unitPrice,
+        coverImage: item.productImage || 'https://via.placeholder.com/150x150?text=No+Image'
+      } as FullProduct));
 
-      const productResponses = await Promise.all(productPromises);
-      const products = productResponses.map(response => response.data);
-
+      console.log('Products processed:', products.length);
       setProducts(products);
     } catch (error) {
-      console.error("Error getting products: ", error);
+      console.error("Error processing products: ", error);
+      
+      // Set fallback products from items if available
+      if (order.items && order.items.length > 0) {
+        const fallbackProducts = order.items.map((item) => ({
+          id: item.productId,
+          name: item.productName || 'Unknown Product',
+          description: 'Product details unavailable',
+          discountedPrice: item.unitPrice || 0,
+          coverImage: item.productImage || 'https://via.placeholder.com/150x150?text=No+Image'
+        } as FullProduct));
+        setProducts(fallbackProducts);
+      } else {
+        setProducts([]);
+      }
     }
   }
   
-  const handleStatusUpdate = async (status : number) => {
+  const generateOrderNumber = (createdAt: string | Date): string => {
+    try {
+      const date = createdAt instanceof Date ? createdAt : new Date(createdAt);
+      if (isNaN(date.getTime())) {
+        return "#UNKNOWN";
+      }
+      return `#${date.getTime().toString(36).toUpperCase()}`;
+    } catch (error) {
+      console.error("Error generating order number:", error);
+      return "#ERROR";
+    }
+  };
+
+  const handleStatusUpdate = async (newStatus: string) => {
     try {
       setSubmitting(true);
       const token = await getToken({template: "seller_app"});
-
-      console.log(status);
-      const orderResponse = await updateOrder(token ?? "", {...order, status});
       
-      console.log("Order accepted:", orderResponse.data);
-      router.dismissTo("/(main)");
-    
-      switch (status) {
-        case 1:
-          showToast('success', 'Order Accepted!', `#${Date.parse(order.createdAt.toString()).toString(36).toUpperCase()} has been updated successfully.`);
+      if (!token) {
+        throw new Error('Authentication token not available');
+      }
+
+      // First, check current user authentication status
+      console.log('📝 CHECKING USER AUTHENTICATION...');
+      console.log('👤 Current user clerk ID:', user?.id);
+      console.log('🏦 User store ID:', user?.publicMetadata?.storeId);
+      console.log('📍 Order store ID:', order.storeId);
+      console.log('🤔 Store IDs match:', user?.publicMetadata?.storeId === order.storeId);
+      
+      // Check if user has seller permissions
+      if (user?.publicMetadata?.storeId !== order.storeId) {
+        throw new Error(`Permission denied: User's store ID (${user?.publicMetadata?.storeId}) does not match order's store ID (${order.storeId})`);
+      }
+      
+      // Debug: Check if user exists as seller in backend using proper API client
+      try {
+        console.log('🕵️ Checking if user exists as seller with proper JWT...');
+        console.log('🔑 Using seller_app JWT template for authentication');
+        
+        const sellerResponse = await apiClient.get(`/api/sellers/${user?.id}`, token);
+        
+        if (sellerResponse.data) {
+          console.log('👨‍💼 Seller exists:', JSON.stringify(sellerResponse.data, null, 2));
+          console.log('✅ Authentication and seller record are both working correctly');
+        }
+      } catch (sellerError: any) {
+        console.log('🚨 Seller check error details:', JSON.stringify(sellerError, null, 2));
+        
+        if (sellerError.status === 404) {
+          console.log('⚠️ USER IS NOT REGISTERED AS SELLER!');
+          console.log('🔧 This explains the "Invalid status transition" error');
+          console.log('📝 The backend requires users to have a Seller record to update order status');
+          
+          console.log('🚫 ISSUE IDENTIFIED: Missing Seller Record');
+          console.log('📈 Analysis:');
+          console.log('  • User has store ID in metadata:', user?.publicMetadata?.storeId);
+          console.log('  • But no Seller record exists in database for user:', user?.id);
+          console.log('  • Backend validation requires Seller record to update orders');
+          console.log('  • This suggests incomplete seller registration or data inconsistency');
+          
+          throw new Error('User is not registered as a seller in the database. Please complete seller registration or contact support.');
+        } else if (sellerError.status === 401 || sellerError.status === 403) {
+          console.log('🚨 AUTHENTICATION/AUTHORIZATION FAILED!');
+          console.log('🔑 JWT template issue - seller_app template not working');
+          console.log('📋 Error details:', sellerError.message);
+          console.log('🔧 Possible fixes:');
+          console.log('  • Check if seller_app JWT template is configured in Clerk');
+          console.log('  • Verify JWT template includes proper seller role claims');
+          console.log('  • Backend may not recognize the JWT structure');
+          
+          throw new Error(`Authentication failed: ${sellerError.message || 'Invalid JWT template or permissions'}`);
+        } else {
+          console.log('⚠️ Seller check request failed:', sellerError.status, sellerError.message);
+          console.log('🤔 Unexpected error - check network connectivity and backend status');
+          
+          // Don't block the status update for other errors, just log them
+          console.log('⏭️ Continuing with status update despite seller check failure');
+        }
+      }
+      
+      // First, refresh the order data to make sure we have the latest status
+      console.log('🔄 REFRESHING ORDER DATA BEFORE UPDATE...');
+      try {
+        const freshOrderResponse = await getOrderbyID(order.id, token);
+        const freshOrder = freshOrderResponse.data;
+        console.log('🆕 Fresh order status:', freshOrder.status);
+        
+        if (freshOrder.status !== order.status) {
+          console.log('⚠️ ORDER STATUS CHANGED! UI shows:', order.status, 'but backend has:', freshOrder.status);
+          setOrder(freshOrder); // Update UI with fresh data
+        }
+        
+        // Use fresh order data for the update
+        console.log('🔄 ATTEMPTING STATUS UPDATE');
+        console.log('📦 Order ID:', freshOrder.id);
+        console.log('📊 Current Status:', freshOrder.status);
+        console.log('🎯 Target Status:', newStatus);
+        console.log('📅 Order Created:', freshOrder.createdAt);
+        console.log('📅 Order Updated:', freshOrder.updatedAt);
+        
+        // Handle cancellation separately using the cancel endpoint
+        if (newStatus === 'Canceled' || newStatus === 'Cancelled') {
+          console.log('🗱️ Using cancel endpoint for order rejection');
+          const cancelResponse = await cancelOrder(token, freshOrder.id, 'Order rejected by seller');
+          console.log('Cancel response:', cancelResponse);
+          setOrder(cancelResponse.data);
+        } else {
+          // Validate other transitions
+          const validTransitions = {
+            'Pending': ['Confirmed'],
+            'Confirmed': ['Ready For Pickup'],
+            'Ready For Pickup': ['Completed'],
+            'ReadyForPickup': ['Completed'], // Backend uses ReadyForPickup without spaces
+          };
+          
+          const allowedStatuses = validTransitions[freshOrder.status as keyof typeof validTransitions];
+          console.log('🔍 VALIDATING STATUS TRANSITION:');
+          console.log('  📊 Current status:', freshOrder.status);
+          console.log('  🎯 Target status:', newStatus);
+          console.log('  ✅ Allowed transitions:', allowedStatuses);
+          console.log('  🤔 Is transition valid:', allowedStatuses?.includes(newStatus));
+          
+          if (!allowedStatuses || !allowedStatuses.includes(newStatus)) {
+            throw new Error(`Invalid status transition: ${freshOrder.status} → ${newStatus}. Allowed transitions from ${freshOrder.status}: ${allowedStatuses?.join(', ') || 'none'}`);
+          }
+          
+          console.log('✅ Frontend validation passed, sending to backend...');
+          
+          const updatedOrder = { ...freshOrder, status: newStatus };
+          console.log('📝 Updated order payload:', JSON.stringify(updatedOrder, null, 2));
+          
+          console.log('🚀 SENDING UPDATE REQUEST TO BACKEND...');
+          console.log('📡 Endpoint: PUT /api/orders/{id}/status');
+          console.log('🔑 Using seller_app JWT token');
+          console.log('👤 User ID:', user?.id);
+          console.log('🏪 Store ID:', user?.publicMetadata?.storeId);
+          console.log('📦 Order Store ID:', freshOrder.storeId);
+          
+          try {
+            const orderResponse = await updateOrder(token, updatedOrder);
+            console.log('✅ Update response successful:', orderResponse);
+            setOrder(orderResponse.data);
+          } catch (updateError: any) {
+            console.log('❌ UPDATE REQUEST FAILED!');
+            console.log('📋 Error details:', JSON.stringify(updateError, null, 2));
+            console.log('🔍 Possible causes:');
+            console.log('  • Backend seller validation still failing despite JWT');
+            console.log('  • Backend status transition logic differs from frontend');
+            console.log('  • Database constraint or additional validation rule');
+            console.log('  • Order ownership validation failing');
+            throw updateError;
+          }
+        }
+        
+      } catch (refreshError) {
+        console.error('Error refreshing order data:', refreshError);
+        // If we can't refresh, use the original order data
+        if (newStatus === 'Canceled' || newStatus === 'Cancelled') {
+          const cancelResponse = await cancelOrder(token, order.id, 'Order rejected by seller');
+          setOrder(cancelResponse.data);
+        } else {
+          const updatedOrder = { ...order, status: newStatus };
+          const orderResponse = await updateOrder(token, updatedOrder);
+          setOrder(orderResponse.data);
+        }
+      }
+      
+      // Generate order number for toast message
+      const orderNumber = generateOrderNumber(order.createdAt);
+      
+      switch (newStatus) {
+        case 'Confirmed':
+          showToast('success', 'Order Accepted!', `${orderNumber} has been accepted successfully.`);
           break;
-        case 2:
-          showToast('success', 'Order Notified!', `#${Date.parse(order.createdAt.toString()).toString(36).toUpperCase()} has been notified for pickup.`);
+        case 'Ready For Pickup':
+        case 'Ready for Pickup':
+          showToast('success', 'Ready for Pickup!', `${orderNumber} is now ready for pickup.`);
           break;
-        case 3:
-          showToast('success', 'Order Completed!', `#${Date.parse(order.createdAt.toString()).toString(36).toUpperCase()} has been completed.`);
+        case 'Completed':
+          showToast('success', 'Order Completed!', `${orderNumber} has been completed.`);
           break;
-        case 4:
-          showToast('success', 'Order Canceled', `#${Date.parse(order.createdAt.toString()).toString(36).toUpperCase()} has been canceled.`);
+        case 'Canceled':
+        case 'Cancelled':
+          showToast('success', 'Order Canceled', `${orderNumber} has been canceled.`);
           break;
       }
-    } catch (error) {
+      
+      // Navigate back after a short delay to allow toast to show
+      setTimeout(() => {
+        router.back();
+      }, 1500);
+      
+    } catch (error: any) {
       console.error("Error updating order: ", error);
-      showToast('error', 'Uh Oh', `Something went wrong with updating the order. Please try again.`);
+      showToast('error', 'Update Failed', error.message || 'Something went wrong with updating the order. Please try again.');
     } finally {
       setSubmitting(false);
     }
   }
 
   useEffect(() => {
-    getToken({template: "seller_app"})
-    .then(token => {
-      getOrder(token as string);
-    })
+    const initializeOrder = async () => {
+      try {
+        console.log('🔧 Initializing with seller_app JWT template...');
+        const token = await getToken({template: "seller_app"});
+        if (token) {
+          await getOrder(token);
+        }
+      } catch (error) {
+        console.error('Error initializing order data:', error);
+      }
+    };
+    
+    initializeOrder();
   }, [])
 
   useEffect(() => {
@@ -284,7 +524,7 @@ export default function OrderDetailsScreen() {
               {statusInfo.label}
             </Text>
             <Text style={styles.orderIdText}>
-              #{Date.parse(order.createdAt.toString()).toString(36).toUpperCase()}
+              {generateOrderNumber(order.createdAt)}
             </Text>
           </View>
           <Text style={styles.orderDateText}>
@@ -313,31 +553,27 @@ export default function OrderDetailsScreen() {
               </View>
               <View style={styles.buyerInfo}>
                 <Text style={styles.buyerName}>{buyer.name || 'Unknown Buyer'}</Text>
-                <Text style={styles.buyerEmail}>{buyer.email || 'No email provided'}</Text>
-                {buyer.phone && (
-                  <Text style={styles.buyerPhone}>📞 {buyer.phone}</Text>
-                )}
+                <Text style={styles.buyerEmail}>{buyer.emailAddress || 'No email provided'}</Text>
               </View>
             </View>
-            {buyer.address && (
-              <View style={styles.buyerAddressContainer}>
-                <Text style={styles.buyerAddressLabel}>Delivery Address:</Text>
-                <Text style={styles.buyerAddress}>{buyer.address}</Text>
-              </View>
-            )}
           </View>
         </View>
 
         {/* Products Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Items Ordered</Text>
-          {products.map((product, index) => (
-            <ProductItem
-              key={product.id}
-              product={product}
-              quantity={order.quantity[index]}
-            />
-          ))}
+          {products.map((product, index) => {
+            // Get quantity from the corresponding order item
+            const quantity = order.items[index]?.quantity || 1;
+            
+            return (
+              <ProductItem
+                key={product.id}
+                product={product}
+                quantity={quantity}
+              />
+            );
+          })}
         </View>
 
         <View style={{ height: 120 }} />
@@ -347,55 +583,87 @@ export default function OrderDetailsScreen() {
       <View style={styles.footer}>
         <View style={styles.totalContainer}>
           <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalAmount}>₱{order.totalPrice.toFixed(2)}</Text>
+          <Text style={styles.totalAmount}>₱{order.totalAmount.toFixed(2)}</Text>
         </View>
 
         {/* Action buttons based on order status */}
-        {order.status === 0 && (
-          <View style={styles.actionButtonsContainer}>
+        {getStatusIndex(order.status) === 0 && (
+          <View>
+            <Text style={styles.actionTitle}>Order Actions</Text>
+            <Text style={styles.actionSubtitle}>Choose an action for this pending order:</Text>
+            <View style={styles.actionButtonsContainer}>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.rejectButton, submitting && styles.actionButtonDisabled]}
+                onPress={() => handleStatusUpdate('Canceled')}
+                disabled={submitting}
+              >
+                <Ionicons name="close-circle" size={20} color={colors.text.inverse} style={{ marginRight: 8 }} />
+                <Text style={[styles.actionButtonText, styles.rejectButtonText]}>
+                  {submitting ? "Processing..." : "Reject"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.acceptButton, submitting && styles.actionButtonDisabled]}
+                onPress={() => handleStatusUpdate('Confirmed')}
+                disabled={submitting}
+              >
+                <Ionicons name="checkmark-circle" size={20} color={colors.text.inverse} style={{ marginRight: 8 }} />
+                <Text style={[styles.actionButtonText, styles.acceptButtonText]}>
+                  {submitting ? "Processing..." : "Accept"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {getStatusIndex(order.status) === 1 && (
+          <View>
+            <Text style={styles.actionTitle}>Next Step</Text>
+            <Text style={styles.actionSubtitle}>Mark this order as ready for customer pickup:</Text>
             <TouchableOpacity
-              style={[styles.actionButton, styles.rejectButton, submitting && styles.actionButtonDisabled]}
-              onPress={() => handleStatusUpdate(ORDER_STATUSES.indexOf('Canceled'))}
+              style={[styles.singleActionButton, styles.readyButton, submitting && styles.actionButtonDisabled]}
+              onPress={() => handleStatusUpdate('Ready For Pickup')}
               disabled={submitting}
             >
-              <Text style={[styles.actionButtonText, styles.rejectButtonText]}>
-                {submitting ? "Processing..." : "Reject Order"}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.acceptButton, submitting && styles.actionButtonDisabled]}
-              onPress={() => handleStatusUpdate(ORDER_STATUSES.indexOf('Confirmed'))}
-              disabled={submitting}
-            >
-              <Text style={[styles.actionButtonText, styles.acceptButtonText]}>
-                {submitting ? "Processing..." : "Accept Order"}
+              <Ionicons name="bag-check" size={20} color={colors.text.inverse} style={{ marginRight: 8 }} />
+              <Text style={styles.singleActionButtonText}>
+                {submitting ? "Processing..." : "Mark Ready for Pickup"}
               </Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {order.status === 1 && (
-          <TouchableOpacity
-            style={[styles.singleActionButton, submitting && styles.actionButtonDisabled]}
-            onPress={() => handleStatusUpdate(ORDER_STATUSES.indexOf('Ready For Pickup'))}
-            disabled={submitting}
-          >
-            <Text style={styles.singleActionButtonText}>
-              {submitting ? "Processing..." : "Mark Ready for Pickup"}
-            </Text>
-          </TouchableOpacity>
+        {getStatusIndex(order.status) === 2 && (
+          <View>
+            <Text style={styles.actionTitle}>Complete Order</Text>
+            <Text style={styles.actionSubtitle}>Mark this order as completed after customer pickup:</Text>
+            <TouchableOpacity
+              style={[styles.singleActionButton, styles.completeButton, submitting && styles.actionButtonDisabled]}
+              onPress={() => handleStatusUpdate('Completed')}
+              disabled={submitting}
+            >
+              <Ionicons name="checkmark-done-circle" size={20} color={colors.text.inverse} style={{ marginRight: 8 }} />
+              <Text style={styles.singleActionButtonText}>
+                {submitting ? "Processing..." : "Mark as Completed"}
+              </Text>
+            </TouchableOpacity>
+          </View>
         )}
 
-        {order.status === 2 && (
-          <TouchableOpacity
-            style={[styles.singleActionButton, submitting && styles.actionButtonDisabled]}
-            onPress={() => handleStatusUpdate(ORDER_STATUSES.indexOf('Completed'))}
-            disabled={submitting}
-          >
-            <Text style={styles.singleActionButtonText}>
-              {submitting ? "Processing..." : "Complete Order"}
-            </Text>
-          </TouchableOpacity>
+        {getStatusIndex(order.status) === 3 && (
+          <View style={styles.completedContainer}>
+            <Ionicons name="checkmark-done-circle" size={48} color={colors.success} />
+            <Text style={styles.completedText}>Order Completed</Text>
+            <Text style={styles.completedSubtext}>This order has been successfully completed.</Text>
+          </View>
+        )}
+
+        {getStatusIndex(order.status) === 4 && (
+          <View style={styles.canceledContainer}>
+            <Ionicons name="close-circle" size={48} color={colors.error} />
+            <Text style={styles.canceledText}>Order Canceled</Text>
+            <Text style={styles.canceledSubtext}>This order has been canceled.</Text>
+          </View>
         )}
       </View>
     </SafeAreaView>
@@ -550,6 +818,18 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '700',
   },
+  actionTitle: {
+    fontSize: typography.fontSizes.lg,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  actionSubtitle: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+    marginBottom: spacing.lg,
+    lineHeight: typography.lineHeights.relaxed * typography.fontSizes.sm,
+  },
   actionButtonsContainer: {
     flexDirection: 'row',
     gap: spacing.md,
@@ -557,8 +837,11 @@ const styles = StyleSheet.create({
   actionButton: {
     flex: 1,
     paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
   },
   rejectButton: {
     backgroundColor: colors.error,
@@ -567,16 +850,24 @@ const styles = StyleSheet.create({
     backgroundColor: colors.success,
   },
   singleActionButton: {
-    backgroundColor: colors.primary,
     paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+  },
+  readyButton: {
+    backgroundColor: colors.primary,
+  },
+  completeButton: {
+    backgroundColor: colors.success,
   },
   actionButtonDisabled: {
     opacity: 0.5,
   },
   actionButtonText: {
-    fontSize: typography.fontSizes.lg,
+    fontSize: typography.fontSizes.md,
     fontWeight: '600',
   },
   rejectButtonText: {
@@ -586,9 +877,41 @@ const styles = StyleSheet.create({
     color: colors.text.inverse,
   },
   singleActionButtonText: {
-    fontSize: typography.fontSizes.lg,
+    fontSize: typography.fontSizes.md,
     color: colors.text.inverse,
     fontWeight: '600',
+  },
+  completedContainer: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+  },
+  completedText: {
+    fontSize: typography.fontSizes.xl,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.success,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  completedSubtext: {
+    fontSize: typography.fontSizes.md,
+    color: colors.text.secondary,
+    textAlign: 'center',
+  },
+  canceledContainer: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+  },
+  canceledText: {
+    fontSize: typography.fontSizes.xl,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.error,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  canceledSubtext: {
+    fontSize: typography.fontSizes.md,
+    color: colors.text.secondary,
+    textAlign: 'center',
   },
   loadingContainer: {
     flex: 1,

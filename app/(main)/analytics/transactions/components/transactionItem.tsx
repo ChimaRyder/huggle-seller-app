@@ -1,6 +1,6 @@
 import { View, StyleSheet} from "react-native";
 import { Text } from "@ui-kitten/components";
-import { Order } from "@/utils/data/OrderController";
+import { Order } from "@/utils/Controllers/OrderController";
 
 const renderTransactionItem = ({ item }: { item: Order }) => (
     <View style={styles.transactionItem}>
@@ -22,7 +22,7 @@ const renderTransactionItem = ({ item }: { item: Order }) => (
                 </Text>
             </View>
         </View>
-        <Text category="s1" status="success"> + ₱{item.totalPrice.toFixed(2)}</Text>
+        <Text category="s1" status="success"> + ₱{item.totalAmount.toFixed(2)}</Text>
     </View>
 );
 

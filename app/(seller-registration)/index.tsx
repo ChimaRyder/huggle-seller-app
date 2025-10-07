@@ -1,5 +1,5 @@
 import React from 'react';
-import { SellerRegistrationProvider } from './SellerRegistrationContext';
+import { SellerRegistrationProvider , useSellerRegistration } from './SellerRegistrationContext';
 import { Stack } from 'expo-router';
 import ShopInfoScreen from './_screens/ShopInfoScreen';
 import BusinessInfoScreen from './_screens/BusinessInfoScreen';
@@ -7,7 +7,6 @@ import EntityInfoScreen from './_screens/EntityInfoScreen';
 import AddressInfoScreen from './_screens/AddressInfoScreen';
 import TaxInfoScreen from './_screens/TaxInfoScreen';
 import TermsScreen from './_screens/TermsScreen';
-import { useSellerRegistration } from './SellerRegistrationContext';
 
 // This component determines which screen to show based on the current step
 const StepScreen = () => {

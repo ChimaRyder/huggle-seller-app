@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View, FlatList, ScrollView, Alert } from 'react-native';
 import { Tab, TabBar, useTheme, Text, Spinner } from '@ui-kitten/components';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { Order, getAllOrders } from '@/utils/data/OrderController';
-import { useAuth } from '@clerk/clerk-expo';
+import { Order, getAllOrders } from '@/utils/Controllers/OrderController';
+import { useAuth, useUser } from '@clerk/clerk-expo';
 import OrderItem from './components/orderItem';
 import { AlertCircle, CookingPot } from 'lucide-react-native';
 
@@ -14,6 +14,20 @@ const ORDER_STATUSES = [
   'Completed',
   'Canceled',
 ];
+
+const STATUS_MAP: { [key: string]: number } = {
+  'Pending': 0,
+  'Confirmed': 1,
+  'Ready For Pickup': 2,
+  'Ready for Pickup': 2,
+  'Completed': 3,
+  'Canceled': 4,
+  'Cancelled': 4,
+};
+
+const getStatusIndex = (status: string): number => {
+  return STATUS_MAP[status] ?? 0;
+};
 
 const emptyMessages = (index : number) => {
   switch (index) {
@@ -32,26 +46,34 @@ const emptyMessages = (index : number) => {
 
 export default function OrdersTabsNavigation() {
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [orders, setOrders] = useState<Array<Order>>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const params = useLocalSearchParams();
   const theme = useTheme();
   const router = useRouter();
   const {getToken} = useAuth();
+  const {user} = useUser();
 
   const filteredOrders = orders.filter(
-    (order) => order.status === selectedIndex
+    (order) => getStatusIndex(order.status) === selectedIndex
   );
 
   const getOrders = async () => {
     try {
         setLoading(true);
         const token = await getToken({template: "seller_app"});
-        const response = await getAllOrders(token ?? "");
+        
+        if (!token) {
+          console.error('No authentication token available');
+          return;
+        }
+        
+        const storeId = user?.publicMetadata?.storeId as string;
+        const response = await getAllOrders(token, storeId);
 
-        setOrders(((response as any).data));
+        setOrders(response.data || []);
     } catch(error) {
-        console.error("Error getting orders: " + error);
+        console.error("Error getting orders:", error);
     } finally {
       setLoading(false);
     }
