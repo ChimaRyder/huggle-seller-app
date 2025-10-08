@@ -16,7 +16,21 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { Heart, MessageCircle, Share, Plus, TrendingUp, Eye, MoreHorizontal, Edit, Trash2 } from 'lucide-react-native';
 import { colors, spacing, typography, radii } from '@/constants/theme';
-import { mockPosts, mockEngagementStats, type MockPost } from '@/data/mockPromotionData';
+import { getAllPosts, deletePost } from '@/utils/Controllers/PromotionController';
+
+// Define Post interface to match backend response
+interface Post {
+  id: string;
+  sellerId: string;
+  storeId: string;
+  storeName?: string;
+  content: string;
+  imageUrls: string[];
+  createdAt: string;
+  updatedAt: string;
+  likeCount: number;
+  isLiked: boolean;
+}
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width - (spacing.lg * 2);
@@ -24,11 +38,12 @@ const CARD_WIDTH = width - (spacing.lg * 2);
 export default function PromotionsScreen() {
   const router = useRouter();
   const { user } = useUser();
-  const [posts, setPosts] = useState<MockPost[]>([]);
+  const { getToken } = useAuth();
+  const [posts, setPosts] = useState<Post[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
-  const [selectedPost, setSelectedPost] = useState<MockPost | null>(null);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -39,10 +54,15 @@ export default function PromotionsScreen() {
   const loadPosts = async () => {
     try {
       setLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setPosts(mockPosts);
+      const token = await getToken({ template: "seller_app" });
+      const response = await getAllPosts(token ?? "");
+
+      // Backend returns data in response.data.data format with pagination
+      const postsData = response.data?.data || response.data;
+      setPosts(Array.isArray(postsData) ? postsData : []);
     } catch (error) {
       console.error('Error loading posts:', error);
+      setPosts([]);
     } finally {
       setLoading(false);
     }
@@ -74,9 +94,18 @@ export default function PromotionsScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            setPosts(posts.filter(post => post.id !== postId));
-            // In real app, would call API to delete
+          onPress: async () => {
+            try {
+              const token = await getToken({ template: "seller_app" });
+              await deletePost(postId, token ?? "");
+              
+              // Remove post from local state
+              setPosts(posts.filter(post => post.id !== postId));
+              Alert.alert('Success', 'Post deleted successfully.');
+            } catch (error) {
+              console.error('Error deleting post:', error);
+              Alert.alert('Error', 'Failed to delete post. Please try again.');
+            }
           },
         },
       ]
@@ -84,13 +113,16 @@ export default function PromotionsScreen() {
   };
 
   const handlePostPress = (postId: string) => {
+    console.log('=== POST CLICK ===');
+    console.log('Clicking post with ID:', postId);
+    console.log('Navigating to PostScreen...');
     router.push({
       pathname: '/(main)/promotions/PostScreen',
       params: { id: postId }
     });
   };
 
-  const handleOptionsPress = (post: MockPost, event: any) => {
+  const handleOptionsPress = (post: any, event: any) => {
     event.stopPropagation(); // Prevent post navigation when clicking options
     setSelectedPost(post);
     setShowOptionsMenu(true);
@@ -109,49 +141,31 @@ export default function PromotionsScreen() {
   const handleModalDeletePost = () => {
     setShowOptionsMenu(false);
     if (selectedPost) {
-      Alert.alert(
-        'Delete Post',
-        'Are you sure you want to delete this post? This action cannot be undone.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: () => {
-              setPosts(posts.filter(post => post.id !== selectedPost.id));
-              Alert.alert('Post Deleted', 'Your post has been deleted successfully.');
-            },
-          },
-        ]
-      );
+      handleDeletePost(selectedPost.id);
     }
   };
 
-  const formatNumber = (num: number) => {
+  const formatNumber = (num: number | undefined) => {
+    if (!num || num === 0) {
+      return '0';
+    }
     if (num >= 1000) {
       return (num / 1000).toFixed(1) + 'k';
     }
     return num.toString();
   };
 
-  const getPostTypeColor = (type: MockPost['postType']) => {
-    switch (type) {
-      case 'product_promotion': return colors.primary;
-      case 'sale': return colors.warning;
-      case 'event': return colors.info;
-      case 'announcement': return colors.success;
-      default: return colors.text.secondary;
-    }
-  };
-
-  const getPostTypeLabel = (type: MockPost['postType']) => {
-    switch (type) {
-      case 'product_promotion': return 'Product';
-      case 'sale': return 'Sale';
-      case 'event': return 'Event';
-      case 'announcement': return 'News';
-      default: return 'Post';
-    }
+  // Calculate engagement stats from posts
+  const getEngagementStats = () => {
+    return {
+      totalPosts: posts.length,
+      totalLikes: posts.reduce((sum, post) => sum + (post.likeCount || 0), 0),
+      totalViews: posts.length * 150, // Estimated since backend doesn't track views yet
+      totalShares: Math.floor(posts.reduce((sum, post) => sum + (post.likeCount || 0), 0) * 0.1), // Estimated
+      averageEngagement: posts.length > 0 
+        ? Math.round(posts.reduce((sum, post) => sum + (post.likeCount || 0), 0) / posts.length)
+        : 0
+    };
   };
 
   const formatDate = (dateString: string) => {
@@ -167,59 +181,61 @@ export default function PromotionsScreen() {
     return date.toLocaleDateString();
   };
 
-  const renderEngagementStats = () => (
-    <View style={styles.statsCard}>
-      <Text style={styles.statsTitle}>Performance Overview</Text>
-      <View style={styles.statsGrid}>
-        <View style={styles.statItem}>
-          <View style={styles.statIcon}>
-            <Heart size={20} color={colors.primary} />
+  const renderEngagementStats = () => {
+    const stats = getEngagementStats();
+    
+    return (
+      <View style={styles.statsCard}>
+        <Text style={styles.statsTitle}>Performance Overview</Text>
+        <View style={styles.statsGrid}>
+          <View style={styles.statItem}>
+            <View style={styles.statIcon}>
+              <Heart size={20} color={colors.primary} />
+            </View>
+            <View>
+              <Text style={styles.statValue}>{formatNumber(stats.totalLikes)}</Text>
+              <Text style={styles.statLabel}>Total Likes</Text>
+            </View>
           </View>
-          <View>
-            <Text style={styles.statValue}>{formatNumber(mockEngagementStats.totalLikes)}</Text>
-            <Text style={styles.statLabel}>Total Likes</Text>
+          <View style={styles.statItem}>
+            <View style={styles.statIcon}>
+              <Eye size={20} color={colors.info} />
+            </View>
+            <View>
+              <Text style={styles.statValue}>{formatNumber(stats.totalViews)}</Text>
+              <Text style={styles.statLabel}>Total Views</Text>
+            </View>
           </View>
-        </View>
-        <View style={styles.statItem}>
-          <View style={styles.statIcon}>
-            <Eye size={20} color={colors.info} />
+          <View style={styles.statItem}>
+            <View style={styles.statIcon}>
+              <Share size={20} color={colors.success} />
+            </View>
+            <View>
+              <Text style={styles.statValue}>{formatNumber(stats.totalShares)}</Text>
+              <Text style={styles.statLabel}>Total Shares</Text>
+            </View>
           </View>
-          <View>
-            <Text style={styles.statValue}>{formatNumber(mockEngagementStats.totalViews)}</Text>
-            <Text style={styles.statLabel}>Total Views</Text>
-          </View>
-        </View>
-        <View style={styles.statItem}>
-          <View style={styles.statIcon}>
-            <Share size={20} color={colors.success} />
-          </View>
-          <View>
-            <Text style={styles.statValue}>{formatNumber(mockEngagementStats.totalShares)}</Text>
-            <Text style={styles.statLabel}>Total Shares</Text>
-          </View>
-        </View>
-        <View style={styles.statItem}>
-          <View style={styles.statIcon}>
-            <TrendingUp size={20} color={colors.warning} />
-          </View>
-          <View>
-            <Text style={styles.statValue}>{formatNumber(mockEngagementStats.averageEngagement)}</Text>
-            <Text style={styles.statLabel}>Avg Engagement</Text>
+          <View style={styles.statItem}>
+            <View style={styles.statIcon}>
+              <TrendingUp size={20} color={colors.warning} />
+            </View>
+            <View>
+              <Text style={styles.statValue}>{formatNumber(stats.averageEngagement)}</Text>
+              <Text style={styles.statLabel}>Avg Engagement</Text>
+            </View>
           </View>
         </View>
       </View>
-    </View>
-  );
+    );
+  };
 
-  const renderPost = ({ item }: { item: MockPost }) => (
+  const renderPost = ({ item }: { item: Post }) => (
     <TouchableOpacity style={styles.postCard} onPress={() => handlePostPress(item.id)}>
       {/* Post Header */}
       <View style={styles.postHeader}>
         <View style={styles.postHeaderLeft}>
-          <View style={[styles.postTypeBadge, { backgroundColor: getPostTypeColor(item.postType) + '20' }]}>
-            <Text style={[styles.postTypeText, { color: getPostTypeColor(item.postType) }]}>
-              {getPostTypeLabel(item.postType)}
-            </Text>
+          <View style={[styles.postTypeBadge, { backgroundColor: colors.primary + '20' }]}>
+            <Text style={[styles.postTypeText, { color: colors.primary }]}>Post</Text>
           </View>
           <Text style={styles.postDate}>{formatDate(item.createdAt)}</Text>
         </View>
@@ -232,10 +248,10 @@ export default function PromotionsScreen() {
       </View>
 
       {/* Post Images */}
-      {item.images.length > 0 && (
+      {item.imageUrls && item.imageUrls.length > 0 && (
         <View style={styles.imageContainer}>
           <FlatList
-            data={item.images}
+            data={item.imageUrls}
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
@@ -244,9 +260,9 @@ export default function PromotionsScreen() {
             )}
             keyExtractor={(imageUrl, index) => `${item.id}-image-${index}`}
           />
-          {item.images.length > 1 && (
+          {item.imageUrls.length > 1 && (
             <View style={styles.imageIndicator}>
-              <Text style={styles.imageCount}>{item.images.length} photos</Text>
+              <Text style={styles.imageCount}>{item.imageUrls.length} photos</Text>
             </View>
           )}
         </View>
@@ -254,36 +270,14 @@ export default function PromotionsScreen() {
 
       {/* Post Content */}
       <View style={styles.postContent}>
-        <Text style={styles.postCaption}>{item.caption}</Text>
-
-        {/* Post Tags */}
-        {item.tags.length > 0 && (
-          <View style={styles.tagsContainer}>
-            {item.tags.slice(0, 3).map((tag, index) => (
-              <View key={index} style={styles.tag}>
-                <Text style={styles.tagText}>#{tag}</Text>
-              </View>
-            ))}
-            {item.tags.length > 3 && (
-              <Text style={styles.moreTagsText}>+{item.tags.length - 3} more</Text>
-            )}
-          </View>
-        )}
+        <Text style={styles.postCaption}>{item.content}</Text>
       </View>
 
       {/* Post Stats */}
       <View style={styles.postStats}>
         <View style={styles.statGroup}>
           <Heart size={16} color={colors.primary} />
-          <Text style={styles.statText}>{formatNumber(item.likes)}</Text>
-        </View>
-        <View style={styles.statGroup}>
-          <Eye size={16} color={colors.info} />
-          <Text style={styles.statText}>{formatNumber(item.views)}</Text>
-        </View>
-        <View style={styles.statGroup}>
-          <Share size={16} color={colors.success} />
-          <Text style={styles.statText}>{formatNumber(item.shares)}</Text>
+          <Text style={styles.statText}>{formatNumber(item.likeCount)}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -319,7 +313,7 @@ export default function PromotionsScreen() {
       <FlatList
         data={posts}
         renderItem={renderPost}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item, index) => item.id || `post-${index}`}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />

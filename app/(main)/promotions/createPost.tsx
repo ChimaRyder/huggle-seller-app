@@ -18,13 +18,13 @@ import {
   Camera,
   X,
   Hash,
-  Type,
   Image as ImageIcon,
   Check,
   AlertCircle,
 } from 'lucide-react-native';
 import { colors, spacing, typography, radii } from '@/constants/theme';
-import { mockPosts, type MockPost } from '@/data/mockPromotionData';
+import { createPost } from '@/utils/Controllers/PromotionController';
+import { FirebaseStorageService } from '@/utils/firebaseStorage';
 import * as ImagePicker from 'expo-image-picker';
 
 const { width } = Dimensions.get('window');
@@ -33,16 +33,16 @@ const IMAGE_SIZE = (width - spacing.lg * 3) / 2;
 const CreatePostScreen = () => {
   const router = useRouter();
   const { user } = useUser();
+  const { getToken } = useAuth();
   const [caption, setCaption] = useState('');
   const [images, setImages] = useState<string[]>([]);
-  const [tags, setTags] = useState<string[]>([]);
-  const [currentTag, setCurrentTag] = useState('');
-  const [postType, setPostType] = useState<MockPost['postType']>('product_promotion');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [uploadingImages, setUploadingImages] = useState<boolean[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<{ [key: number]: number }>({});
 
   const navigateBack = () => {
-    if (caption.trim() || images.length > 0 || tags.length > 0) {
+    if (caption.trim() || images.length > 0) {
       Alert.alert(
         'Discard Changes',
         'Are you sure you want to discard your post?',
@@ -70,25 +70,76 @@ const CreatePostScreen = () => {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setImages(prev => [...prev, result.assets[0].uri]);
+      const imageUri = result.assets[0].uri;
+      const imageIndex = images.length;
+      
+      console.log('=== UPLOADING IMAGE TO FIREBASE ===');
+      console.log('Image URI:', imageUri);
+      console.log('Image index:', imageIndex);
+      
+      // Add placeholder for the uploading image
+      setImages(prev => [...prev, '']);
+      setUploadingImages(prev => [...prev, true]);
+      setUploadProgress(prev => ({ ...prev, [imageIndex]: 0 }));
+
+      try {
+        // Upload to Firebase Storage
+        const result = await FirebaseStorageService.uploadImage(
+          imageUri,
+          'posts', // folder
+          undefined, // auto-generate filename
+          (progress) => {
+            console.log('Upload progress:', progress.progress);
+            setUploadProgress(prev => ({ ...prev, [imageIndex]: progress.progress }));
+          }
+        );
+
+        console.log('Firebase upload successful:', result.downloadURL);
+        
+        // Update the image array with the Firebase URL
+        setImages(prev => prev.map((img, idx) => idx === imageIndex ? result.downloadURL : img));
+        setUploadingImages(prev => prev.map((uploading, idx) => idx === imageIndex ? false : uploading));
+        setUploadProgress(prev => {
+          const newProgress = { ...prev };
+          delete newProgress[imageIndex];
+          return newProgress;
+        });
+
+      } catch (error) {
+        console.error('Firebase upload failed:', error);
+        Alert.alert('Upload Failed', 'Failed to upload image. Please try again.');
+        
+        // Remove the failed upload from arrays
+        setImages(prev => prev.filter((_, idx) => idx !== imageIndex));
+        setUploadingImages(prev => prev.filter((_, idx) => idx !== imageIndex));
+        setUploadProgress(prev => {
+          const newProgress = { ...prev };
+          delete newProgress[imageIndex];
+          return newProgress;
+        });
+      }
     }
   };
 
   const removeImage = (index: number) => {
     setImages(prev => prev.filter((_, i) => i !== index));
+    setUploadingImages(prev => prev.filter((_, i) => i !== index));
+    // Update progress indices
+    setUploadProgress(prev => {
+      const newProgress = { ...prev };
+      delete newProgress[index];
+      // Shift indices down for items after the removed index
+      Object.keys(newProgress).forEach(key => {
+        const keyNum = parseInt(key);
+        if (keyNum > index) {
+          newProgress[keyNum - 1] = newProgress[keyNum];
+          delete newProgress[keyNum];
+        }
+      });
+      return newProgress;
+    });
   };
 
-  const addTag = () => {
-    const tag = currentTag.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (tag && !tags.includes(tag) && tags.length < 10) {
-      setTags(prev => [...prev, tag]);
-      setCurrentTag('');
-    }
-  };
-
-  const removeTag = (tagToRemove: string) => {
-    setTags(prev => prev.filter(tag => tag !== tagToRemove));
-  };
 
   const validateForm = (): boolean => {
     const newErrors: { [key: string]: string } = {};
@@ -99,8 +150,11 @@ const CreatePostScreen = () => {
       newErrors.caption = 'Caption must be at least 10 characters';
     }
 
-    if (images.length === 0) {
+    const validImages = images.filter(img => img && img.startsWith('http'));
+    if (validImages.length === 0) {
       newErrors.images = 'At least one image is required';
+    } else if (uploadingImages.some(uploading => uploading)) {
+      newErrors.images = 'Please wait for all images to finish uploading';
     }
 
     setErrors(newErrors);
@@ -108,13 +162,35 @@ const CreatePostScreen = () => {
   };
 
   const handleSubmit = async () => {
-    if (!validateForm()) return;
+    console.log('=== CREATE POST ATTEMPT ===');
+    console.log('Caption:', caption);
+    console.log('Images:', images);
+    console.log('User metadata:', user?.publicMetadata);
+    
+    if (!validateForm()) {
+      console.log('Form validation failed');
+      return;
+    }
 
     setIsSubmitting(true);
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      console.log('Getting auth token...');
+      const token = await getToken({ template: "seller_app" });
+      console.log('Token received:', token ? 'Yes' : 'No');
+      
+      const validImageUrls = images.filter(img => img && img.startsWith('http'));
+      const postData = {
+        storeId: user?.publicMetadata.storeId as string,
+        content: caption.trim(),
+        imageUrls: validImageUrls
+      };
+      
+      console.log('Post data to send:', JSON.stringify(postData, null, 2));
+      console.log('Calling createPost API...');
+      
+      const response = await createPost(postData, token ?? "");
+      console.log('CreatePost response:', JSON.stringify(response.data, null, 2));
 
       Alert.alert(
         'Post Created!',
@@ -127,33 +203,16 @@ const CreatePostScreen = () => {
         ]
       );
     } catch (error) {
+      console.error('=== CREATE POST ERROR ===');
+      console.error('Full error:', error);
+      console.error('Error message:', error?.message);
+      console.error('Error response:', error?.response?.data);
       Alert.alert('Error', 'Failed to create post. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const getPostTypeColor = (type: MockPost['postType']) => {
-    switch (type) {
-      case 'product_promotion': return colors.primary;
-      case 'sale': return colors.warning;
-      case 'event': return colors.info;
-      case 'announcement': return colors.success;
-      default: return colors.text.secondary;
-    }
-  };
-
-  const getPostTypeLabel = (type: MockPost['postType']) => {
-    switch (type) {
-      case 'product_promotion': return 'Product Promotion';
-      case 'sale': return 'Sale/Discount';
-      case 'event': return 'Event';
-      case 'announcement': return 'Announcement';
-      default: return 'Post';
-    }
-  };
-
-  const postTypes: MockPost['postType'][] = ['product_promotion', 'sale', 'event', 'announcement'];
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -167,9 +226,9 @@ const CreatePostScreen = () => {
           <Text style={styles.headerSubtitle}>Share with your customers</Text>
         </View>
         <TouchableOpacity
-          style={[styles.publishButton, (!caption.trim() || images.length === 0) && styles.publishButtonDisabled]}
+          style={[styles.publishButton, (!caption.trim() || images.filter(img => img && img.startsWith('http')).length === 0 || uploadingImages.some(uploading => uploading)) && styles.publishButtonDisabled]}
           onPress={handleSubmit}
-          disabled={!caption.trim() || images.length === 0 || isSubmitting}
+          disabled={!caption.trim() || images.filter(img => img && img.startsWith('http')).length === 0 || uploadingImages.some(uploading => uploading) || isSubmitting}
         >
           {isSubmitting ? (
             <View style={styles.loadingIndicator} />
@@ -180,32 +239,6 @@ const CreatePostScreen = () => {
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Post Type Selection */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Type size={20} color={colors.primary} />
-            <Text style={styles.sectionTitle}>Post Type</Text>
-          </View>
-          <View style={styles.postTypeGrid}>
-            {postTypes.map((type) => (
-              <TouchableOpacity
-                key={type}
-                style={[
-                  styles.postTypeOption,
-                  postType === type && { backgroundColor: getPostTypeColor(type) + '20', borderColor: getPostTypeColor(type) }
-                ]}
-                onPress={() => setPostType(type)}
-              >
-                <Text style={[
-                  styles.postTypeText,
-                  postType === type && { color: getPostTypeColor(type), fontWeight: typography.fontWeights.semibold }
-                ]}>
-                  {getPostTypeLabel(type)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
 
         {/* Images Section */}
         <View style={styles.section}>
@@ -227,13 +260,34 @@ const CreatePostScreen = () => {
           <View style={styles.imageGrid}>
             {images.map((imageUri, index) => (
               <View key={index} style={styles.imageItem}>
-                <Image source={{ uri: imageUri }} style={styles.imagePreview} />
-                <TouchableOpacity
-                  style={styles.removeImageButton}
-                  onPress={() => removeImage(index)}
-                >
-                  <X size={16} color={colors.text.inverse} />
-                </TouchableOpacity>
+                {uploadingImages[index] ? (
+                  <View style={styles.uploadingContainer}>
+                    <View style={styles.uploadingOverlay} />
+                    <View style={styles.uploadProgressContainer}>
+                      <View style={styles.uploadProgressBar}>
+                        <View 
+                          style={[
+                            styles.uploadProgressFill, 
+                            { width: `${uploadProgress[index] || 0}%` }
+                          ]} 
+                        />
+                      </View>
+                      <Text style={styles.uploadProgressText}>
+                        {Math.round(uploadProgress[index] || 0)}%
+                      </Text>
+                    </View>
+                  </View>
+                ) : (
+                  <>
+                    <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+                    <TouchableOpacity
+                      style={styles.removeImageButton}
+                      onPress={() => removeImage(index)}
+                    >
+                      <X size={16} color={colors.text.inverse} />
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
             ))}
 
@@ -249,7 +303,7 @@ const CreatePostScreen = () => {
         {/* Caption Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Type size={20} color={colors.primary} />
+            <Hash size={20} color={colors.primary} />
             <Text style={styles.sectionTitle}>Caption</Text>
             <Text style={styles.characterCount}>{caption.length}/500</Text>
           </View>
@@ -274,51 +328,6 @@ const CreatePostScreen = () => {
           />
         </View>
 
-        {/* Tags Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Hash size={20} color={colors.primary} />
-            <Text style={styles.sectionTitle}>Tags</Text>
-            <Text style={styles.sectionCounter}>({tags.length}/10)</Text>
-          </View>
-          <Text style={styles.sectionDescription}>
-            Add relevant tags to help customers discover your post
-          </Text>
-
-          {/* Tag Input */}
-          <View style={styles.tagInputContainer}>
-            <TextInput
-              style={styles.tagInput}
-              placeholder="Add a tag..."
-              placeholderTextColor={colors.text.tertiary}
-              value={currentTag}
-              onChangeText={setCurrentTag}
-              onSubmitEditing={addTag}
-              maxLength={20}
-            />
-            <TouchableOpacity
-              style={[styles.addTagButton, !currentTag.trim() && styles.addTagButtonDisabled]}
-              onPress={addTag}
-              disabled={!currentTag.trim() || tags.length >= 10}
-            >
-              <Text style={styles.addTagText}>Add</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Tags Display */}
-          {tags.length > 0 && (
-            <View style={styles.tagsContainer}>
-              {tags.map((tag, index) => (
-                <View key={index} style={styles.tag}>
-                  <Text style={styles.tagText}>#{tag}</Text>
-                  <TouchableOpacity onPress={() => removeTag(tag)}>
-                    <X size={14} color={colors.primary} />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
 
         <View style={{ height: spacing.xxxl }} />
       </ScrollView>
@@ -426,28 +435,6 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
   },
 
-  // Post Type Selection
-  postTypeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-  },
-  postTypeOption: {
-    flex: 1,
-    minWidth: '45%',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border.primary,
-    backgroundColor: colors.background.secondary,
-    alignItems: 'center',
-  },
-  postTypeText: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.text.secondary,
-    textAlign: 'center',
-  },
 
   // Images
   imageGrid: {
@@ -495,6 +482,47 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeights.medium,
   },
 
+  // Upload progress styles
+  uploadingContainer: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+    borderRadius: radii.lg,
+    backgroundColor: colors.background.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  uploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: radii.lg,
+  },
+  uploadProgressContainer: {
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  uploadProgressBar: {
+    width: 80,
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 2,
+    marginBottom: spacing.xs,
+  },
+  uploadProgressFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 2,
+  },
+  uploadProgressText: {
+    fontSize: typography.fontSizes.xs,
+    color: colors.text.inverse,
+    fontWeight: typography.fontWeights.semibold,
+  },
+
   // Caption Input
   captionInput: {
     borderWidth: 1,
@@ -508,57 +536,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
-  // Tags
-  tagInputContainer: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  tagInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.border.primary,
-    borderRadius: radii.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    fontSize: typography.fontSizes.md,
-    color: colors.text.primary,
-    backgroundColor: colors.background.secondary,
-  },
-  addTagButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: radii.lg,
-    justifyContent: 'center',
-  },
-  addTagButtonDisabled: {
-    backgroundColor: colors.text.tertiary,
-  },
-  addTagText: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.text.inverse,
-    fontWeight: typography.fontWeights.semibold,
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  tag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background.secondary,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radii.md,
-    gap: spacing.sm,
-  },
-  tagText: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.primary,
-    fontWeight: typography.fontWeights.medium,
-  },
 });
 
 export default CreatePostScreen; 

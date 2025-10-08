@@ -20,7 +20,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Heart, Share, Flag, ArrowLeft, Eye, MessageCircle, AlertCircle, MoreHorizontal, Edit, Trash2 } from 'lucide-react-native';
 import { colors, spacing, typography, radii } from "@/constants/theme";
-import { mockPosts, type MockPost } from "@/data/mockPromotionData";
+import { getPostbyID, deletePost } from "@/utils/Controllers/PromotionController";
+import { useAuth } from '@clerk/clerk-expo';
+
+// Define Post interface to match backend response
+interface Post {
+  id: string;
+  sellerId: string;
+  storeId: string;
+  storeName?: string;
+  content: string;
+  imageUrls: string[];
+  createdAt: string;
+  updatedAt: string;
+  likeCount: number;
+  isLiked: boolean;
+}
 
 const { width } = Dimensions.get("window");
 
@@ -29,7 +44,8 @@ interface PostScreenProps {}
 const PostScreen: React.FC<PostScreenProps> = () => {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const [post, setPost] = useState<MockPost | null>(null);
+  const { getToken } = useAuth();
+  const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
@@ -54,29 +70,56 @@ const PostScreen: React.FC<PostScreenProps> = () => {
   };
 
   useEffect(() => {
+    console.log('=== POST SCREEN USEEFFECT ===');
+    console.log('Post ID from params:', id);
+    console.log('ID type:', typeof id);
+    console.log('ID is truthy:', !!id);
+    
     const loadPost = async () => {
+      console.log('=== LOADING POST ===');
       setLoading(true);
       setError(null);
       try {
-        // Simulate loading delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // Get post from mock data
-        const postData = mockPosts.find(p => p.id === id);
+        console.log('Getting auth token...');
+        const token = await getToken({ template: "seller_app" });
+        console.log('Token received:', token ? 'Yes' : 'No');
+        
+        console.log('Calling getPostbyID with ID:', id);
+        const response = await getPostbyID(id as string, token ?? "");
+        console.log('Raw API response:', response);
+        console.log('Response status:', response.status);
+        console.log('Response data:', JSON.stringify(response.data, null, 2));
+        
+        const postData = response.data?.data || response.data;
+        console.log('Extracted post data:', JSON.stringify(postData, null, 2));
 
         if (!postData) {
+          console.log('No post data found!');
           throw new Error('Post not found');
         }
 
+        console.log('Setting post data and like count...');
         setPost(postData);
-        setLikeCount(postData.likes || 0);
+        setLikeCount(postData.likeCount || 0);
+        console.log('Post loaded successfully!');
       } catch (err: any) {
+        console.error('=== POST LOADING ERROR ===');
+        console.error('Full error:', err);
+        console.error('Error message:', err?.message);
+        console.error('Error response:', err?.response?.data);
         setError(err.message || "Failed to load post");
       } finally {
+        console.log('Setting loading to false');
         setLoading(false);
       }
     };
-    if (id) loadPost();
+    
+    if (id) {
+      console.log('ID exists, calling loadPost...');
+      loadPost();
+    } else {
+      console.log('No ID provided!');
+    }
   }, [id]);
 
 
@@ -104,17 +147,25 @@ const PostScreen: React.FC<PostScreenProps> = () => {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            Alert.alert(
-              'Post Deleted',
-              'Your post has been deleted successfully.',
-              [
-                {
-                  text: 'OK',
-                  onPress: () => router.back(),
-                },
-              ]
-            );
+          onPress: async () => {
+            try {
+              const token = await getToken({ template: "seller_app" });
+              await deletePost(post?.id || "", token ?? "");
+              
+              Alert.alert(
+                'Post Deleted',
+                'Your post has been deleted successfully.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => router.back(),
+                  },
+                ]
+              );
+            } catch (error) {
+              console.error('Error deleting post:', error);
+              Alert.alert('Error', 'Failed to delete post. Please try again.');
+            }
           },
         },
       ]
@@ -175,7 +226,7 @@ const PostScreen: React.FC<PostScreenProps> = () => {
 
         {/* Image carousel */}
         <View style={styles.imageContainer}>
-          {post.images && post.images.length > 0 && (
+          {post.imageUrls && post.imageUrls.length > 0 && (
             <ScrollView
               horizontal
               pagingEnabled
@@ -189,7 +240,7 @@ const PostScreen: React.FC<PostScreenProps> = () => {
               scrollEventThrottle={16}
               style={styles.imageScrollView}
             >
-              {post.images.map((img: string, idx: number) => (
+              {post.imageUrls.map((img: string, idx: number) => (
                 <Image
                   key={idx}
                   source={{ uri: img }}
@@ -201,9 +252,9 @@ const PostScreen: React.FC<PostScreenProps> = () => {
           )}
 
           {/* Image indicator */}
-          {post.images && post.images.length > 1 && (
+          {post.imageUrls && post.imageUrls.length > 1 && (
             <View style={styles.imageIndicator}>
-              {post.images.map((_, idx: number) => (
+              {post.imageUrls.map((_, idx: number) => (
                 <View
                   key={idx}
                   style={[
@@ -251,23 +302,9 @@ const PostScreen: React.FC<PostScreenProps> = () => {
         {/* Caption */}
         <View style={styles.contentContainer}>
           <Text style={styles.caption}>
-              <Text style={styles.storeNameInCaption}>{post.storeName}</Text>
-            {' '}{post.caption}
+              <Text style={styles.storeNameInCaption}>{post.storeName || 'Store'}</Text>
+            {' '}{post.content}
           </Text>
-
-          {/* Tags */}
-          {post.tags && post.tags.length > 0 && (
-            <View style={styles.tagsContainer}>
-              {post.tags.slice(0, 3).map((tag, index) => (
-                <View key={index} style={styles.tag}>
-                  <Text style={styles.tagText}>#{tag}</Text>
-                </View>
-              ))}
-              {post.tags.length > 3 && (
-                <Text style={styles.moreTagsText}>+{post.tags.length - 3} more</Text>
-              )}
-            </View>
-          )}
 
           <Text style={styles.timestamp}>{formatDate(post.createdAt)}</Text>
         </View>

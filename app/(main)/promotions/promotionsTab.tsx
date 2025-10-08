@@ -15,8 +15,8 @@ import { showToast } from "@/components/Toast";
 import {
   deletePost,
   getAllPosts,
-} from "@/utils/data/PromotionController";
-import { getStore, Store } from "@/utils/data/StoreController";
+} from "@/utils/Controllers/PromotionController";
+import { getStore, Store } from "@/utils/Controllers/StoreController";
 import { MessageCircleWarning } from "lucide-react-native";
 
 // Icons
@@ -33,7 +33,7 @@ const PromotionsTab = () => {
   const router = useRouter();
   const theme = useTheme();
   const [loading, setLoading] = useState(false);
-  const [posts, setPosts] = useState([]);
+  const [posts, setPosts] = useState<any[]>([]);
   const { getToken } = useAuth();
   const { user } = useUser();
   const [store, setStore] = useState<Store>({} as Store);
@@ -56,15 +56,15 @@ const PromotionsTab = () => {
   };
 
   // Route push to edit post
-  const handleEditPost = (postId: number) => {
+  const handleEditPost = (postId: string) => {
     router.push({
       pathname: "/(main)/promotions/editPost",
-      params: { postId: postId.toString() },
+      params: { postId: postId },
     });
   };
 
   // Route push to delete post
-  const handleDeletePost = (postId: number) => {
+  const handleDeletePost = (postId: string) => {
     Alert.alert("Delete Post", "Are you sure you want to delete this post?", [
       {
         text: "Cancel",
@@ -98,14 +98,14 @@ const PromotionsTab = () => {
     try {
       setLoading(true);
       const token = await getToken({ template: "seller_app" });
-      const response = await getAllPosts(
-        user?.publicMetadata.storeId as string,
-        token ?? ""
-      );
+      const response = await getAllPosts(token ?? "");
 
-      setPosts((response as any).data);
+      // Backend returns data in response.data.data format with pagination
+      const postsData = response.data?.data || response.data;
+      setPosts(Array.isArray(postsData) ? postsData : []);
     } catch (error) {
       console.error("Error getting posts:", error);
+      setPosts([]);
     } finally {
       setLoading(false);
     }
@@ -120,7 +120,9 @@ const PromotionsTab = () => {
         token ?? ""
       );
 
-      setStore((response as any).data);
+      // Backend returns data in response.data.data format
+      const storeData = response.data?.data || response.data;
+      setStore(storeData);
     } catch (error) {
       console.error("Error getting store:", error);
     }
@@ -150,7 +152,7 @@ const PromotionsTab = () => {
           onRefresh={fetchPosts}
           data={posts}
           renderItem={renderPost}
-          keyExtractor={(item) => item.id.toString()}
+          keyExtractor={(item) => item.id || `post-${Math.random()}`}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[styles.postsList, posts.length === 0 && {flex: 1}]}
           ListEmptyComponent={

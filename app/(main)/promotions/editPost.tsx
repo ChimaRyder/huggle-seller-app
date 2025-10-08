@@ -25,8 +25,20 @@ import {
   Loader,
 } from 'lucide-react-native';
 import { colors, spacing, typography, radii } from '@/constants/theme';
-import { mockPosts, type MockPost } from '@/data/mockPromotionData';
+import { getPostbyID, updatePost } from '@/utils/Controllers/PromotionController';
 import * as ImagePicker from 'expo-image-picker';
+
+// Define Post interface to match backend response
+interface Post {
+  id: string;
+  sellerId: string;
+  storeId: string;
+  content: string;
+  imageUrls: string[];
+  createdAt: string;
+  updatedAt: string;
+  likeCount: number;
+}
 
 const { width } = Dimensions.get('window');
 const IMAGE_SIZE = (width - spacing.lg * 3) / 2;
@@ -34,12 +46,10 @@ const IMAGE_SIZE = (width - spacing.lg * 3) / 2;
 const EditPostScreen = () => {
   const router = useRouter();
   const { postId } = useLocalSearchParams();
-  const [post, setPost] = useState<MockPost | null>(null);
+  const { getToken } = useAuth();
+  const [post, setPost] = useState<Post | null>(null);
   const [caption, setCaption] = useState('');
   const [images, setImages] = useState<string[]>([]);
-  const [tags, setTags] = useState<string[]>([]);
-  const [currentTag, setCurrentTag] = useState('');
-  const [postType, setPostType] = useState<MockPost['postType']>('product_promotion');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -48,20 +58,15 @@ const EditPostScreen = () => {
     const fetchPost = async () => {
       try {
         setIsLoading(true);
-        // Simulate loading delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // Get post from mock data
-        const postData = mockPosts.find(p => p.id === postId);
+        const token = await getToken({ template: "seller_app" });
+        
+        const response = await getPostbyID(postId as string, token ?? "");
+        const postData = response.data?.data || response.data;
 
         if (postData) {
           setPost(postData);
-          setCaption(postData.caption || '');
-          setImages(postData.images || []);
-          setPostType(postData.postType || 'product_promotion');
-
-          // Extract tags from existing tags array
-          setTags(postData.tags || []);
+          setCaption(postData.content || '');
+          setImages(postData.imageUrls || []);
         } else {
           Alert.alert('Error', 'Post not found.');
           router.back();
