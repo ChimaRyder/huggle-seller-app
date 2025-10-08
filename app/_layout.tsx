@@ -25,6 +25,7 @@ import blueTheme from "@/assets/themes/blueTheme.json";
 import redTheme from "@/assets/themes/redTheme.json";
 import Toast from "react-native-toast-message";
 import { registerForPushNotificationsAsync } from "@/utils/Notifications";
+import { ChatProvider } from "@/context/ChatContext";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -70,22 +71,24 @@ const RootLayout = () => {
           tokenCache={tokenCache}
           // __experimental_passkeys={passkeys}
         >
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              navigationBarHidden: true,
-              statusBarHidden: false,
-            }}
-          >
-            <Stack.Screen name="index" />
-            <Stack.Screen name="(main)/" />
-            <Stack.Screen name="(seller-registration)" />
-            <Stack.Screen
-              name="+not-found"
-              options={{ headerShown: true, title: "Not Found" }}
-            />
-          </Stack>
-          <StatusBar style="auto" />
+          <ChatProvider>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                navigationBarHidden: true,
+                statusBarHidden: false,
+              }}
+            >
+              <Stack.Screen name="index" />
+              <Stack.Screen name="(main)/" />
+              <Stack.Screen name="(seller-registration)" />
+              <Stack.Screen
+                name="+not-found"
+                options={{ headerShown: true, title: "Not Found" }}
+              />
+            </Stack>
+            <StatusBar style="auto" />
+          </ChatProvider>
         </ClerkProvider>
       </ThemeProvider>
     </ApplicationProvider>

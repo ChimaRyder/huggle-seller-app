@@ -9,128 +9,180 @@ import {
   Image,
   Platform,
   Keyboard,
-  KeyboardAvoidingView,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Icon } from '@ui-kitten/components';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, radii } from '@/constants/theme';
-
-interface Message {
-  id: string;
-  text: string;
-  timestamp: string;
-  isFromUser: boolean;
-  isRead?: boolean;
-}
-
-interface Customer {
-  id: string;
-  name: string;
-  image: string;
-  rating: number;
-  distance: string;
-}
-
-const mockCustomers: Customer[] = [
-  {
-    id: 'customer-1',
-    name: 'Sarah Johnson',
-    image: 'https://i.pravatar.cc/150?img=1',
-    rating: 4.8,
-    distance: 'Regular Customer'
-  },
-  {
-    id: 'customer-2',
-    name: 'Mike Chen',
-    image: 'https://i.pravatar.cc/150?img=2',
-    rating: 4.9,
-    distance: 'VIP Customer'
-  },
-  {
-    id: 'customer-3',
-    name: 'Emily Davis',
-    image: 'https://i.pravatar.cc/150?img=3',
-    rating: 4.7,
-    distance: 'New Customer'
-  },
-  {
-    id: 'customer-4',
-    name: 'Alex Rodriguez',
-    image: 'https://i.pravatar.cc/150?img=4',
-    rating: 4.6,
-    distance: 'Regular Customer'
-  },
-];
+import { useChat } from '@/context/ChatContext';
+import {
+  formatFullMessageTime,
+  isMessageFromUser,
+  getMessageSenderName
+} from '@/utils/chatUtils';
+import type { Channel, Message } from 'stream-chat';
 
 export default function ChatScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState<Message[]>([]);
   const flatListRef = useRef<FlatList>(null);
+  const [currentChannel, setCurrentChannel] = useState<Channel | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoadingChannel, setIsLoadingChannel] = useState(true);
+  const [isInitializing, setIsInitializing] = useState(false);
 
-  // Memoize the customer info to prevent unnecessary re-renders
-  const customer = useMemo(() => {
-    return mockCustomers.find(customer => customer.id === id) || null;
-  }, [id]);
+  const {
+    client,
+    user,
+    isConnected,
+    channels,
+    storeId: sellerStoreId
+  } = useChat();
 
-  // Generate mock conversation
+  const customerId = id as string;
+
+  // Find existing channel with customer
   useEffect(() => {
-    if (!customer) return;
+    const initializeChannel = async () => {
+      if (!customerId) {
+        console.error('No customer ID provided');
+        setIsLoadingChannel(false);
+        return;
+      }
 
-    // Generate contextual messages based on customer type
-    const isVipCustomer = customer.distance === 'VIP Customer';
+      if (!client || !user) {
+        console.error('Chat client or user not available');
+        setIsLoadingChannel(false);
+        return;
+      }
 
-    const mockMessages: Message[] = [
-      {
-        id: '1',
-        text: `Hi! Welcome to our store. How can we help you today?`,
-        timestamp: '10:30 AM',
-        isFromUser: false,
-        isRead: true,
-      },
-      {
-        id: '2',
-        text: isVipCustomer
-          ? 'Hi! I wanted to ask about your premium organic selection.'
-          : 'Hello! I saw your fresh produce and wanted to ask about availability.',
-        timestamp: '10:32 AM',
-        isFromUser: true,
-        isRead: true,
-      },
-      {
-        id: '3',
-        text: isVipCustomer
-          ? 'Great choice! As a VIP customer, you have access to our premium organic selection. We have fresh organic produce delivered daily. What are you looking for specifically?'
-          : 'Thanks for your interest! We have fresh produce delivered daily. Our popular items include organic apples, leafy greens, and seasonal vegetables. What can we help you find?',
-        timestamp: '10:33 AM',
-        isFromUser: false,
-        isRead: true,
-      },
-      {
-        id: '4',
-        text: isVipCustomer
-          ? 'Perfect! Do you have any premium Honeycrisp apples available?'
-          : 'I\'d love to try some fresh organic vegetables. What do you recommend?',
-        timestamp: '10:35 AM',
-        isFromUser: true,
-        isRead: true,
-      },
-      {
-        id: '5',
-        text: isVipCustomer
-          ? 'Yes! We have premium Honeycrisp apples at $4.99 per lb. They\'re exceptionally crisp and sweet. Would you like me to set some aside for you?'
-          : 'I recommend our fresh organic spinach and bell peppers! They arrived this morning and are very fresh. Would you like to place an order?',
-        timestamp: '10:36 AM',
-        isFromUser: false,
-        isRead: false,
-      },
-    ];
+      if (!isConnected) {
+        console.error('Chat client not connected');
+        setIsLoadingChannel(false);
+        return;
+      }
 
-    setMessages(mockMessages);
-  }, [customer]);
+      if (isInitializing) {
+        console.log('Channel initialization already in progress');
+        return;
+      }
+
+      if (currentChannel) {
+        console.log('Channel already initialized');
+        setIsLoadingChannel(false);
+        return;
+      }
+
+      try {
+        setIsInitializing(true);
+        setIsLoadingChannel(true);
+
+        // Try to find existing channel with this customer
+        const existingChannel = channels.find(channel => {
+          const members = Object.keys(channel.state?.members || {});
+          return members.includes(customerId);
+        });
+
+        let channel: Channel;
+        if (existingChannel) {
+          console.log('Found existing channel with customer:', customerId);
+          channel = existingChannel;
+        } else {
+          console.log('No existing channel found with customer:', customerId);
+          setIsLoadingChannel(false);
+          setIsInitializing(false);
+          return;
+        }
+
+        // Watch for channel updates
+        await channel.watch();
+        setCurrentChannel(channel);
+
+        // Query channel messages to ensure they're loaded
+        const messagesResponse = await channel.query({
+          messages: { limit: 50 }
+        });
+
+        // Load existing messages from the response and sort by created_at
+        const channelMessages = messagesResponse.messages || [];
+        const sortedMessages = channelMessages.sort((a, b) => {
+          const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+          return timeB - timeA;
+        });
+        setMessages(sortedMessages);
+
+        console.log('Loaded messages for channel:', channelMessages.length, 'messages');
+
+        // Mark channel as read
+        await channel.markRead();
+
+      } catch (error) {
+        console.error('Failed to initialize channel:', error);
+      } finally {
+        setIsLoadingChannel(false);
+        setIsInitializing(false);
+      }
+    };
+
+    initializeChannel();
+  }, [client, user, isConnected, customerId, channels]);
+
+  // Listen for new messages in current channel
+  useEffect(() => {
+    if (!currentChannel || !client) return;
+
+    const handleNewMessage = (event: any) => {
+      if (event.message && event.channel_id === currentChannel.id) {
+        console.log('New message received:', event.message.text);
+        setMessages(prev => {
+          // Check if message already exists to avoid duplicates
+          const messageExists = prev.some(msg => msg.id === event.message.id);
+          if (messageExists) return prev;
+
+          // Add new message and sort by created_at
+          const newMessages = [...prev, event.message];
+          return newMessages.sort((a, b) => {
+            const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return timeB - timeA;
+          });
+        });
+
+        // Auto-scroll to bottom for new messages
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
+    };
+
+    client.on('message.new', handleNewMessage);
+
+    return () => {
+      client.off('message.new', handleNewMessage);
+    };
+  }, [currentChannel, client]);
+
+  // Other participant info (customer for seller app)
+  const otherParticipant = useMemo(() => {
+    if (!currentChannel) return null;
+
+    // Get the display information for the customer
+    const customerInfo = {
+      id: currentChannel.data?.customer_id || customerId,
+      name: currentChannel.data?.customer_name || `Customer ${customerId.slice(0, 8)}`,
+      image: currentChannel.data?.customer_image || `https://api.dicebear.com/6.x/initials/svg?seed=${customerId}`,
+    };
+
+    return {
+      id: customerInfo.id,
+      name: customerInfo.name,
+      image: customerInfo.image,
+      type: 'customer' as const
+    };
+  }, [currentChannel, customerId]);
 
   // Keyboard event listeners for auto-scroll
   useEffect(() => {
@@ -152,84 +204,96 @@ export default function ChatScreen() {
     flatListRef.current?.scrollToEnd({ animated: false });
   }, []);
 
-  const handleSendMessage = useCallback(() => {
-    if (message.trim().length === 0) return;
+  const handleSendMessage = useCallback(async () => {
+    if (message.trim().length === 0 || !currentChannel) {
+      console.log('Cannot send message: empty message or no channel');
+      return;
+    }
 
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      text: message.trim(),
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isFromUser: false,
-      isRead: false,
-    };
+    try {
+      console.log('Sending message:', message.trim());
 
-    setMessages(prev => [...prev, newMessage]);
-    setMessage('');
+      // Send message through Stream Chat
+      const response = await currentChannel.sendMessage({
+        text: message.trim(),
+      });
 
-    // Auto-scroll to bottom
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
+      console.log('Message sent successfully:', response);
 
-    // Simulate customer response after 2 seconds
-    setTimeout(() => {
-      const isVipCustomer = customer?.distance === 'VIP Customer';
+      // Clear input
+      setMessage('');
 
-      const responses = [
-        "Thanks for your message! Let me check our current inventory for you.",
-        "I'll verify what we have in stock and get back to you shortly.",
-        "Great! I'll make sure to have that ready for pickup.",
-        "Perfect! Is there anything else from our selection I can help you with?",
-        "Let me check with our team about availability.",
-        "I'll set that aside for you. When would you like to pick it up?",
-      ];
-
-      const customerResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        text: responses[Math.floor(Math.random() * responses.length)] || "Thanks for your message!",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        isFromUser: true,
-        isRead: false,
-      };
-
-      setMessages(prev => [...prev, customerResponse]);
-
+      // Auto-scroll to bottom
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
-    }, 2000);
-  }, [message, customer]);
 
-  const renderMessage = ({ item }: { item: Message }) => (
-    <View style={[
-      styles.messageContainer,
-      item.isFromUser ? styles.userMessageContainer : styles.storeMessageContainer
-    ]}>
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      // You could show an error toast here
+    }
+  }, [message, currentChannel]);
+
+  const renderMessage = ({ item }: { item: Message }) => {
+    if (!item || !item.id) {
+      console.log('Invalid message item:', item);
+      return null;
+    }
+
+    const isFromCurrentUser = user ? isMessageFromUser(item, user.id) : false;
+    const messageTime = item.created_at ? formatFullMessageTime(new Date(item.created_at)) : '';
+    const messageText = item.text || '';
+
+    return (
       <View style={[
-        styles.messageBubble,
-        item.isFromUser ? styles.userMessageBubble : styles.storeMessageBubble
+        styles.messageContainer,
+        isFromCurrentUser ? styles.sellerMessageContainer : styles.customerMessageContainer
       ]}>
-        <Text style={[
-          styles.messageText,
-          item.isFromUser ? styles.userMessageText : styles.storeMessageText
+        <View style={[
+          styles.messageBubble,
+          isFromCurrentUser ? styles.sellerMessageBubble : styles.customerMessageBubble
         ]}>
-          {item.text}
-        </Text>
-        <Text style={[
-          styles.messageTime,
-          item.isFromUser ? styles.userMessageTime : styles.storeMessageTime
-        ]}>
-          {item.timestamp}
-        </Text>
+          <Text style={[
+            styles.messageText,
+            isFromCurrentUser ? styles.sellerMessageText : styles.customerMessageText
+          ]}>
+            {messageText}
+          </Text>
+          <Text style={[
+            styles.messageTime,
+            isFromCurrentUser ? styles.sellerMessageTime : styles.customerMessageTime
+          ]}>
+            {messageTime}
+          </Text>
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
-  if (!customer) {
+  if (isLoadingChannel) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading conversation...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!otherParticipant || !currentChannel) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Customer not found</Text>
+          <Ionicons name="warning-outline" size={64} color={colors.error} />
+          <Text style={styles.errorText}>Unable to load conversation</Text>
+          <Text style={styles.errorSubtext}>
+            {!isConnected
+              ? 'Chat service is not connected. Please check your Stream Chat configuration and internet connection.'
+              : !client || !user
+              ? 'Chat service is not initialized. Please restart the app and try again.'
+              : 'Customer conversation not found'}
+          </Text>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
@@ -247,17 +311,17 @@ export default function ChatScreen() {
           </TouchableOpacity>
 
           <View style={styles.headerInfo}>
-            <Image source={{ uri: customer.image }} style={styles.storeAvatar} />
+            <Image source={{ uri: otherParticipant.image }} style={styles.storeAvatar} />
             <View style={styles.storeInfo}>
               <Text style={styles.storeName} numberOfLines={1}>
-                {customer.name}
+                {otherParticipant.name}
               </Text>
               <Text style={styles.storeStatus}>Online</Text>
             </View>
           </View>
 
           <TouchableOpacity style={styles.headerAction}>
-            <Ionicons name="ellipsis-vertical" size={24} color={colors.text.primary} />
+            <Ionicons name="ellipsis-vertical" size={24} color="black" />
           </TouchableOpacity>
         </View>
 
@@ -271,16 +335,24 @@ export default function ChatScreen() {
           contentContainerStyle={styles.messagesContent}
           showsVerticalScrollIndicator={false}
           onContentSizeChange={scrollToBottom}
+          ListEmptyComponent={() => (
+            <View style={styles.emptyMessagesContainer}>
+              <Text style={styles.emptyMessagesText}>
+                {isLoadingChannel ? 'Loading messages...' : 'No messages yet. Start the conversation!'}
+              </Text>
+            </View>
+          )}
+          inverted
         />
 
         {/* Input Area */}
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer]}>
           <View style={styles.inputWrapper}>
             <TextInput
               style={styles.textInput}
               value={message}
               onChangeText={setMessage}
-              placeholder={`Message ${customer?.name || 'customer'}...`}
+              placeholder={`Message ${otherParticipant?.name || 'participant'}...`}
               placeholderTextColor={colors.text.secondary}
               multiline
               maxLength={500}
@@ -296,7 +368,7 @@ export default function ChatScreen() {
               <Ionicons
                 name="send"
                 size={20}
-                color={message.trim().length > 0 ? colors.successDark : colors.text.tertiary}
+                color={message.trim().length > 0 ? colors.primary : colors.text.tertiary}
               />
             </TouchableOpacity>
           </View>
@@ -309,6 +381,49 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background.tertiary,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  loadingText: {
+    fontSize: typography.fontSizes.md,
+    color: colors.text.secondary,
+    marginTop: spacing.md,
+    textAlign: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  errorText: {
+    fontSize: typography.fontSizes.xl,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.primary,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  errorSubtext: {
+    fontSize: typography.fontSizes.md,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  backButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.md,
+  },
+  backButtonText: {
+    color: colors.text.inverse,
+    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.semibold,
   },
   header: {
     flexDirection: 'row',
@@ -361,11 +476,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     marginVertical: spacing.xs,
   },
-  userMessageContainer: {
-    alignItems: 'flex-end',
-  },
-  storeMessageContainer: {
+  customerMessageContainer: {
     alignItems: 'flex-start',
+  },
+  sellerMessageContainer: {
+    alignItems: 'flex-end',
   },
   messageBubble: {
     maxWidth: '80%',
@@ -373,41 +488,41 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: radii.lg,
   },
-  userMessageBubble: {
-    backgroundColor: colors.primary,
-    borderBottomRightRadius: radii.xs,
-  },
-  storeMessageBubble: {
+  customerMessageBubble: {
     backgroundColor: colors.background.primary,
     borderBottomLeftRadius: radii.xs,
+  },
+  sellerMessageBubble: {
+    backgroundColor: colors.primary,
+    borderBottomRightRadius: radii.xs,
   },
   messageText: {
     fontSize: typography.fontSizes.md,
     lineHeight: typography.lineHeights.normal * typography.fontSizes.md,
   },
-  userMessageText: {
-    color: colors.text.inverse,
-  },
-  storeMessageText: {
+  customerMessageText: {
     color: colors.text.primary,
+  },
+  sellerMessageText: {
+    color: colors.text.inverse,
   },
   messageTime: {
     fontSize: typography.fontSizes.xs,
     marginTop: spacing.xs,
   },
-  userMessageTime: {
+  customerMessageTime: {
+    color: colors.text.secondary,
+  },
+  sellerMessageTime: {
     color: colors.text.inverse,
     opacity: 0.8,
     textAlign: 'right',
   },
-  storeMessageTime: {
-    color: colors.text.secondary,
-  },
   inputContainer: {
-    backgroundColor: colors.background.tertiary,
+    backgroundColor: 'transparent',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    paddingBottom: Platform.OS === 'ios' ? spacing.sm : spacing.lg,
+    paddingBottom: spacing.lg,
   },
   inputWrapper: {
     flexDirection: 'row',
@@ -438,26 +553,15 @@ const styles = StyleSheet.create({
   sendButtonDisabled: {
     backgroundColor: 'transparent',
   },
-  errorContainer: {
+  emptyMessagesContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.xl,
+    paddingVertical: spacing.xl,
   },
-  errorText: {
-    fontSize: typography.fontSizes.xl,
-    color: colors.text.primary,
-    marginBottom: spacing.lg,
-  },
-  backButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: radii.md,
-  },
-  backButtonText: {
-    color: colors.text.inverse,
+  emptyMessagesText: {
     fontSize: typography.fontSizes.md,
-    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.secondary,
+    textAlign: 'center',
   },
 });

@@ -7,7 +7,7 @@ import { FormLayout } from "../components/FormLayout";
 import { useSellerRegistration } from "../SellerRegistrationContext";
 import { useRouter } from "expo-router";
 import { useAuth, useUser } from "@clerk/clerk-expo";
-import { createSeller } from "@/utils/data/SellerController";
+import { createSeller } from "@/utils/Controllers/SellerController";
 
 const TermsScreen = () => {
   const { formData, updateFormData, setCurrentStep } = useSellerRegistration();

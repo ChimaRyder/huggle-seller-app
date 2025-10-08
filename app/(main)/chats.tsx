@@ -7,97 +7,78 @@ import {
   TextInput,
   Image,
   FlatList,
+  ScrollView,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Icon } from '@ui-kitten/components';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Bell } from 'lucide-react-native';
 import { colors, spacing, typography, radii } from '@/constants/theme';
-
-interface ChatConversation {
-  id: string;
-  customerId: string;
-  customerName: string;
-  customerAvatar: string;
-  lastMessage: string;
-  lastMessageTime: string;
-  unreadCount: number;
-  isOnline: boolean;
-  orderNumber?: string;
-}
-
-const generateMockChats = (): ChatConversation[] => {
-  return [
-    {
-      id: 'chat-1',
-      customerId: 'customer-1',
-      customerName: 'Sarah Johnson',
-      customerAvatar: 'https://i.pravatar.cc/150?img=1',
-      lastMessage: 'Is my order ready for pickup?',
-      lastMessageTime: '5m ago',
-      unreadCount: 2,
-      isOnline: true,
-      orderNumber: '#12345'
-    },
-    {
-      id: 'chat-2',
-      customerId: 'customer-2',
-      customerName: 'Mike Chen',
-      customerAvatar: 'https://i.pravatar.cc/150?img=2',
-      lastMessage: 'Thank you for the quick delivery!',
-      lastMessageTime: '1h ago',
-      unreadCount: 0,
-      isOnline: true,
-    },
-    {
-      id: 'chat-3',
-      customerId: 'customer-3',
-      customerName: 'Emily Davis',
-      customerAvatar: 'https://i.pravatar.cc/150?img=3',
-      lastMessage: 'Do you have organic apples in stock?',
-      lastMessageTime: '3h ago',
-      unreadCount: 1,
-      isOnline: false,
-    },
-    {
-      id: 'chat-4',
-      customerId: 'customer-4',
-      customerName: 'Alex Rodriguez',
-      customerAvatar: 'https://i.pravatar.cc/150?img=4',
-      lastMessage: 'Great service as always!',
-      lastMessageTime: '1d ago',
-      unreadCount: 0,
-      isOnline: false,
-    },
-  ];
-};
-
+import { useChat } from '@/context/ChatContext';
+import {
+  channelToChatConversation,
+  sortChannelsByLastMessage,
+  type ChatConversation
+} from '@/utils/chatUtils';
 
 export default function ChatListScreen({ unread = 0 }: { unread?: number }) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
-  const [chats] = useState<ChatConversation[]>(generateMockChats());
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const {
+    channels,
+    isLoading,
+    error,
+    isConnected,
+    refreshChannels,
+    user
+  } = useChat();
+
+  // Convert Stream Chat channels to our ChatConversation format
+  const chats: ChatConversation[] = React.useMemo(() => {
+    if (!channels.length || !user) return [];
+
+    const sortedChannels = sortChannelsByLastMessage(channels);
+    return sortedChannels.map(channel => channelToChatConversation(channel, user.id));
+  }, [channels, user]);
 
   // Filter chats based on search query
-  const filteredChats = chats.filter(chat =>
-    chat.customerName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredChats = React.useMemo(() => {
+    return chats.filter(chat =>
+      chat.storeName.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [chats, searchQuery]);
+
+  // Handle pull to refresh
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshChannels();
+    } catch (err) {
+      console.error('Failed to refresh channels:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const handleChatPress = (chat: ChatConversation) => {
-    router.push(`/(main)/chats/${chat.customerId}` as any);
+    console.log('ChatListScreen: Navigating to chat with customer:', chat.storeId, chat.storeName);
+    router.push(`/(main)/chats/${chat.storeId}` as any);
   };
 
   const renderChatItem = ({ item }: { item: ChatConversation }) => (
     <TouchableOpacity style={styles.chatItem} onPress={() => handleChatPress(item)}>
       <View style={styles.avatarContainer}>
-        <Image source={{ uri: item.customerAvatar }} style={styles.customerAvatar} />
+        <Image source={{ uri: item.storeImage }} style={styles.customerAvatar} />
         {item.isOnline && <View style={styles.onlineIndicator} />}
       </View>
 
       <View style={styles.chatContent}>
         <View style={styles.chatHeader}>
           <Text style={styles.customerName} numberOfLines={1}>
-            {item.customerName}
+            {item.storeName}
           </Text>
           <Text style={styles.messageTime}>{item.lastMessageTime}</Text>
         </View>
@@ -119,30 +100,19 @@ export default function ChatListScreen({ unread = 0 }: { unread?: number }) {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+    <SafeAreaView style={styles.container} edges={[]}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <Icon name="MessageCircle" width={24} height={24} fill={colors.primary} />
+          <Ionicons name="chatbubbles-outline" size={24} color={colors.primary} style={styles.headerIcon} />
           <Text style={styles.headerTitle}>Messages</Text>
         </View>
-        <TouchableOpacity
-          onPress={() => router.push('/(main)/notifications/notificationsScreen')}
-          style={styles.notificationButton}
-        >
-          <Bell size={25} color={unread > 0 ? colors.primary : colors.text.secondary} />
-          {unread > 0 && (
-            <View style={styles.notificationBadge}>
-              <Text style={styles.badgeText}>{unread > 9 ? '9+' : unread}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
       </View>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
-          <Icon name="Search" width={20} height={20} fill={colors.text.secondary} />
+          <Ionicons name="search-outline" size={20} color={colors.text.secondary} style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search customers..."
@@ -152,33 +122,65 @@ export default function ChatListScreen({ unread = 0 }: { unread?: number }) {
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Icon name="X" width={20} height={20} fill={colors.text.secondary} />
+              <Ionicons name="close-circle" size={20} color={colors.text.secondary} />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
       {/* Chat List */}
-      {filteredChats.length > 0 ? (
+      {isLoading && !isRefreshing ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading conversations...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Ionicons name="warning-outline" size={64} color={colors.error} />
+          <Text style={styles.errorTitle}>Unable to load chats</Text>
+          <Text style={styles.errorSubtitle}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      ) : !isConnected ? (
+        <View style={styles.errorContainer}>
+          <Ionicons name="cloud-offline-outline" size={64} color={colors.text.tertiary} />
+          <Text style={styles.errorTitle}>Not connected</Text>
+          <Text style={styles.errorSubtitle}>Please check your connection and try again</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
         <FlatList
           data={filteredChats}
           renderItem={renderChatItem}
           keyExtractor={(item) => item.id}
           style={styles.chatList}
-          contentContainerStyle={styles.chatListContent}
+          contentContainerStyle={filteredChats.length === 0 ? styles.emptyContainer : styles.chatListContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+          ListEmptyComponent={() => (
+            <>
+              <Ionicons name="chatbubbles-outline" size={64} color={colors.text.tertiary} />
+              <Text style={styles.emptyTitle}>No conversations found</Text>
+              <Text style={styles.emptySubtitle}>
+                {searchQuery.length > 0
+                  ? "Try searching for a different customer"
+                  : "Customer messages will appear here when they contact you!"
+                }
+              </Text>
+            </>
+          )}
         />
-      ) : (
-        <View style={styles.emptyContainer}>
-          <Icon name="MessageCircle" width={64} height={64} fill={colors.text.tertiary} />
-          <Text style={styles.emptyTitle}>No conversations found</Text>
-          <Text style={styles.emptySubtitle}>
-            {searchQuery.length > 0
-              ? "Try searching for a different customer"
-              : "Customer messages will appear here when they contact you!"
-            }
-          </Text>
-        </View>
       )}
     </SafeAreaView>
   );
@@ -187,12 +189,9 @@ export default function ChatListScreen({ unread = 0 }: { unread?: number }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.tertiary,
+    backgroundColor: colors.background.tertiary, // Light gray background
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: colors.background.primary,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
@@ -202,14 +201,14 @@ const styles = StyleSheet.create({
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+  },
+  headerIcon: {
+    marginRight: spacing.sm,
   },
   headerTitle: {
     fontSize: typography.fontSizes.xxl,
     fontWeight: typography.fontWeights.bold,
     color: colors.text.primary,
-    marginLeft: spacing.sm,
-    flex: 1,
   },
   searchContainer: {
     backgroundColor: colors.background.primary,
@@ -230,11 +229,13 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 400,
   },
+  searchIcon: {
+    marginRight: spacing.sm,
+  },
   searchInput: {
     flex: 1,
     fontSize: typography.fontSizes.md,
     color: colors.text.primary,
-    marginLeft: spacing.sm,
   },
   chatList: {
     flex: 1,
@@ -255,8 +256,8 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
   },
   customerAvatar: {
-    width: 56,
-    height: 56,
+    width: 48,
+    height: 48,
     borderRadius: 28,
     backgroundColor: colors.background.tertiary,
   },
@@ -278,7 +279,7 @@ const styles = StyleSheet.create({
   chatHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: spacing.xs,
   },
   customerName: {
@@ -299,14 +300,14 @@ const styles = StyleSheet.create({
   },
   lastMessage: {
     fontSize: typography.fontSizes.md,
-    color: colors.text.secondary,
+    color: colors.text.tertiary,
     lineHeight: typography.lineHeights.normal * typography.fontSizes.md,
     flex: 1,
     marginRight: spacing.sm,
   },
   unreadBadge: {
     backgroundColor: colors.primary,
-    borderRadius: radii.lg,
+    borderRadius: radii.full,
     minWidth: 20,
     height: 20,
     justifyContent: 'center',
@@ -338,24 +339,48 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: typography.lineHeights.normal * typography.fontSizes.md,
   },
-  notificationButton: {
-    position: 'relative',
-    padding: spacing.xs,
-  },
-  notificationBadge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    backgroundColor: colors.error,
-    borderRadius: 10,
-    width: 20,
-    height: 20,
+  loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: spacing.xl,
   },
-  badgeText: {
+  loadingText: {
+    fontSize: typography.fontSizes.md,
+    color: colors.text.secondary,
+    marginTop: spacing.md,
+    textAlign: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  errorTitle: {
+    fontSize: typography.fontSizes.xl,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.primary,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  errorSubtitle: {
+    fontSize: typography.fontSizes.md,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: typography.lineHeights.normal * typography.fontSizes.md,
+    marginBottom: spacing.lg,
+  },
+  retryButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.md,
+  },
+  retryButtonText: {
     color: colors.text.inverse,
-    fontSize: typography.fontSizes.xs,
-    fontWeight: typography.fontWeights.bold,
+    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.semibold,
   },
 });

@@ -64,6 +64,8 @@
     "react-native-toast-message": "^2.3.0",
     "react-native-web": "^0.21.0",
     "react-native-webview": "13.15.0",
+    "stream-chat": "^9.21.0",
+    "stream-chat-expo": "^8.5.2",
     "yup": "^1.6.1"
   },
   "devDependencies": {
