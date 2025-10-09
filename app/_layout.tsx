@@ -25,8 +25,9 @@ import blueTheme from "@/assets/themes/blueTheme.json";
 import redTheme from "@/assets/themes/redTheme.json";
 import Toast from "react-native-toast-message";
 import { registerForPushNotificationsAsync } from "@/utils/Notifications";
-import { ChatProvider } from "@/context/ChatContext";
 
+import { ChatProvider } from "@/context/ChatContext";
+import { NotificationProvider } from "@/context/NotificationContext";
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 

@@ -1,3 +1,10 @@
+import { 
+  getSellerNotifications, 
+  getSellerUnreadNotificationCount, 
+  markAllSellerNotificationsAsRead,
+  SellerNotification 
+} from '../api/notificationApi';
+
 interface Notification {
     id: string,
     userId: string,
@@ -9,98 +16,87 @@ interface Notification {
     relatedEntityId: string
 }
 
-const mockNotifications: Notification[] = [
-    {
-        id: "notif-001",
-        userId: "user-1",
-        title: "New Order Received",
-        message: "You have received a new order for Premium Coffee Beans",
-        createdAt: "2024-02-15T10:30:00Z",
-        isRead: false,
-        type: 1, // Order notification
-        relatedEntityId: "ord-001"
-    },
-    {
-        id: "notif-002",
-        userId: "user-1", 
-        title: "Product Review",
-        message: "Your Organic Tea Collection received a 5-star review!",
-        createdAt: "2024-02-14T16:45:00Z",
-        isRead: false,
-        type: 2, // Review notification
-        relatedEntityId: "review-001"
-    },
-    {
-        id: "notif-003",
-        userId: "user-1",
-        title: "Low Stock Alert",
-        message: "Artisan Chocolate Box is running low on stock (5 remaining)",
-        createdAt: "2024-02-13T09:15:00Z",
-        isRead: true,
-        type: 3, // Stock notification
-        relatedEntityId: "3"
-    },
-    {
-        id: "notif-004",
-        userId: "user-1",
-        title: "Payment Received", 
-        message: "Payment of ₱42.50 has been received for order #ord-001",
-        createdAt: "2024-02-12T14:20:00Z",
-        isRead: true,
-        type: 4, // Payment notification
-        relatedEntityId: "ord-001"
-    },
-    {
-        id: "notif-005",
-        userId: "user-1",
-        title: "Store Verification Update",
-        message: "Your store verification request is being processed",
-        createdAt: "2024-02-10T11:30:00Z",
-        isRead: true,
-        type: 5, // Verification notification
-        relatedEntityId: "verification-001"
-    }
-];
+// Helper function to map backend notification type to numeric type for UI
+const mapNotificationTypeToNumber = (type: string): number => {
+  switch (type) {
+    case 'NewOrder':
+      return 1; // Order notification
+    case 'OrderPickedUp':
+      return 1; // Order notification
+    case 'NewReport':
+      return 2; // Review/Report notification
+    case 'NewVerificationRequest':
+      return 5; // Verification notification
+    default:
+      return 0; // Unknown
+  }
+};
+
+// Helper function to map backend notification to UI notification format
+const mapSellerNotificationToUI = (notification: SellerNotification): Notification => {
+  return {
+    id: notification.id,
+    userId: notification.userId,
+    title: notification.title,
+    message: notification.message,
+    createdAt: notification.createdAt,
+    isRead: notification.isRead,
+    type: mapNotificationTypeToNumber(notification.type),
+    relatedEntityId: notification.relatedEntityId || ""
+  };
+};
 
 const getNotifications = async (token: string, id: string) => {
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            // For demo purposes, return all notifications regardless of user ID
-            // In a real app, you would filter by the actual user ID
-            resolve({
-                data: mockNotifications,
-                status: 200
-            });
-        }, 400);
-    });
+  try {
+    const response = await getSellerNotifications(token);
+    const notifications = response.data.map(mapSellerNotificationToUI);
+    
+    return {
+      data: notifications,
+      status: 200
+    };
+  } catch (error) {
+    console.error('Error fetching seller notifications:', error);
+    // Fallback to empty array if API fails
+    return {
+      data: [],
+      status: 500
+    };
+  }
 };
 
 const getUnreadCount = async (token: string, id: string) => {
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            // For demo purposes, count all unread notifications
-            const unreadCount = mockNotifications.filter(n => !n.isRead).length;
-            resolve({
-                data: { count: unreadCount },
-                status: 200
-            });
-        }, 200);
-    });
+  try {
+    const response = await getSellerUnreadNotificationCount(token);
+    
+    return {
+      data: { count: response.data.UnreadCount || 0 },
+      status: 200
+    };
+  } catch (error) {
+    console.error('Error fetching seller unread count:', error);
+    return {
+      data: { count: 0 },
+      status: 500
+    };
+  }
 };
 
 const markRead = async (token: string, id: string) => {
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            // For demo purposes, mark all notifications as read
-            mockNotifications.forEach(n => {
-                n.isRead = true;
-            });
-            resolve({
-                data: { message: "All notifications marked as read" },
-                status: 200
-            });
-        }, 300);
-    });
+  try {
+    const response = await markAllSellerNotificationsAsRead(token);
+    
+    return {
+      data: { message: "All notifications marked as read" },
+      status: 200
+    };
+  } catch (error) {
+    console.error('Error marking seller notifications as read:', error);
+    return {
+      data: { message: "Error marking notifications as read" },
+      status: 500
+    };
+  }
 };
 
 export { Notification, getNotifications, getUnreadCount, markRead };
