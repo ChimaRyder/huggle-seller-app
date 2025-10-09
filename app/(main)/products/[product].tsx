@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View, ScrollView, Image, Alert, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
+import { StyleSheet, View, ScrollView, Image, Alert, FlatList, TouchableOpacity, RefreshControl, Dimensions } from 'react-native';
 import { Layout, Text, Icon, Button, TopNavigation, TopNavigationAction, Divider, Spinner, IconProps, IconElement, ViewPager, useTheme } from '@ui-kitten/components';
 import ImageViewing from 'react-native-image-viewing';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@clerk/clerk-expo';
 import { deleteProduct, getProductbyID } from '@/utils/Controllers/ProductController';
+import { getBundleById, deleteBundle } from '@/utils/Controllers/BundleController';
 import { FullProduct } from '@/types/product';
+import { SellerBundleDto } from '@/types/bundle';
 import { showToast } from '@/components/Toast';
 import { getProductReviews, Review } from '@/utils/data/ReviewsController';
 import ReviewItem from '../profile/components/reviewItem';
@@ -35,6 +37,8 @@ export default function ProductPage() {
   const router = useRouter();
   const { product: productId } = useLocalSearchParams();
   const [product, setProduct] = useState<FullProduct>({} as FullProduct);
+  const [bundle, setBundle] = useState<SellerBundleDto | null>(null);
+  const [isBundle, setIsBundle] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([] as Review[])
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -42,25 +46,54 @@ export default function ProductPage() {
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [productAnalytics, setProductAnalytics] = useState<ProductPerformanceResponse | null>(null);
+  const screenWidth = Dimensions.get('window').width;
   const {getToken} = useAuth();
   const theme = useTheme();
   
-  // Find the product based on the ID
+  // Find the product/bundle based on the ID
   const getProduct = async () => {
     try {
       setLoading(true);
       const token = await getToken({template: "seller_app"});
-      const [productResponse, reviewsResponse, analyticsResponse] = await Promise.all([
-        getProductbyID(productId as string, token ?? ""),
-        getProductReviews(token ?? "", productId as string),
-        getProductPerformance(token ?? "", productId as string)
-      ]);
+      
+      // First try to get as a product
+      try {
+        const [productResponse, reviewsResponse, analyticsResponse] = await Promise.all([
+          getProductbyID(productId as string, token ?? ""),
+          getProductReviews(token ?? "", productId as string),
+          getProductPerformance(token ?? "", productId as string)
+        ]);
 
-      setProduct(((productResponse as any).data));
-      setReviews(((reviewsResponse as any).data).slice(0, 5));
-      setProductAnalytics((analyticsResponse as any).data);
+        setProduct(((productResponse as any).data));
+        setReviews(((reviewsResponse as any).data).slice(0, 5));
+        setProductAnalytics((analyticsResponse as any).data);
+        setIsBundle(false);
+        setBundle(null);
+        console.log('✅ Successfully loaded as product');
+      } catch (productError) {
+        console.log('❌ Failed to load as product, trying as bundle...', productError);
+        
+        // If product fetch fails, try as a bundle
+        try {
+          const [bundleResponse, reviewsResponse, analyticsResponse] = await Promise.all([
+            getBundleById(productId as string, token ?? ""),
+            getProductReviews(token ?? "", productId as string),
+            getProductPerformance(token ?? "", productId as string)
+          ]);
+
+          setBundle(((bundleResponse as any).data));
+          setReviews(((reviewsResponse as any).data).slice(0, 5));
+          setProductAnalytics((analyticsResponse as any).data);
+          setIsBundle(true);
+          setProduct({} as FullProduct);
+          console.log('✅ Successfully loaded as bundle');
+        } catch (bundleError) {
+          console.error('❌ Failed to load as both product and bundle:', bundleError);
+          throw bundleError;
+        }
+      }
     } catch(error) {
-      console.error('Error getting product: ', error);
+      console.error('Error getting product/bundle: ', error);
     } finally {
       setLoading(false);
     }
@@ -83,19 +116,11 @@ export default function ProductPage() {
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      const token = await getToken({template: "seller_app"});
-      const [productResponse, reviewsResponse, analyticsResponse] = await Promise.all([
-        getProductbyID(productId as string, token ?? ""),
-        getProductReviews(token ?? "", productId as string),
-        getProductPerformance(token ?? "", productId as string)
-      ]);
-
-      setProduct(((productResponse as any).data));
-      setReviews(((reviewsResponse as any).data).slice(0, 5));
-      setProductAnalytics((analyticsResponse as any).data);
+      // Use the same logic as getProduct
+      await getProduct();
     } catch(error) {
-      console.error('Error refreshing product: ', error);
-      showToast('error', 'Refresh Failed', 'Unable to refresh product data. Please try again.');
+      console.error('Error refreshing product/bundle: ', error);
+      showToast('error', 'Refresh Failed', 'Unable to refresh data. Please try again.');
     } finally {
       setRefreshing(false);
     }
@@ -105,9 +130,13 @@ export default function ProductPage() {
     try {
       setLoading(true);
       
-      console.log('🗑️ [ProductPage] Starting product deletion...', {
-        productId: productId,
-        productName: product.name
+      const itemName = isBundle ? bundle?.name : product.name;
+      const itemType = isBundle ? 'Bundle' : 'Product';
+      
+      console.log(`🗑️ [ProductPage] Starting ${itemType.toLowerCase()} deletion...`, {
+        id: productId,
+        name: itemName,
+        isBundle
       });
       
       const token = await getToken({template: "seller_app"});
@@ -115,22 +144,29 @@ export default function ProductPage() {
         throw new Error('Authentication token not available');
       }
       
-      const response = await deleteProduct(productId as string, token);
+      if (isBundle) {
+        await deleteBundle(productId as string, token);
+      } else {
+        await deleteProduct(productId as string, token);
+      }
       
-      console.log('✅ [ProductPage] Product deleted successfully');
+      console.log(`✅ [ProductPage] ${itemType} deleted successfully`);
       
       // Navigate back first, then show success message
       router.back();
       
       // Small delay to ensure navigation completes before showing toast
       setTimeout(() => {
-        showToast('success', 'Product Deleted', `${product.name} has been deleted successfully.`);
+        showToast('success', `${itemType} Deleted`, `${itemName} has been deleted successfully.`);
       }, 100);
       
     } catch(error: any) {
-      console.error('❌ [ProductPage] Error deleting product:', error);
+      const itemName = isBundle ? bundle?.name : product.name;
+      const itemType = isBundle ? 'bundle' : 'product';
       
-      let errorMessage = `An error occurred while deleting ${product.name}. Please try again.`;
+      console.error(`❌ [ProductPage] Error deleting ${itemType}:`, error);
+      
+      let errorMessage = `An error occurred while deleting ${itemName}. Please try again.`;
       if (error?.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error?.message) {
@@ -144,9 +180,12 @@ export default function ProductPage() {
   }
 
   const handleDelete = () => {
+    const itemName = isBundle ? bundle?.name : product.name;
+    const itemType = isBundle ? 'Bundle' : 'Product';
+    
     Alert.alert(
-      "Delete Product", 
-      `Are you sure you want to delete "${product.name}"?\n\nThis action cannot be undone and will permanently remove the product from your store.`, 
+      `Delete ${itemType}`, 
+      `Are you sure you want to delete "${itemName}"?\n\nThis action cannot be undone and will permanently remove the ${itemType.toLowerCase()} from your store.`, 
       [
         {
           text: "Cancel",
@@ -176,7 +215,7 @@ export default function ProductPage() {
   const navigateToEdit = () => {
     router.push({
       pathname: "/(main)/products/editProduct",
-      params: { productId: product.id }
+      params: { productId: productId }
     });
   };
 
@@ -185,10 +224,12 @@ export default function ProductPage() {
   );
 
   const renderImageIndicators = () => {
-    const totalImages = 1 + (product.additionalImages?.length || 0);
+    const images = getProductImagesArray();
+    if (images.length <= 1) return null; // Don't show indicators for single image
+    
     return (
       <View style={styles.indicatorContainer}>
-        {Array.from({ length: totalImages }).map((_, index) => (
+        {images.map((_, index) => (
           <View
             key={index}
             style={[
@@ -203,17 +244,51 @@ export default function ProductPage() {
 
   // Function to open image viewer
   const openImageViewer = () => {
-    const allImages = [product.coverImage, ...(product.additionalImages || [])];
-    const imageViewerData = allImages.filter(img => img).map(url => ({ uri: url }));
-    setSelectedImageIndex(0);
+    setSelectedImageIndex(selectedIndex);
     setImageViewerVisible(true);
   };
 
   // Prepare images for react-native-image-viewing
   const getAllProductImages = () => {
-    const allImages = [product.coverImage, ...(product.additionalImages || [])];
-    return allImages.filter(img => img).map(url => ({ uri: url }));
+    const imageArray = getProductImagesArray();
+    return imageArray.map(url => ({ uri: url }));
   };
+
+  // Get all product images as a simple array
+  const getProductImagesArray = () => {
+    if (isBundle && bundle) {
+      // Start with bundle's main images
+      const bundleMainImages = bundle.imageUrl ? [bundle.imageUrl, ...bundle.images] : bundle.images;
+      
+      // Add images from individual products in the bundle
+      const productImages = bundle.products?.reduce((acc: string[], product) => {
+        if (product.image && product.image.length > 0) {
+          acc.push(...product.image);
+        }
+        return acc;
+      }, []) || [];
+      
+      // Combine bundle images and product images, remove duplicates
+      const allImages = [...bundleMainImages, ...productImages];
+      return [...new Set(allImages)].filter(img => img);
+    }
+    const allImages = [product.coverImage, ...(product.additionalImages || [])];
+    return allImages.filter(img => img);
+  };
+
+  // Handle image scroll for pagination
+  const handleImageScroll = (event: any) => {
+    const scrollPosition = event.nativeEvent.contentOffset.x;
+    const currentIndex = Math.round(scrollPosition / screenWidth);
+    setSelectedIndex(currentIndex);
+  };
+
+  // Render image item for FlatList
+  const renderImageItem = ({ item }: { item: string }) => (
+    <TouchableOpacity onPress={openImageViewer} activeOpacity={0.8}>
+      <Image source={{ uri: item }} style={[styles.image, { width: screenWidth }]} />
+    </TouchableOpacity>
+  );
 
   return (
     <>
@@ -231,9 +306,17 @@ export default function ProductPage() {
           }
         >
           <View style={styles.imageContainer}>
-            <TouchableOpacity onPress={openImageViewer} activeOpacity={0.8}>
-              <Image source={{ uri: product.coverImage }} style={styles.image} />
-            </TouchableOpacity>
+            <FlatList
+              data={getProductImagesArray()}
+              renderItem={renderImageItem}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onScroll={handleImageScroll}
+              scrollEventThrottle={16}
+              keyExtractor={(item, index) => `image-${index}`}
+            />
+            {renderImageIndicators()}
             <TouchableOpacity
               style={styles.backButton}
               onPress={navigateBack}
@@ -243,32 +326,53 @@ export default function ProductPage() {
           </View>
 
           <View style={styles.content}>
-            {/* Product name and price */}
+            {/* Product/Bundle name and price */}
             <View style={styles.nameRow}>
-              <Text style={styles.title}>{product.name}</Text>
+              <Text style={styles.title}>{isBundle ? bundle?.name : product.name}</Text>
             </View>
 
             {/* Price section */}
             <View style={styles.priceSection}>
-              <Text style={styles.price}>₱{product.discountedPrice?.toFixed(2)}</Text>
-              {product.originalPrice && product.originalPrice > product.discountedPrice && (
-                <>
-                  <Text style={styles.originalPrice}>₱{product.originalPrice?.toFixed(2)}</Text>
-                  <View style={styles.discountBadge}>
-                    <Text style={styles.discountText}>
-                      -{(((product.originalPrice - product.discountedPrice) / product.originalPrice) * 100).toFixed()}% OFF
-                    </Text>
-                  </View>
-                </>
+              <Text style={styles.price}>
+                ₱{isBundle ? bundle?.price?.toFixed(2) : product.discountedPrice?.toFixed(2)}
+              </Text>
+              {isBundle ? (
+                bundle?.originalPrice && bundle.originalPrice > bundle.price && (
+                  <>
+                    <Text style={styles.originalPrice}>₱{bundle.originalPrice?.toFixed(2)}</Text>
+                    <View style={styles.discountBadge}>
+                      <Text style={styles.discountText}>
+                        -{bundle.discountPercentage?.toFixed(0)}% OFF
+                      </Text>
+                    </View>
+                  </>
+                )
+              ) : (
+                product.originalPrice && product.originalPrice > product.discountedPrice && (
+                  <>
+                    <Text style={styles.originalPrice}>₱{product.originalPrice?.toFixed(2)}</Text>
+                    <View style={styles.discountBadge}>
+                      <Text style={styles.discountText}>
+                        -{(((product.originalPrice - product.discountedPrice) / product.originalPrice) * 100).toFixed()}% OFF
+                      </Text>
+                    </View>
+                  </>
+                )
               )}
             </View>
 
             {/* Status and Stock Info */}
             <View style={styles.infoRow}>
-              <View style={[styles.statusBadge, { backgroundColor: product.isActive ? colors.success : colors.warning }]}>
-                <Text style={styles.statusText}>{product.isActive ? 'Active' : 'Inactive'}</Text>
+              <View style={[styles.statusBadge, { 
+                backgroundColor: (isBundle ? bundle?.isActive : product.isActive) ? colors.success : colors.warning 
+              }]}>
+                <Text style={styles.statusText}>
+                  {(isBundle ? bundle?.isActive : product.isActive) ? 'Active' : 'Inactive'}
+                </Text>
               </View>
-              <Text style={styles.stockText}>Stock: {product.stock || 0} units</Text>
+              <Text style={styles.stockText}>
+                Stock: {(isBundle ? bundle?.stock : product.stock) || 0} units
+              </Text>
             </View>
 
             {/* Divider */}
@@ -277,40 +381,115 @@ export default function ProductPage() {
             {/* Description */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Description</Text>
-              <Text style={styles.description}>{product.description}</Text>
+              <Text style={styles.description}>
+                {isBundle ? bundle?.description : product.description}
+              </Text>
             </View>
 
-            {/* Product Details */}
+            {isBundle && bundle?.products && bundle.products.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Bundle Products ({bundle.products.length})</Text>
+                <View style={styles.bundleProductsContainer}>
+                  {bundle.products.map((bundleProduct, index) => (
+                    <TouchableOpacity 
+                      key={index} 
+                      style={styles.bundleProductCard}
+                      onPress={() => {
+                        // Navigate to individual product screen
+                        router.push({
+                          pathname: "/(main)/products/[product]",
+                          params: { product: bundleProduct.id }
+                        });
+                      }}
+                    >
+                      {bundleProduct.image && bundleProduct.image.length > 0 && (
+                        <Image 
+                          source={{ uri: bundleProduct.image[0] }} 
+                          style={styles.bundleProductImage}
+                        />
+                      )}
+                      <View style={styles.bundleProductInfo}>
+                        <Text style={styles.bundleProductName}>{bundleProduct.name}</Text>
+                        <Text style={styles.bundleProductPrice}>₱{bundleProduct.price?.toFixed(2)}</Text>
+                        {bundleProduct.originalPrice > bundleProduct.price && (
+                          <Text style={styles.bundleProductOriginalPrice}>
+                            ₱{bundleProduct.originalPrice?.toFixed(2)}
+                          </Text>
+                        )}
+                      </View>
+                      <View style={styles.bundleProductArrow}>
+                        <ArrowLeft size={16} color={colors.text.secondary} style={{ transform: [{ rotate: '180deg' }] }} />
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Product/Bundle Details */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Product Details</Text>
+              <Text style={styles.sectionTitle}>{isBundle ? 'Bundle' : 'Product'} Details</Text>
               <View style={styles.detailsContainer}>
-                {product.productType && (
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Product Type:</Text>
-                    <Text style={styles.detailValue}>{product.productType}</Text>
-                  </View>
+                {isBundle ? (
+                  <>
+                    {bundle?.expiresOn && (
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Expires On:</Text>
+                        <Text style={styles.detailValue}>
+                          {new Date(bundle.expiresOn).toLocaleDateString()}
+                        </Text>
+                      </View>
+                    )}
+                    {bundle?.totalCost && (
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Total Cost:</Text>
+                        <Text style={styles.detailValue}>₱{bundle.totalCost.toFixed(2)}</Text>
+                      </View>
+                    )}
+                    {bundle?.profitMargin && (
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Profit Margin:</Text>
+                        <Text style={styles.detailValue}>{bundle.profitMargin.toFixed(1)}%</Text>
+                      </View>
+                    )}
+                    {bundle?.isDynamicPricingEnabled && (
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Dynamic Pricing:</Text>
+                        <Text style={styles.detailValue}>Enabled</Text>
+                      </View>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {product.productType && (
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Product Type:</Text>
+                        <Text style={styles.detailValue}>{product.productType}</Text>
+                      </View>
+                    )}
+                    {product.expirationDate && (
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Expires On:</Text>
+                        <Text style={styles.detailValue}>
+                          {new Date(product.expirationDate).toLocaleDateString()}
+                        </Text>
+                      </View>
+                    )}
+                  </>
                 )}
-                {product.expirationDate && (
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Expires On:</Text>
-                    <Text style={styles.detailValue}>
-                      {new Date(product.expirationDate).toLocaleDateString()}
-                    </Text>
-                  </View>
-                )}
-                {product.createdAt && (
+                {(isBundle ? bundle?.createdAt : product.createdAt) && (
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Created:</Text>
                     <Text style={styles.detailValue}>
-                      {new Date(product.createdAt).toLocaleDateString()}
+                      {new Date(isBundle ? bundle!.createdAt : product.createdAt).toLocaleDateString()}
                     </Text>
                   </View>
                 )}
-                {product.updatedAt && (
+                {(isBundle ? bundle?.updatedAt : product.updatedAt) && (
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Last Updated:</Text>
                     <Text style={styles.detailValue}>
-                      {new Date(product.updatedAt).toLocaleDateString()}
+                      {new Date(isBundle ? bundle!.updatedAt : product.updatedAt).toLocaleDateString()}
                     </Text>
                   </View>
                 )}
@@ -485,6 +664,28 @@ const styles = StyleSheet.create({
   image: {
     width: "100%",
     height: "100%",
+  },
+  indicatorContainer: {
+    position: "absolute",
+    bottom: 20,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  indicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.5)",
+  },
+  activeIndicator: {
+    backgroundColor: colors.white,
+    width: 12,
+    height: 8,
+    borderRadius: 6,
   },
   backButton: {
     position: "absolute",
@@ -764,5 +965,77 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.xl,
     fontWeight: typography.fontWeights.bold,
     color: colors.primary,
+  },
+  // Bundle-specific styles
+  bundleBadge: {
+    backgroundColor: colors.info,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    marginLeft: spacing.sm,
+  },
+  bundleText: {
+    color: colors.text.inverse,
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.bold,
+  },
+  bundleProductsContainer: {
+    gap: spacing.sm,
+  },
+  bundleProductCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.background.primary,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+  },
+  bundleProductInfo: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  bundleProductName: {
+    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.primary,
+  },
+  bundleProductPrice: {
+    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.primary,
+  },
+  bundleProductOriginalPrice: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.tertiary,
+    textDecorationLine: 'line-through',
+  },
+  bundleProductStock: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+  },
+  bundleProductTags: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  bundleProductTag: {
+    backgroundColor: colors.background.secondary,
+    borderRadius: radii.sm,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+  },
+  bundleProductTagText: {
+    fontSize: typography.fontSizes.xs,
+    color: colors.text.secondary,
+  },
+  bundleProductArrow: {
+    marginLeft: spacing.sm,
+  },
+  bundleProductImage: {
+    width: 60,
+    height: 60,
+    borderRadius: radii.md,
+    marginRight: spacing.md,
   },
 });

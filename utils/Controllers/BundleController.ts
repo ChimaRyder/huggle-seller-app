@@ -109,7 +109,7 @@ const getAllBundles = async (search: string, token: string, storeId?: string) =>
  * @param token - Authentication token
  * @returns Promise with the bundle data
  */
-const getBundleById = async (bundleId: number, token: string) => {
+const getBundleById = async (bundleId: string, token: string) => {
   try {
     const response = await apiClient.get<any>(`/api/products/bundles/${bundleId}`, token);
     
@@ -140,7 +140,7 @@ const getBundleById = async (bundleId: number, token: string) => {
  * @param token - Authentication token
  * @returns Promise with the update response
  */
-const updateBundle = async (bundleId: number, bundle: BundleUpdateRequestDto, token: string) => {
+const updateBundle = async (bundleId: string, bundle: BundleUpdateRequestDto, token: string) => {
   try {
     // Make API call to update bundle
     const response = await apiClient.put<any, BundleUpdateRequestDto>(
@@ -153,16 +153,23 @@ const updateBundle = async (bundleId: number, bundle: BundleUpdateRequestDto, to
       data: response.data,
       status: response.status
     };
-  } catch (error) {
-    if (error instanceof Error) {
-      const apiError = error as ApiError;
+  } catch (error: any) {
+    // If it's already an API error with proper structure, re-throw it
+    if (error.response && error.response.data) {
+      throw error;
+    }
+    
+    // If it's an ApiError object, format it properly
+    if (error.message && error.status) {
       throw {
         response: {
-          status: apiError.status,
-          data: { message: apiError.message }
+          status: error.status,
+          data: { message: error.message }
         }
       };
     }
+    
+    // Fallback for unknown error types
     throw error;
   }
 };
@@ -173,7 +180,7 @@ const updateBundle = async (bundleId: number, bundle: BundleUpdateRequestDto, to
  * @param token - Authentication token
  * @returns Promise with the deletion response
  */
-const deleteBundle = async (bundleId: number, token: string) => {
+const deleteBundle = async (bundleId: string, token: string) => {
   try {
     const response = await apiClient.delete<any>(`/api/products/bundles/${bundleId}`, token);
     

@@ -28,7 +28,7 @@ export interface BundleRequestDto {
 }
 
 export interface SellerBundleDto {
-  id: number;
+  id: string;
   storeId: string;
   name: string;
   description?: string;
@@ -71,7 +71,7 @@ export interface BundleUpdateRequestDto {
 
 // External server response format
 export interface ExternalBundleResponse {
-  id: number;
+  id: string;
   name: string;
   description?: string;
   products: ExternalProductIn[];

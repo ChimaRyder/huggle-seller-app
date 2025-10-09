@@ -9,6 +9,7 @@ import {
   Image,
   Alert,
   Dimensions,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -27,10 +28,18 @@ import {
   DollarSign,
   Calendar,
   BarChart3,
+  Zap,
+  Info,
+  ChevronDown,
+  ChevronUp,
+  TrendingDown,
+  Plus,
 } from 'lucide-react-native';
 import { colors, spacing, typography, radii } from '@/constants/theme';
-import { getProductbyID, updateProduct } from '@/utils/Controllers/ProductController';
+import { getProductbyID, updateProduct, getAllProducts } from '@/utils/Controllers/ProductController';
+import { getBundleById, updateBundle } from '@/utils/Controllers/BundleController';
 import { FullProduct } from '@/types/product';
+import { SellerBundleDto, BundleUpdateRequestDto, SelectableProduct } from '@/types/bundle';
 import { showToast } from '@/components/Toast';
 import * as ImagePicker from 'expo-image-picker';
 import { useImageUpload } from '@/hooks/useImageUpload';
@@ -54,7 +63,10 @@ const EditProduct = () => {
   const router = useRouter();
   const { getToken } = useAuth();
   const { productId } = useLocalSearchParams();
+  // Common state
   const [product, setProduct] = useState<FullProduct | null>(null);
+  const [bundle, setBundle] = useState<SellerBundleDto | null>(null);
+  const [isBundle, setIsBundle] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [productType, setProductType] = useState('');
@@ -72,8 +84,69 @@ const EditProduct = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
+  // Bundle-specific state
+  const [availableProducts, setAvailableProducts] = useState<SelectableProduct[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<SelectableProduct[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [isDynamicPricingEnabled, setIsDynamicPricingEnabled] = useState(false);
+  const [productCost, setProductCost] = useState('');
+  const [dynamicPricingStartDays, setDynamicPricingStartDays] = useState('14');
+  const [isDynamicPricingExpanded, setIsDynamicPricingExpanded] = useState(false);
+
   // Image upload hook
   const { uploadState, uploadImageUri } = useImageUpload();
+
+  // Load seller's products for bundle editing
+  const loadSellerProducts = async () => {
+    try {
+      setIsLoadingProducts(true);
+      const token = await getToken({ template: "seller_app" });
+      if (!token) return;
+
+      const response = await getAllProducts('', token);
+      const products: SelectableProduct[] = response.data.map((product: any) => {
+        const isCurrentlySelected = selectedProducts.some(sp => sp.id === product.id);
+        return {
+          id: product.id,
+          name: product.name,
+          price: product.discountedPrice || product.price,
+          originalPrice: product.originalPrice,
+          stock: product.stock,
+          coverImage: product.coverImage,
+          isSelected: isCurrentlySelected,
+          productType: product.productType,
+          expiresOn: product.expiresOn ? new Date(product.expiresOn) : undefined,
+        };
+      });
+      
+      setAvailableProducts(products);
+    } catch (error) {
+      console.error('Error loading products:', error);
+      showToast('error', 'Error', 'Failed to load products for bundle editing');
+    } finally {
+      setIsLoadingProducts(false);
+    }
+  };
+
+  const toggleProductSelection = (productId: string) => {
+    setAvailableProducts(prev => 
+      prev.map(product => 
+        product.id === productId 
+          ? { ...product, isSelected: !product.isSelected }
+          : product
+      )
+    );
+    
+    setSelectedProducts(prev => {
+      const isCurrentlySelected = prev.some(p => p.id === productId);
+      if (isCurrentlySelected) {
+        return prev.filter(p => p.id !== productId);
+      } else {
+        const productToAdd = availableProducts.find(p => p.id === productId);
+        return productToAdd ? [...prev, { ...productToAdd, isSelected: true }] : prev;
+      }
+    });
+  };
 
   const getProduct = async () => {
     try {
@@ -81,30 +154,85 @@ const EditProduct = () => {
       await new Promise(resolve => setTimeout(resolve, 500));
 
       const token = await getToken({ template: "seller_app" });
-      const response = await getProductbyID(productId as string, token ?? "");
-      const data = ((response as any).data);
+      
+      // First try to load as a product
+      try {
+        const response = await getProductbyID(productId as string, token ?? "");
+        const data = ((response as any).data);
 
-      if (data) {
-        setProduct(data);
-        setName(data.name || '');
-        setDescription(data.description || '');
-        setProductType(data.productType || '');
-        setCoverImage(data.coverImage || '');
-        setAdditionalImages(data.additionalImages || []);
-        setOriginalPrice(data.originalPrice ? data.originalPrice.toString() : '');
-        setDiscountedPrice(data.discountedPrice ? data.discountedPrice.toString() : '');
-        setStock(data.stock ? data.stock.toString() : '');
-        setDuration(new Date(data.expirationDate));
-        setCategory(data.category || []);
-        setMetadata(data);
-        setIsActive(data.isActive);
-      } else {
-        Alert.alert('Error', 'Product not found.');
-        router.back();
+        if (data) {
+          setProduct(data);
+          setIsBundle(false);
+          setName(data.name || '');
+          setDescription(data.description || '');
+          setProductType(data.productType || '');
+          setCoverImage(data.coverImage || '');
+          setAdditionalImages(data.additionalImages || []);
+          setOriginalPrice(data.originalPrice ? data.originalPrice.toString() : '');
+          setDiscountedPrice(data.discountedPrice ? data.discountedPrice.toString() : '');
+          setStock(data.stock ? data.stock.toString() : '');
+          setDuration(new Date(data.expirationDate));
+          setCategory(data.category || []);
+          setMetadata(data);
+          setIsActive(data.isActive);
+          console.log('✅ Successfully loaded as product');
+        }
+      } catch (productError) {
+        console.log('❌ Failed to load as product, trying as bundle...', productError);
+        
+        // If product fetch fails, try as a bundle
+        try {
+          const bundleResponse = await getBundleById(productId as string, token ?? "");
+          const bundleData = ((bundleResponse as any).data);
+
+          if (bundleData) {
+            setBundle(bundleData);
+            setIsBundle(true);
+            setName(bundleData.name || '');
+            setDescription(bundleData.description || '');
+            setCoverImage(bundleData.imageUrl || '');
+            setAdditionalImages(bundleData.images || []);
+            setOriginalPrice(bundleData.originalPrice ? bundleData.originalPrice.toString() : '');
+            setDiscountedPrice(bundleData.price ? bundleData.price.toString() : '');
+            setStock(bundleData.stock ? bundleData.stock.toString() : '');
+            setDuration(new Date(bundleData.expiresOn));
+            setIsActive(bundleData.isActive);
+            setIsDynamicPricingEnabled(bundleData.isDynamicPricingEnabled || false);
+            setDynamicPricingStartDays(bundleData.dynamicPricingStartDays?.toString() || '14');
+            
+            // Load available products for bundle editing
+            await loadSellerProducts();
+            
+            // Set selected products based on bundle data
+            if (bundleData.products) {
+              const selectedProductsData: SelectableProduct[] = bundleData.products.map((p: any) => ({
+                id: p.id,
+                name: p.name,
+                price: p.price,
+                originalPrice: p.originalPrice,
+                stock: p.stock,
+                coverImage: p.image && p.image.length > 0 ? p.image[0] : '',
+                isSelected: true,
+                productType: p.productType || '',
+                expiresOn: p.expiresOn ? new Date(p.expiresOn) : undefined,
+              }));
+              setSelectedProducts(selectedProductsData);
+            }
+            
+            console.log('✅ Successfully loaded as bundle');
+          } else {
+            Alert.alert('Error', 'Bundle not found.');
+            router.back();
+          }
+        } catch (bundleError) {
+          console.error('❌ Failed to load as both product and bundle:', bundleError);
+          Alert.alert('Error', 'Failed to load item details.');
+          router.back();
+        }
       }
     } catch (error) {
-      console.error('Error fetching product:', error);
-      Alert.alert('Error', 'Failed to load product details.');
+      console.error('Error fetching product/bundle:', error);
+      Alert.alert('Error', 'Failed to load item details.');
       router.back();
     } finally {
       setIsLoading(false);
@@ -221,7 +349,7 @@ const EditProduct = () => {
     const newErrors: { [key: string]: string } = {};
 
     if (!name.trim()) {
-      newErrors.name = 'Product name is required';
+      newErrors.name = `${isBundle ? 'Bundle' : 'Product'} name is required`;
     }
 
     if (!description.trim()) {
@@ -230,7 +358,8 @@ const EditProduct = () => {
       newErrors.description = 'Description must be at least 10 characters';
     }
 
-    if (!productType) {
+    // Product type is only required for products, not bundles
+    if (!isBundle && !productType) {
       newErrors.productType = 'Product type is required';
     }
 
@@ -254,46 +383,89 @@ const EditProduct = () => {
       newErrors.stock = 'Valid stock quantity is required';
     }
 
+    // Bundle-specific validation
+    if (isBundle) {
+      if (selectedProducts.length < 2) {
+        newErrors.selectedProducts = 'Please select at least 2 products for the bundle';
+      }
+      
+      if (isDynamicPricingEnabled) {
+        if (!productCost || parseFloat(productCost) <= 0) {
+          newErrors.productCost = 'Valid product cost is required for dynamic pricing';
+        }
+        
+        if (parseFloat(discountedPrice) <= parseFloat(productCost)) {
+          newErrors.productCost = 'Product cost must be less than current price';
+        }
+        
+        if (!dynamicPricingStartDays || parseInt(dynamicPricingStartDays) <= 0) {
+          newErrors.dynamicPricingStartDays = 'Valid number of days is required';
+        }
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async () => {
-    if (!validateForm() || !product) return;
+    if (!validateForm() || (!product && !bundle)) return;
 
     setIsSubmitting(true);
 
     try {
-      const productData: FullProduct = {
-        id: product.id,
-        name: name.trim(),
-        description: description.trim(),
-        productType: productType,
-        coverImage: coverImage,
-        additionalImages: additionalImages,
-        discountedPrice: parseFloat(discountedPrice),
-        originalPrice: parseFloat(originalPrice),
-        expirationDate: duration.toISOString(),
-        stock: parseInt(stock),
-        category: category,
-        storeId: product.storeId,
-        isActive: isActive,
-        createdAt: product.createdAt,
-        updatedAt: new Date().toISOString(),
-        rating: product.rating || 0,
-        ratingCount: product.ratingCount || 0,
-      };
-
       const token = await getToken({ template: "seller_app" });
       
-      const response = await updateProduct(productData, token ?? "");
+      if (isBundle && bundle) {
+        // Update bundle
+        const bundleUpdateData: BundleUpdateRequestDto = {
+          name: name.trim(),
+          description: description.trim(),
+          productIds: selectedProducts.map(p => p.id),
+          images: additionalImages,
+          stock: parseInt(stock),
+          imageUrl: coverImage,
+          price: parseFloat(discountedPrice),
+          originalPrice: parseFloat(originalPrice),
+          expiresOn: duration,
+          isActive: isActive,
+          isDynamicPricingEnabled: isDynamicPricingEnabled,
+          dynamicPricingStartDays: isDynamicPricingEnabled ? parseInt(dynamicPricingStartDays) : undefined,
+        };
+
+        await updateBundle(bundle.id, bundleUpdateData, token ?? "");
+        showToast('success', 'Bundle Updated!', 'Your bundle has been updated successfully.');
+      } else if (!isBundle && product) {
+        // Update product
+        const productData: FullProduct = {
+          id: product.id,
+          name: name.trim(),
+          description: description.trim(),
+          productType: productType,
+          coverImage: coverImage,
+          additionalImages: additionalImages,
+          discountedPrice: parseFloat(discountedPrice),
+          originalPrice: parseFloat(originalPrice),
+          expirationDate: duration.toISOString(),
+          stock: parseInt(stock),
+          category: category,
+          storeId: product.storeId,
+          isActive: isActive,
+          createdAt: product.createdAt,
+          updatedAt: new Date().toISOString(),
+          rating: product.rating || 0,
+          ratingCount: product.ratingCount || 0,
+        };
+
+        await updateProduct(productData, token ?? "");
+        showToast('success', 'Product Updated!', 'Your product has been updated successfully.');
+      }
       
-      showToast('success', 'Product Updated!', 'Your product has been updated successfully.');
       router.back();
     } catch (error: any) {
-      console.error("❌ [EditProduct] Error updating product:", error);
+      console.error(`❌ [EditProduct] Error updating ${isBundle ? 'bundle' : 'product'}:`, error);
       
-      let errorMessage = 'Failed to update product. Please try again.';
+      let errorMessage = `Failed to update ${isBundle ? 'bundle' : 'product'}. Please try again.`;
       if (error?.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error?.message) {
@@ -335,13 +507,13 @@ const EditProduct = () => {
           <ArrowLeft size={24} color={colors.text.primary} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Edit Product</Text>
-          <Text style={styles.headerSubtitle}>Update your product details</Text>
+          <Text style={styles.headerTitle}>Edit {isBundle ? 'Bundle' : 'Product'}</Text>
+          <Text style={styles.headerSubtitle}>Update your {isBundle ? 'bundle' : 'product'} details</Text>
         </View>
         <TouchableOpacity
-          style={[styles.publishButton, (!name.trim() || !description.trim() || !coverImage) && styles.publishButtonDisabled]}
+          style={[styles.publishButton, (!name.trim() || !description.trim() || !coverImage || (isBundle && selectedProducts.length < 2)) && styles.publishButtonDisabled]}
           onPress={handleSubmit}
-          disabled={!name.trim() || !description.trim() || !coverImage || isSubmitting}
+          disabled={!name.trim() || !description.trim() || !coverImage || (isBundle && selectedProducts.length < 2) || isSubmitting}
         >
           {isSubmitting ? (
             <View style={styles.loadingIndicator} />
@@ -352,17 +524,69 @@ const EditProduct = () => {
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Product Details Section */}
+        {/* Product Selection for Bundle */}
+        {isBundle && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Package size={20} color={colors.primary} />
+              <Text style={styles.sectionTitle}>Select Products</Text>
+              <Text style={styles.sectionCounter}>({selectedProducts.length} selected)</Text>
+            </View>
+            {errors.selectedProducts && (
+              <View style={styles.errorContainer}>
+                <AlertCircle size={16} color={colors.error} />
+                <Text style={styles.errorText}>{errors.selectedProducts}</Text>
+              </View>
+            )}
+            <Text style={styles.sectionDescription}>
+              Choose at least 2 products to create a bundle
+            </Text>
+
+            {isLoadingProducts ? (
+              <View style={styles.loadingContainer}>
+                <View style={styles.loadingIndicator} />
+                <Text style={styles.loadingText}>Loading your products...</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={availableProducts}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.productSelectionItem, item.isSelected && styles.productSelectionItemSelected]}
+                    onPress={() => toggleProductSelection(item.id)}
+                  >
+                    {item.coverImage && (
+                      <Image source={{ uri: item.coverImage }} style={styles.productSelectionImage} />
+                    )}
+                    <View style={styles.productSelectionDetails}>
+                      <Text style={styles.productSelectionName}>{item.name}</Text>
+                      <Text style={styles.productSelectionPrice}>₱{item.price.toFixed(2)}</Text>
+                      <Text style={styles.productSelectionStock}>Stock: {item.stock}</Text>
+                    </View>
+                    <View style={[styles.productSelectionCheck, item.isSelected && styles.productSelectionCheckActive]}>
+                      {item.isSelected && <Check size={16} color={colors.text.inverse} />}
+                    </View>
+                  </TouchableOpacity>
+                )}
+                scrollEnabled={false}
+                style={styles.productSelectionList}
+              />
+            )}
+          </View>
+        )}
+
+        {/* Product/Bundle Details Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Package size={20} color={colors.primary} />
-            <Text style={styles.sectionTitle}>Product Details</Text>
+            <Text style={styles.sectionTitle}>{isBundle ? 'Bundle' : 'Product'} Details</Text>
           </View>
           <Text style={styles.sectionDescription}>
-            Basic information about your product
+            Basic information about your {isBundle ? 'bundle' : 'product'}
           </Text>
 
-          <Text style={styles.label}>Product Name</Text>
+          <Text style={styles.label}>{isBundle ? 'Bundle' : 'Product'} Name</Text>
           {errors.name && (
             <View style={styles.errorContainer}>
               <AlertCircle size={16} color={colors.error} />
@@ -374,7 +598,7 @@ const EditProduct = () => {
               styles.textInput,
               errors.name && { borderColor: colors.error }
             ]}
-            placeholder="Enter product name..."
+            placeholder={`Enter ${isBundle ? 'bundle' : 'product'} name...`}
             placeholderTextColor={colors.text.tertiary}
             value={name}
             onChangeText={setName}
@@ -393,39 +617,44 @@ const EditProduct = () => {
               errors.description && { borderColor: colors.error }
             ]}
             multiline
-            placeholder="Describe your product in detail..."
+            placeholder={`Describe your ${isBundle ? 'bundle' : 'product'} in detail...`}
             placeholderTextColor={colors.text.tertiary}
             value={description}
             onChangeText={setDescription}
             textAlignVertical="top"
           />
 
-          <Text style={styles.label}>Product Type</Text>
-          {errors.productType && (
-            <View style={styles.errorContainer}>
-              <AlertCircle size={16} color={colors.error} />
-              <Text style={styles.errorText}>{errors.productType}</Text>
-            </View>
+          {/* Product Type - Only for products */}
+          {!isBundle && (
+            <>
+              <Text style={styles.label}>Product Type</Text>
+              {errors.productType && (
+                <View style={styles.errorContainer}>
+                  <AlertCircle size={16} color={colors.error} />
+                  <Text style={styles.errorText}>{errors.productType}</Text>
+                </View>
+              )}
+              <View style={styles.productTypeGrid}>
+                {productTypes.map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[
+                      styles.productTypeOption,
+                      productType === type && { backgroundColor: getProductTypeColor(type) + '20', borderColor: getProductTypeColor(type) }
+                    ]}
+                    onPress={() => setProductType(type)}
+                  >
+                    <Text style={[
+                      styles.productTypeText,
+                      productType === type && { color: getProductTypeColor(type), fontWeight: typography.fontWeights.semibold }
+                    ]}>
+                      {type}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
           )}
-          <View style={styles.productTypeGrid}>
-            {productTypes.map((type) => (
-              <TouchableOpacity
-                key={type}
-                style={[
-                  styles.productTypeOption,
-                  productType === type && { backgroundColor: getProductTypeColor(type) + '20', borderColor: getProductTypeColor(type) }
-                ]}
-                onPress={() => setProductType(type)}
-              >
-                <Text style={[
-                  styles.productTypeText,
-                  productType === type && { color: getProductTypeColor(type), fontWeight: typography.fontWeights.semibold }
-                ]}>
-                  {type}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
         </View>
 
         {/* Images Section */}
@@ -578,51 +807,53 @@ const EditProduct = () => {
           />
         </View>
 
-        {/* Categories Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Hash size={20} color={colors.primary} />
-            <Text style={styles.sectionTitle}>Categories</Text>
-            <Text style={styles.sectionCounter}>({category.length}/10)</Text>
-          </View>
-          <Text style={styles.sectionDescription}>
-            Add relevant categories to help customers find your product
-          </Text>
-
-          {/* Category Input */}
-          <View style={styles.tagInputContainer}>
-            <TextInput
-              style={styles.tagInput}
-              placeholder="Add a category..."
-              placeholderTextColor={colors.text.tertiary}
-              value={currentCategory}
-              onChangeText={setCurrentCategory}
-              onSubmitEditing={addCategory}
-              maxLength={20}
-            />
-            <TouchableOpacity
-              style={[styles.addTagButton, !currentCategory.trim() && styles.addTagButtonDisabled]}
-              onPress={addCategory}
-              disabled={!currentCategory.trim() || category.length >= 10}
-            >
-              <Text style={styles.addTagText}>Add</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Categories Display */}
-          {category.length > 0 && (
-            <View style={styles.tagsContainer}>
-              {category.map((cat, index) => (
-                <View key={index} style={styles.tag}>
-                  <Text style={styles.tagText}>#{cat}</Text>
-                  <TouchableOpacity onPress={() => removeCategory(cat)}>
-                    <X size={14} color={colors.primary} />
-                  </TouchableOpacity>
-                </View>
-              ))}
+        {/* Categories Section - Only for products */}
+        {!isBundle && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Hash size={20} color={colors.primary} />
+              <Text style={styles.sectionTitle}>Categories</Text>
+              <Text style={styles.sectionCounter}>({category.length}/10)</Text>
             </View>
-          )}
-        </View>
+            <Text style={styles.sectionDescription}>
+              Add relevant categories to help customers find your product
+            </Text>
+
+            {/* Category Input */}
+            <View style={styles.tagInputContainer}>
+              <TextInput
+                style={styles.tagInput}
+                placeholder="Add a category..."
+                placeholderTextColor={colors.text.tertiary}
+                value={currentCategory}
+                onChangeText={setCurrentCategory}
+                onSubmitEditing={addCategory}
+                maxLength={20}
+              />
+              <TouchableOpacity
+                style={[styles.addTagButton, !currentCategory.trim() && styles.addTagButtonDisabled]}
+                onPress={addCategory}
+                disabled={!currentCategory.trim() || category.length >= 10}
+              >
+                <Text style={styles.addTagText}>Add</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Categories Display */}
+            {category.length > 0 && (
+              <View style={styles.tagsContainer}>
+                {category.map((cat, index) => (
+                  <View key={index} style={styles.tag}>
+                    <Text style={styles.tagText}>#{cat}</Text>
+                    <TouchableOpacity onPress={() => removeCategory(cat)}>
+                      <X size={14} color={colors.primary} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
 
         <View style={{ height: spacing.xxxl }} />
       </ScrollView>
@@ -923,6 +1154,65 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.sm,
     color: colors.primary,
     fontWeight: typography.fontWeights.medium,
+  },
+  
+  // Product Selection Styles
+  productSelectionList: {
+    maxHeight: 300,
+  },
+  productSelectionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+    backgroundColor: colors.background.secondary,
+    marginBottom: spacing.md,
+  },
+  productSelectionItemSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.background.successSubtle,
+  },
+  productSelectionImage: {
+    width: 50,
+    height: 50,
+    borderRadius: radii.md,
+    backgroundColor: colors.background.tertiary,
+  },
+  productSelectionDetails: {
+    flex: 1,
+    marginLeft: spacing.md,
+  },
+  productSelectionName: {
+    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.medium,
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  productSelectionPrice: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.primary,
+    fontWeight: typography.fontWeights.semibold,
+    marginBottom: spacing.xs,
+  },
+  productSelectionStock: {
+    fontSize: typography.fontSizes.xs,
+    color: colors.text.tertiary,
+  },
+  productSelectionCheck: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.border.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: spacing.md,
+  },
+  productSelectionCheckActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
 });
 

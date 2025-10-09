@@ -16,16 +16,17 @@ import {
 } from "@ui-kitten/components";
 import { StyleSheet, View, FlatList, TouchableOpacity, RefreshControl, ScrollView } from "react-native";
 import ProductItem from "./components/productItem";
+import InventoryProductItem from "./components/InventoryProductItem";
 import GreetingSearchBar from "./components/GreetingSearchBar";
 import GreetingSection from "./components/GreetingSection";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { useAuth, useUser } from "@clerk/clerk-expo";
-import { getAllProducts } from "@/utils/Controllers/ProductController";
+import { getAllProducts, bulkUpdateStock } from "@/utils/Controllers/ProductController";
 import { showToast } from "@/components/Toast";
 import { validateSellerAccess } from "@/utils/sellerUtils";
-import { AlertCircle, CookingPot, Filter, SortAsc, BarChart3, Package, Plus } from "lucide-react-native";
+import { AlertCircle, CookingPot, Filter, SortAsc, BarChart3, Package, Plus, Package2 } from "lucide-react-native";
 import { colors, spacing, typography, radii } from "@/constants/theme";
 
 
@@ -56,6 +57,9 @@ const ProductsTab = ({ theme, unread = 0 }: { theme: ThemeType; unread?: number 
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState(new IndexPath(0));
   const [filterStatus, setFilterStatus] = useState(new IndexPath(0));
+  const [isInventoryMode, setIsInventoryMode] = useState(false);
+  const [pendingStockUpdates, setPendingStockUpdates] = useState<Array<{productId: string, newStock: number, newExpiryDate: Date}>>([]);
+  const [isUpdatingStock, setIsUpdatingStock] = useState(false);
   const { getToken } = useAuth();
   const { user } = useUser();
 
@@ -175,6 +179,125 @@ const ProductsTab = ({ theme, unread = 0 }: { theme: ThemeType; unread?: number 
     setSearch(event.nativeEvent.text);
   };
 
+  const handleStockChange = (productId: string, newStock: number, newExpiryDate: Date) => {
+    setPendingStockUpdates(current => {
+      const existing = current.find(u => u.productId === productId);
+      if (existing) {
+        return current.map(u => u.productId === productId 
+          ? { productId, newStock, newExpiryDate }
+          : u
+        );
+      }
+      return [...current, { productId, newStock, newExpiryDate }];
+    });
+  };
+
+  const processPendingStockUpdates = async () => {
+    if (pendingStockUpdates.length === 0) return;
+    
+    try {
+      setIsUpdatingStock(true);
+      const token = await getToken({ template: "seller_app" });
+      
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+      
+      const response = await bulkUpdateStock(pendingStockUpdates, token);
+      
+      if (response.status === 200) {
+        // Update local products state with new stock values
+        setProducts(currentProducts => 
+          currentProducts.map(product => {
+            const update = pendingStockUpdates.find(u => u.productId === product.id);
+            if (update) {
+              return {
+                ...product,
+                stock: update.newStock,
+                expiresOn: update.newExpiryDate.toISOString(),
+                expirationDate: update.newExpiryDate.toISOString()
+              };
+            }
+            return product;
+          })
+        );
+        
+        setPendingStockUpdates([]);
+        
+        const result = response.data?.data;
+        if (result?.TotalUpdated > 0) {
+          showToast(
+            "success",
+            "Stock Updated!",
+            `Successfully updated ${result.TotalUpdated} product${result.TotalUpdated !== 1 ? 's' : ''}.`
+          );
+        }
+        
+        if (result?.TotalFailed > 0) {
+          showToast(
+            "error",
+            "Partial Success",
+            `${result.TotalFailed} update${result.TotalFailed !== 1 ? 's' : ''} failed. Check the details.`
+          );
+        }
+      }
+    } catch (error: any) {
+      console.log('❌ Error updating stock:', error);
+      console.log('❌ Error response data:', error.response?.data);
+      
+      let errorMessage = "Failed to update stock. Please try again.";
+      let errorTitle = "Update Failed";
+      
+      // Check if we have detailed error information from the backend
+      // The error structure is: error.details.data.failures
+      let errorData = null;
+      
+      if (error.details?.data) {
+        errorData = error.details.data;
+        console.log('📋 Detailed error data from error.details.data:', errorData);
+      } else if (error.response?.data?.data) {
+        errorData = error.response.data.data;
+        console.log('📋 Detailed error data from error.response.data.data:', errorData);
+      } else if (error.response?.data) {
+        errorData = error.response.data;
+        console.log('📋 Detailed error data from error.response.data:', errorData);
+      }
+      
+      if (errorData) {
+        if (errorData.failures && errorData.failures.length > 0) {
+          const firstFailure = errorData.failures[0];
+          errorTitle = "Stock Update Issues";
+          
+          if (errorData.failures.length === 1) {
+            // Single failure - show specific error with product name if available
+            const productName = firstFailure.productName || 'Item';
+            const errorMsg = firstFailure.error || 'Update failed';
+            errorMessage = productName !== '' ? `${productName}: ${errorMsg}` : errorMsg;
+          } else {
+            // Multiple failures - show summary
+            errorMessage = `${errorData.totalFailed} items failed to update. First error: ${firstFailure.error || 'Update failed'}`;
+          }
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+      } else if (error.response?.data?.message) {
+        // Fallback to general error message
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        // Final fallback
+        errorMessage = error.message;
+      }
+      
+      showToast(
+        "error",
+        errorTitle,
+        errorMessage
+      );
+    } finally {
+      setIsUpdatingStock(false);
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
       fetchProducts();
@@ -207,6 +330,34 @@ const ProductsTab = ({ theme, unread = 0 }: { theme: ThemeType; unread?: number 
       >
         {/* Greeting Section */}
         <GreetingSection unread={unread} />
+        
+        {/* Inventory Mode Toggle */}
+        <View style={styles.inventoryModeSection}>
+          <View style={styles.inventoryModeToggle}>
+            <TouchableOpacity
+              style={[styles.modeButton, isInventoryMode && styles.modeButtonActive]}
+              onPress={() => setIsInventoryMode(!isInventoryMode)}
+              activeOpacity={0.7}
+            >
+              <Package2 size={18} color={isInventoryMode ? colors.icon.inverse : colors.primary} />
+              <Text style={[styles.modeButtonText, isInventoryMode && styles.modeButtonTextActive]}>
+                Inventory Mode
+              </Text>
+            </TouchableOpacity>
+            
+            {isInventoryMode && pendingStockUpdates.length > 0 && (
+              <Button
+                size="small"
+                status="success"
+                onPress={processPendingStockUpdates}
+                disabled={isUpdatingStock}
+                style={styles.bulkUpdateButton}
+              >
+                {isUpdatingStock ? 'Updating...' : `Update ${pendingStockUpdates.length}`}
+              </Button>
+            )}
+          </View>
+        </View>
 
         {/* Stats Cards */}
         <View style={styles.statsSection}>
@@ -266,7 +417,18 @@ const ProductsTab = ({ theme, unread = 0 }: { theme: ThemeType; unread?: number 
         <View style={styles.productListContainer}>
           <FlatList
             data={filteredProducts}
-            renderItem={({ item }) => <ProductItem item={item} theme={theme} />}
+            renderItem={({ item }) => 
+              isInventoryMode ? (
+                <InventoryProductItem 
+                  item={item} 
+                  theme={theme} 
+                  onStockChange={handleStockChange}
+                  isUpdating={isUpdatingStock}
+                />
+              ) : (
+                <ProductItem item={item} theme={theme} />
+              )
+            }
             keyExtractor={(item) => item.id.toString()}
             showsVerticalScrollIndicator={false}
             scrollEnabled={false}
@@ -498,6 +660,45 @@ const styles = StyleSheet.create({
   modalButton: {
     flex: 1,
     borderRadius: radii.lg,
+  },
+
+  // Inventory Mode
+  inventoryModeSection: {
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.md,
+  },
+  inventoryModeToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  modeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.md,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    backgroundColor: colors.background.primary,
+    gap: spacing.sm,
+  },
+  modeButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  modeButtonText: {
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.medium,
+    color: colors.primary,
+  },
+  modeButtonTextActive: {
+    color: colors.text.inverse,
+  },
+  bulkUpdateButton: {
+    borderRadius: radii.md,
+    minWidth: 100,
   },
 });
 

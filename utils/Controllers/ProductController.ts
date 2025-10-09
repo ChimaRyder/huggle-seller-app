@@ -231,4 +231,44 @@ const deleteProduct = async (id: string, token: string) => {
   }
 };
 
-export {Product, createProduct, getAllProducts, getProductbyID, updateProduct, deleteProduct};
+/**
+ * Bulk update stock for multiple products
+ * @param stockUpdates - Array of product stock updates
+ * @param token - Authentication token
+ * @returns Promise with the bulk update response
+ */
+const bulkUpdateStock = async (stockUpdates: Array<{productId: string, newStock: number, newExpiryDate: Date}>, token: string) => {
+  try {
+    const bulkUpdateRequest = {
+      productUpdates: stockUpdates.map(update => ({
+        productId: update.productId,
+        newStock: update.newStock,
+        newExpiryDate: update.newExpiryDate.toISOString()
+      }))
+    };
+    
+    const response = await apiClient.patch<any, any>(
+      '/api/products/bulk-stock-update',
+      bulkUpdateRequest,
+      token
+    );
+    
+    return {
+      data: response.data,
+      status: response.status
+    };
+  } catch (error) {
+    if (error instanceof Error) {
+      const apiError = error as ApiError;
+      throw {
+        response: {
+          status: apiError.status,
+          data: { message: apiError.message }
+        }
+      };
+    }
+    throw error;
+  }
+};
+
+export {Product, createProduct, getAllProducts, getProductbyID, updateProduct, deleteProduct, bulkUpdateStock};

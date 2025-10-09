@@ -90,6 +90,26 @@ export class ApiClient {
     }
   }
 
+  // Generic PATCH request
+  async patch<T, U = any>(endpoint: string, data?: U, token?: string): Promise<ApiResponse<T>> {
+    try {
+      const response: AxiosResponse<T> = await axios.patch(
+        `${this.baseURL}${endpoint}`,
+        data,
+        {
+          headers: getHeaders(token),
+        }
+      );
+      
+      return {
+        data: response.data,
+        status: response.status,
+      };
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
   // Generic DELETE request
   async delete<T>(endpoint: string, token?: string): Promise<ApiResponse<T>> {
     try {
