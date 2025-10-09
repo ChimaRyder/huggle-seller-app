@@ -46,11 +46,17 @@ const createProduct = async (product: Product, token: string) => {
  */
 const getAllProducts = async (search: string, token: string, storeId?: string) => {
   try {
+    console.log('🚀 getAllProducts called with:', { search, hasToken: !!token, storeId });
+    
     // Extract storeId from token if not provided
     const extractedStoreId = getStoreIdFromToken(token);
+    console.log('🏪 Store ID extracted from token:', extractedStoreId);
+    
     const actualStoreId = storeId || extractedStoreId;
+    console.log('🎯 Actual store ID to use:', actualStoreId);
     
     if (!actualStoreId) {
+      console.log('❌ No store ID found');
       throw new Error('Store ID not found in token or parameters. Please ensure you have a valid seller account.');
     }
     
@@ -68,31 +74,43 @@ const getAllProducts = async (search: string, token: string, storeId?: string) =
       endpoint += `?${queryString}`;
     }
     
+    console.log('🌐 Making API call to endpoint:', endpoint);
+    
     // Make API call
     const response = await apiClient.get<any>(endpoint, token);
+    console.log('📡 Raw API response:', response);
     
     // Extract the actual data from the response
     const rawData = handleApiResponse<any>(response);
+    console.log('🔍 Raw data after handleApiResponse:', rawData);
     
     // Ensure we have an array to work with
     let sellerProducts: SellerProductDto[];
     if (Array.isArray(rawData)) {
+      console.log('📊 rawData is array, length:', rawData.length);
       sellerProducts = rawData as SellerProductDto[];
     } else if (rawData && Array.isArray(rawData.items)) {
+      console.log('📊 Found rawData.items array, length:', rawData.items.length);
       // Handle paginated response if backend returns { items: [...], hasNext: boolean, ... }
       sellerProducts = rawData.items as SellerProductDto[];
     } else if (rawData && Array.isArray(rawData.products)) {
+      console.log('📊 Found rawData.products array, length:', rawData.products.length);
       // Handle nested structure if backend returns { products: [...] }
       sellerProducts = rawData.products as SellerProductDto[];
     } else if (rawData && Array.isArray(rawData.data)) {
+      console.log('📊 Found rawData.data array, length:', rawData.data.length);
       // Handle nested structure if backend returns { data: [...] }
       sellerProducts = rawData.data as SellerProductDto[];
     } else {
+      console.log('⚠️ No array found in response, defaulting to empty array. Raw data structure:', Object.keys(rawData || {}));
       sellerProducts = [];
     }
     
+    console.log('🏷️ Seller products before conversion:', sellerProducts);
+    
     // Convert to legacy format for backward compatibility
     const legacyProducts = productAdapter.fromSellerDtoArray(sellerProducts);
+    console.log('🔄 Legacy products after conversion:', legacyProducts);
     
     return {
       data: legacyProducts,

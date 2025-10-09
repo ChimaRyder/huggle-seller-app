@@ -62,21 +62,34 @@ const ProductsTab = ({ theme, unread = 0 }: { theme: ThemeType; unread?: number 
   const fetchProducts = async () => {
     try {
       setLoading(true);
+      console.log('🔄 Starting fetchProducts...');
+      
       // Get token with seller_app template (contains storeId in claims)
       const token = await getToken({ template: "seller_app" });
+      console.log('🔑 Token obtained:', token ? 'Token exists' : 'No token');
       
       // Validate seller access using token claims (optional - controller will also validate)
       const sellerValidation = validateSellerAccess(token, user);
+      console.log('✅ Seller validation result:', sellerValidation);
       
       if (!sellerValidation.isValid) {
+        console.log('❌ Seller validation failed:', sellerValidation.error);
         throw new Error(sellerValidation.error || 'Invalid seller access');
       }
       
+      console.log('📞 Calling getAllProducts API...');
       // Call getAllProducts - storeId will be extracted from token automatically
       const response = await getAllProducts("", token ?? "");
+      console.log('📦 Products API response:', response);
+      
       const data = ((response as any).data);
+      console.log('📋 Products data received:', data);
+      console.log('📊 Number of products:', Array.isArray(data) ? data.length : 'Not an array');
+      
       setProducts(data);
+      console.log('✅ Products state updated successfully');
     } catch (error: any) {
+      console.log('❌ Error in fetchProducts:', error);
       
       let errorMessage = "Something went wrong while getting your products. Please try again.";
       

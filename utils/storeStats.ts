@@ -69,7 +69,7 @@ export const getStoreAnalyticsSummary = async (token: string): Promise<Analytics
 export const getStoreProductCount = async (token: string): Promise<number> => {
   try {
     const response = await getAllProducts('', token);
-    return response.data?.length || 0;
+    return Array.isArray(response.data) ? response.data.length : 0;
   } catch (error) {
     console.error('Error fetching store product count:', error);
     return 0;
@@ -85,7 +85,7 @@ export const getStoreReviewStats = async (token: string): Promise<{ averageRatin
   try {
     // Get all products for the store
     const productsResponse = await getAllProducts('', token);
-    const products = productsResponse.data || [];
+    const products = Array.isArray(productsResponse.data) ? productsResponse.data : [];
     
     let totalRating = 0;
     let totalReviews = 0;

@@ -151,6 +151,53 @@ export const getStoreTopProducts = async (
 };
 
 /**
+ * Get product performance analytics
+ * @param token - Authentication token
+ * @param productId - Product ID
+ * @param period - Period to analyze ('current', '6months', 'year', 'all')
+ * @returns Product performance data
+ */
+export const getProductPerformance = async (
+  token: string, 
+  productId: string, 
+  period: 'current' | '6months' | 'year' | 'all' = 'current'
+): Promise<ApiResponse<ProductPerformanceResponse>> => {
+  try {
+    const endpoint = `/api/analytics/product/${productId}?period=${period}`;
+    console.log('📊 Fetching product performance from:', endpoint);
+    
+    const response = await apiClient.get<ProductPerformanceResponse>(endpoint, token);
+    console.log('📈 Product performance response:', response);
+    
+    return response;
+  } catch (error: any) {
+    console.error('❌ Error fetching product performance:', error);
+    
+    // Return empty analytics data if the endpoint doesn't exist or fails
+    // This prevents the product page from breaking
+    return {
+      data: {
+        productId,
+        productName: 'Unknown Product',
+        storeId: '',
+        storeName: '',
+        period,
+        totalViews: 0,
+        totalAddToCarts: 0,
+        totalOrders: 0,
+        totalQuantitySold: 0,
+        totalRevenue: 0,
+        conversionRate: 0,
+        cartConversionRate: 0,
+        averageOrderValue: 0,
+        monthlyBreakdown: []
+      },
+      status: 200
+    };
+  }
+};
+
+/**
  * Calculate conversion funnel metrics from analytics data
  * @param summary - Store analytics summary
  * @param topProducts - Top products data (optional)

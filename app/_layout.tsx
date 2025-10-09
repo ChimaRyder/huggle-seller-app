@@ -72,24 +72,26 @@ const RootLayout = () => {
           tokenCache={tokenCache}
           // __experimental_passkeys={passkeys}
         >
-          <ChatProvider>
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                navigationBarHidden: true,
-                statusBarHidden: false,
-              }}
-            >
-              <Stack.Screen name="index" />
-              <Stack.Screen name="(main)/" />
-              <Stack.Screen name="(seller-registration)" />
-              <Stack.Screen
-                name="+not-found"
-                options={{ headerShown: true, title: "Not Found" }}
-              />
-            </Stack>
-            <StatusBar style="auto" />
-          </ChatProvider>
+          <NotificationProvider>
+            <ChatProvider>
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  navigationBarHidden: true,
+                  statusBarHidden: false,
+                }}
+              >
+                <Stack.Screen name="index" />
+                <Stack.Screen name="(main)/" />
+                <Stack.Screen name="(seller-registration)" />
+                <Stack.Screen
+                  name="+not-found"
+                  options={{ headerShown: true, title: "Not Found" }}
+                />
+              </Stack>
+              <StatusBar style="auto" />
+            </ChatProvider>
+          </NotificationProvider>
         </ClerkProvider>
       </ThemeProvider>
     </ApplicationProvider>

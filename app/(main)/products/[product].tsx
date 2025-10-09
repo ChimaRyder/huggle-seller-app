@@ -342,7 +342,7 @@ export default function ProductPage() {
                         <Eye size={20} color={colors.info} />
                         <Text style={styles.analyticsCardLabel}>Views</Text>
                       </View>
-                      <Text style={styles.analyticsCardValue}>{productAnalytics.totalViews.toLocaleString()}</Text>
+                      <Text style={styles.analyticsCardValue}>{(productAnalytics.totalViews || 0).toLocaleString()}</Text>
                       <Text style={styles.analyticsCardSubtext}>Total impressions</Text>
                     </View>
 
@@ -351,7 +351,7 @@ export default function ProductPage() {
                         <ShoppingCart size={20} color={colors.warning} />
                         <Text style={styles.analyticsCardLabel}>Cart Adds</Text>
                       </View>
-                      <Text style={styles.analyticsCardValue}>{productAnalytics.totalAddToCarts.toLocaleString()}</Text>
+                      <Text style={styles.analyticsCardValue}>{(productAnalytics.totalAddToCarts || 0).toLocaleString()}</Text>
                       <Text style={styles.analyticsCardSubtext}>Added to cart</Text>
                     </View>
 
@@ -360,7 +360,7 @@ export default function ProductPage() {
                         <ShoppingBag size={20} color={colors.success} />
                         <Text style={styles.analyticsCardLabel}>Orders</Text>
                       </View>
-                      <Text style={styles.analyticsCardValue}>{productAnalytics.totalOrders.toLocaleString()}</Text>
+                      <Text style={styles.analyticsCardValue}>{(productAnalytics.totalOrders || 0).toLocaleString()}</Text>
                       <Text style={styles.analyticsCardSubtext}>Total sold</Text>
                     </View>
 
@@ -369,7 +369,7 @@ export default function ProductPage() {
                         <TrendingUp size={20} color={colors.primary} />
                         <Text style={styles.analyticsCardLabel}>Conversion</Text>
                       </View>
-                      <Text style={styles.analyticsCardValue}>{productAnalytics.conversionRate.toFixed(1)}%</Text>
+                      <Text style={styles.analyticsCardValue}>{(productAnalytics.conversionRate || 0).toFixed(1)}%</Text>
                       <Text style={styles.analyticsCardSubtext}>Views to orders</Text>
                     </View>
                   </View>
@@ -379,11 +379,11 @@ export default function ProductPage() {
                     <View style={styles.revenueRow}>
                       <View style={styles.revenueItem}>
                         <Text style={styles.revenueLabel}>Total Revenue</Text>
-                        <Text style={styles.revenueValue}>₱{productAnalytics.totalRevenue.toFixed(2)}</Text>
+                        <Text style={styles.revenueValue}>₱{(productAnalytics.totalRevenue || 0).toFixed(2)}</Text>
                       </View>
                       <View style={styles.revenueItem}>
                         <Text style={styles.revenueLabel}>Avg Order Value</Text>
-                        <Text style={styles.revenueValue}>₱{productAnalytics.averageOrderValue.toFixed(2)}</Text>
+                        <Text style={styles.revenueValue}>₱{(productAnalytics.averageOrderValue || 0).toFixed(2)}</Text>
                       </View>
                     </View>
                   </View>
@@ -693,5 +693,76 @@ const styles = StyleSheet.create({
   },
   disabledButtonText: {
     color: colors.text.tertiary,
+  },
+  // Analytics styles
+  analyticsContainer: {
+    marginTop: spacing.md,
+  },
+  analyticsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  analyticsCard: {
+    backgroundColor: colors.background.primary,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    flex: 1,
+    minWidth: "45%",
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+  },
+  analyticsCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: spacing.sm,
+    gap: spacing.xs,
+  },
+  analyticsCardLabel: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+    fontWeight: typography.fontWeights.medium,
+  },
+  analyticsCardValue: {
+    fontSize: typography.fontSizes.xl,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  analyticsCardSubtext: {
+    fontSize: typography.fontSizes.xs,
+    color: colors.text.tertiary,
+  },
+  revenueSection: {
+    backgroundColor: colors.background.primary,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+  },
+  revenueSectionTitle: {
+    fontSize: typography.fontSizes.lg,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+  },
+  revenueRow: {
+    flexDirection: "row",
+    gap: spacing.lg,
+  },
+  revenueItem: {
+    flex: 1,
+  },
+  revenueLabel: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+    fontWeight: typography.fontWeights.medium,
+    marginBottom: spacing.xs,
+  },
+  revenueValue: {
+    fontSize: typography.fontSizes.xl,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.primary,
   },
 });

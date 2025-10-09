@@ -10,21 +10,30 @@ import { User } from '@clerk/clerk-expo';
  * @returns The store ID or null if not found
  */
 export const getStoreIdFromToken = (token: string | null): string | null => {
+  console.log('🔍 [getStoreIdFromToken] Starting token analysis...');
+  
   if (!token) {
+    console.log('❌ [getStoreIdFromToken] No token provided');
     return null;
   }
+  
+  console.log('🔑 [getStoreIdFromToken] Token length:', token.length);
+  console.log('🔑 [getStoreIdFromToken] Token preview:', token.substring(0, 50) + '...');
   
   try {
     // Decode JWT token to extract claims
     // JWT format: header.payload.signature
     const parts = token.split('.');
+    console.log('🧩 [getStoreIdFromToken] Token parts count:', parts.length);
     
     if (parts.length !== 3) {
+      console.log('❌ [getStoreIdFromToken] Invalid JWT format');
       return null;
     }
     
     // Decode the payload (base64url)
     const payload = parts[1];
+    console.log('📦 [getStoreIdFromToken] Payload length:', payload.length);
     
     // React Native compatible base64url decoding
     let paddedPayload = payload;
@@ -45,10 +54,14 @@ export const getStoreIdFromToken = (token: string | null): string | null => {
       decoded = JSON.parse(Buffer.from(base64Payload, 'base64').toString());
     }
     
+    console.log('🔓 [getStoreIdFromToken] Decoded token claims:', JSON.stringify(decoded, null, 2));
+    
     // Extract store ID from claims (check multiple possible field names)
     const storeId = decoded.storeId || decoded.store_id || decoded.storeID || decoded.store_ID || 
                    decoded.customClaims?.storeId || decoded.metadata?.storeId || 
                    decoded.publicMetadata?.storeId || decoded.public_metadata?.storeId || null;
+    
+    console.log('🏪 [getStoreIdFromToken] Extracted store ID:', storeId);
     
     return storeId;
   } catch (error) {

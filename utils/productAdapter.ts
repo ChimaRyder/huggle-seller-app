@@ -5,6 +5,7 @@ import {
   ProductRequestDto,
   ProductAdapter 
 } from '@/types/product';
+import { SellerBundleDto, BundleProduct } from '@/types/bundle';
 
 /**
  * Utility class for converting between backend DTOs and legacy frontend format
@@ -15,20 +16,43 @@ export class ProductAdapterImpl implements ProductAdapter {
    * Converts a SellerProductDto from the backend to the legacy FullProduct format
    * used throughout the existing frontend components
    */
-  fromSellerDto(dto: SellerProductDto): FullProduct {
-    return {
+  fromSellerDto(dto: SellerProductDto | any): FullProduct {
+    console.log('🔄 Converting SellerProductDto:', JSON.stringify(dto, null, 2));
+    
+    // Check if this is a bundle by looking for bundle-specific fields
+    const isBundle = !!(dto.products && Array.isArray(dto.products) && dto.signature);
+    console.log('🎁 Is Bundle:', isBundle);
+    
+    if (isBundle) {
+      return this.fromBundleDto(dto);
+    }
+    
+    // Handle different image field formats from backend
+    let imageArray: string[] = [];
+    
+    if (dto.image && Array.isArray(dto.image)) {
+      imageArray = dto.image;
+    } else if ((dto as any).images && Array.isArray((dto as any).images)) {
+      imageArray = (dto as any).images;
+    } else if ((dto as any).imageUrl && typeof (dto as any).imageUrl === 'string') {
+      imageArray = [(dto as any).imageUrl];
+    }
+    
+    console.log('📸 Processed image array:', imageArray);
+    
+    const result = {
       id: dto.id,
       name: dto.name,
       description: dto.description || '',
       productType: dto.productType || '',
       // Map the first image as cover image, rest as additional images
-      coverImage: dto.image.length > 0 ? dto.image[0] : '',
-      additionalImages: dto.image.slice(1),
+      coverImage: imageArray.length > 0 ? imageArray[0] : '',
+      additionalImages: imageArray.slice(1),
       discountedPrice: dto.price,
       originalPrice: dto.originalPrice,
       expirationDate: dto.expiresOn,
       stock: dto.stock,
-      category: dto.tags, // Map tags to category for legacy compatibility
+      category: dto.tags || [], // Map tags to category for legacy compatibility, default to empty array
       storeId: dto.storeId,
       isActive: dto.isActive,
       createdAt: dto.createdAt,
@@ -36,6 +60,97 @@ export class ProductAdapterImpl implements ProductAdapter {
       rating: 0, // These fields aren't available in SellerProductDto
       ratingCount: 0,
     };
+    
+    console.log('✅ Converted product result:', JSON.stringify(result, null, 2));
+    
+    return result;
+  }
+
+  /**
+   * Converts a bundle DTO to FullProduct format with bundle-specific properties
+   */
+  fromBundleDto(bundleDto: any): FullProduct & { isBundle: true; bundleProducts: BundleProduct[]; bundleInfo: any } {
+    console.log('🎁 Converting Bundle DTO:', JSON.stringify(bundleDto, null, 2));
+    
+    // Handle different image field formats for bundles
+    let imageArray: string[] = [];
+    
+    if (bundleDto.images && Array.isArray(bundleDto.images)) {
+      imageArray = bundleDto.images;
+    } else if (bundleDto.imageUrl && typeof bundleDto.imageUrl === 'string') {
+      imageArray = [bundleDto.imageUrl];
+    }
+    
+    // Add bundle cover image if available
+    if (bundleDto.imageUrl && !imageArray.includes(bundleDto.imageUrl)) {
+      imageArray.unshift(bundleDto.imageUrl);
+    }
+    
+    // Aggregate all images from bundle products
+    if (bundleDto.products && Array.isArray(bundleDto.products)) {
+      bundleDto.products.forEach((product: any) => {
+        if (product.image && Array.isArray(product.image)) {
+          product.image.forEach((img: string) => {
+            if (img && !imageArray.includes(img)) {
+              imageArray.push(img);
+            }
+          });
+        }
+      });
+    }
+    
+    // Aggregate all tags from bundle products
+    const allTags: string[] = [];
+    if (bundleDto.products && Array.isArray(bundleDto.products)) {
+      bundleDto.products.forEach((product: any) => {
+        if (product.tags && Array.isArray(product.tags)) {
+          product.tags.forEach((tag: string) => {
+            if (tag && !allTags.includes(tag)) {
+              allTags.push(tag);
+            }
+          });
+        }
+      });
+    }
+    
+    console.log('🖼️ Aggregated images:', imageArray);
+    console.log('🏷️ Aggregated tags:', allTags);
+    
+    const result = {
+      id: bundleDto.id,
+      name: bundleDto.name,
+      description: bundleDto.description || '',
+      productType: 'Bundle',
+      coverImage: imageArray.length > 0 ? imageArray[0] : '',
+      additionalImages: imageArray.slice(1),
+      discountedPrice: bundleDto.price,
+      originalPrice: bundleDto.originalPrice || bundleDto.totalProductOriginalPrice,
+      expirationDate: bundleDto.expiresOn,
+      stock: bundleDto.stock,
+      category: allTags,
+      storeId: bundleDto.storeId,
+      isActive: bundleDto.isActive,
+      createdAt: bundleDto.createdAt,
+      updatedAt: bundleDto.updatedAt,
+      rating: 0,
+      ratingCount: 0,
+      // Bundle-specific properties
+      isBundle: true as const,
+      bundleProducts: bundleDto.products || [],
+      bundleInfo: {
+        signature: bundleDto.signature,
+        totalProductPrice: bundleDto.totalProductPrice,
+        totalProductOriginalPrice: bundleDto.totalProductOriginalPrice,
+        profitMargin: bundleDto.profitMargin,
+        isDynamicPricingEnabled: bundleDto.isDynamicPricingEnabled,
+        storeName: bundleDto.storeName,
+        storeDescription: bundleDto.storeDescription,
+      }
+    };
+    
+    console.log('✅ Converted bundle result:', JSON.stringify(result, null, 2));
+    
+    return result;
   }
 
   /**
@@ -92,7 +207,25 @@ export class ProductAdapterImpl implements ProductAdapter {
    * Batch converts an array of SellerProductDto to FullProduct[]
    */
   fromSellerDtoArray(dtos: SellerProductDto[]): FullProduct[] {
-    return dtos.map(dto => this.fromSellerDto(dto));
+    console.log('🔄 Converting SellerProductDto array, count:', dtos?.length || 'undefined');
+    
+    if (!Array.isArray(dtos)) {
+      console.error('❌ Expected array but got:', typeof dtos, dtos);
+      return [];
+    }
+    
+    try {
+      const result = dtos.map((dto, index) => {
+        console.log(`🔄 Converting item ${index + 1}/${dtos.length}`);
+        return this.fromSellerDto(dto);
+      });
+      
+      console.log('✅ Successfully converted all products, final count:', result.length);
+      return result;
+    } catch (error) {
+      console.error('❌ Error in fromSellerDtoArray:', error);
+      return [];
+    }
   }
 
   /**
