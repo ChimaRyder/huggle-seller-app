@@ -66,10 +66,13 @@ export default function BottomNav() {
     try {
       const token = await getToken({template: "seller_app"});
       const response = await getUnreadCount(token ?? "", user?.id as string);
-
-      setUnread(((response as any).data).count)
+      console.log('🔔 Seller app received notification count response:', JSON.stringify(response));
+      
+      const count = ((response as any).data).count;
+      console.log('🔔 Seller app parsed count:', count);
+      setUnread(count);
     } catch (error) {
-      console.error("Error getting unread count: ", error);
+      console.error("🔔 Seller app error getting unread count: ", error);
     }
   }
 
@@ -78,6 +81,14 @@ export default function BottomNav() {
       checkUnread();
     }, [])
   )
+
+  // Poll for unread count every 10 seconds like buyer app
+  useEffect(() => {
+    if (!user) return;
+    
+    const interval = setInterval(checkUnread, 10000);
+    return () => clearInterval(interval);
+  }, [user, getToken]);
 
   useEffect(() => {
     if (!user) {

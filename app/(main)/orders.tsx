@@ -82,12 +82,16 @@ export default function OrdersScreen({ unread = 0 }: { unread?: number }) {
       // Debug: Log the structure of the first order to see what we're getting
       if (ordersData.length > 0) {
         console.log('Sample order data:', JSON.stringify(ordersData[0], null, 2));
+        console.log('All order statuses:', ordersData.map(o => o.status));
       }
 
       // Enrich orders with display data
       const enrichedOrders = ordersData.map((order: Order) => {
         // Extract product names from the items array
         const productNames = order.items.map(item => item.productName);
+        
+        const statusIndex = getStatusIndex(order.status);
+        console.log(`Order ${order.id}: status="${order.status}" -> statusIndex=${statusIndex}`);
         
         return {
           ...order,
@@ -96,7 +100,7 @@ export default function OrdersScreen({ unread = 0 }: { unread?: number }) {
           formattedDate: formatOrderDate(order.createdAt),
           orderNumber: generateOrderNumber(order.createdAt),
           // Convert string status to number for compatibility
-          statusIndex: getStatusIndex(order.status)
+          statusIndex: statusIndex
         };
       });
 
@@ -184,6 +188,7 @@ export default function OrdersScreen({ unread = 0 }: { unread?: number }) {
   const filteredOrders = orders.filter((order) => (order.statusIndex ?? getStatusIndex(order.status)) === selectedTab);
 
   const handleOrderPress = (order: EnrichedOrder) => {
+    console.log('Order pressed:', order.id, 'Status:', order.status, 'StatusIndex:', order.statusIndex);
     router.push({
       pathname: "/(main)/orders/orderDetails" as any,
       params: { id: order.id },
@@ -225,6 +230,21 @@ export default function OrdersScreen({ unread = 0 }: { unread?: number }) {
             ? `${order.productNames[0]} + ${order.productNames.length - 1} more`
             : order.productNames?.[0] || "Unknown Product"}
         </Text>
+        
+        {/* Show item type for bundles */}
+        {order.items[0]?.itemType === 'bundle' && order.items.length === 1 && (
+          <Text style={styles.bundleTypeText}>
+            Bundle
+          </Text>
+        )}
+        
+        {/* Show bundle description if available and single item */}
+        {order.items[0]?.productDescription && order.items.length === 1 && (
+          <Text style={styles.productDescription} numberOfLines={1}>
+            {order.items[0].productDescription}
+          </Text>
+        )}
+        
         <Text style={styles.quantityText}>
           {order.items.length > 1
             ? `${order.items.length} items`
@@ -515,6 +535,23 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     fontWeight: typography.fontWeights.medium,
     marginBottom: spacing.xs,
+  },
+  bundleTypeText: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.primary,
+    fontWeight: typography.fontWeights.semibold,
+    marginBottom: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+    backgroundColor: colors.primary + '20',
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+  },
+  productDescription: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+    fontStyle: 'italic',
   },
   quantityText: {
     fontSize: typography.fontSizes.sm,

@@ -3,8 +3,11 @@ import { apiClient, handleApiResponse, handleApiError } from '../api';
 interface OrderItem {
     id: string,
     productId: string,
+    bundleId?: string,
     productName: string,
     productImage: string,
+    productDescription?: string,
+    itemType?: string,
     quantity: number,
     unitPrice: number,
     totalPrice: number,

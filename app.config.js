@@ -23,8 +23,8 @@ export default {
       adaptiveIcon: {
         foregroundImage: "./assets/images/adaptive-icon.png",
         backgroundColor: "#ffffff",
-        softwareKeyboardLayoutMode: "pan",
       },
+      softwareKeyboardLayoutMode: "pan",
       package: "com.huggle.sellerapp",
       config: {
         googleMaps: {

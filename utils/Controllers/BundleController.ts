@@ -4,7 +4,9 @@ import {
   BundleRequestDto,
   BundleUpdateRequestDto,
   SellerBundleDto,
-  ExternalBundleResponse
+  ExternalBundleResponse,
+  ExternalMultipleBundlesResponse,
+  BundleGenerationRequest
 } from '@/types/bundle';
 
 /**
@@ -180,7 +182,7 @@ const updateBundle = async (bundleId: string, bundle: BundleUpdateRequestDto, to
  * @param token - Authentication token
  * @returns Promise with the deletion response
  */
-const deleteBundle = async (bundleId: string, token: string) => {
+const deleteBundle = async (bundleId: string | number, token: string) => {
   try {
     const response = await apiClient.delete<any>(`/api/products/bundles/${bundleId}`, token);
     
@@ -200,6 +202,36 @@ const deleteBundle = async (bundleId: string, token: string) => {
     }
     throw error;
   }
+};
+
+/**
+ * Deletes multiple bundles by their IDs
+ * @param bundleIds - Array of bundle IDs to delete
+ * @param token - Authentication token
+ * @returns Promise with the deletion results
+ */
+const deleteMultipleBundles = async (bundleIds: (string | number)[], token: string) => {
+  const results = {
+    deleted: [],
+    failed: [],
+    totalAttempted: bundleIds.length,
+  };
+  
+  console.log(`🗑️ [deleteMultipleBundles] Attempting to delete ${bundleIds.length} bundles:`, bundleIds);
+  
+  for (const bundleId of bundleIds) {
+    try {
+      await deleteBundle(bundleId, token);
+      results.deleted.push(bundleId);
+      console.log(`✅ [deleteMultipleBundles] Successfully deleted bundle ${bundleId}`);
+    } catch (error) {
+      results.failed.push({ bundleId, error });
+      console.error(`❌ [deleteMultipleBundles] Failed to delete bundle ${bundleId}:`, error);
+    }
+  }
+  
+  console.log(`📊 [deleteMultipleBundles] Results: ${results.deleted.length} deleted, ${results.failed.length} failed`);
+  return results;
 };
 
 /**
@@ -256,6 +288,80 @@ const generateBundleFromExternal = async (storeId: string, token: string) => {
 };
 
 /**
+ * Generates multiple bundles from an external AI service with selection capability
+ * @param storeId - The store ID for context
+ * @param token - Authentication token
+ * @param numBundles - Number of bundles to generate (default: 3)
+ * @returns Promise with the generated bundles data
+ */
+const generateMultipleBundlesFromExternal = async (storeId: string, token: string, numBundles: number = 3) => {
+  try {
+    const bundleGenerationUrl = process.env.EXPO_PUBLIC_BUNDLE_GENERATION_URL;
+    
+    console.log('🌐 [generateMultipleBundlesFromExternal] Bundle generation URL:', bundleGenerationUrl);
+    
+    if (!bundleGenerationUrl) {
+      throw new Error('Bundle generation service URL not configured');
+    }
+    
+    // Prepare request payload for external service
+    const requestPayload: BundleGenerationRequest = {
+      store_id: storeId,
+      num_bundles: numBundles,
+    };
+    
+    console.log('📤 [generateMultipleBundlesFromExternal] Request payload:', requestPayload);
+    
+    // Make API call to external bundle generation service
+    const response = await fetch(bundleGenerationUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(requestPayload),
+    });
+    
+    console.log('📥 [generateMultipleBundlesFromExternal] Response status:', response.status);
+    console.log('📥 [generateMultipleBundlesFromExternal] Response ok:', response.ok);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ [generateMultipleBundlesFromExternal] Error response:', errorText);
+      throw new Error(`External bundle generation failed: ${response.statusText} - ${errorText}`);
+    }
+    
+    const responseText = await response.text();
+    console.log('📄 [generateMultipleBundlesFromExternal] Raw response text:', responseText);
+    
+    let externalBundlesData;
+    try {
+      externalBundlesData = JSON.parse(responseText);
+      console.log('📦 [generateMultipleBundlesFromExternal] Parsed response:', externalBundlesData);
+    } catch (parseError) {
+      console.error('❌ [generateMultipleBundlesFromExternal] JSON parse error:', parseError);
+      throw new Error('Invalid JSON response from bundle generation service');
+    }
+    
+    return {
+      data: externalBundlesData,
+      status: response.status
+    };
+  } catch (error) {
+    console.error('❌ [generateMultipleBundlesFromExternal] Full error:', error);
+    if (error instanceof Error) {
+      throw {
+        response: {
+          status: 500,
+          data: { message: error.message }
+        }
+      };
+    }
+    throw error;
+  }
+};
+
+/**
  * Converts external bundle response to bundle request format
  * @param externalBundle - External bundle response
  * @param storeId - Store ID
@@ -265,16 +371,23 @@ const convertExternalBundleToRequest = (
   externalBundle: ExternalBundleResponse, 
   storeId: string
 ): BundleRequestDto => {
+  // Since the AI bundles don't include product prices, we'll use estimated pricing
+  // This is a reasonable default - the seller can adjust the prices in the form
+  const estimatedPricePerProduct = 100; // ₱100 per product as default
+  const totalProductCount = externalBundle.products.length;
+  const estimatedOriginalPrice = totalProductCount * estimatedPricePerProduct;
+  const estimatedBundlePrice = estimatedOriginalPrice * 0.85; // 15% bundle discount
+  
   return {
     storeId: storeId,
     name: externalBundle.name,
     description: externalBundle.description || '',
     productIds: externalBundle.products.map(p => p.id),
-    images: externalBundle.image_url ? [externalBundle.image_url] : [],
+    images: externalBundle.images || [],
     stock: externalBundle.stock,
     imageUrl: externalBundle.image_url,
-    price: externalBundle.products.reduce((sum, p) => sum + p.price, 0) * 0.85, // 15% bundle discount
-    originalPrice: externalBundle.products.reduce((sum, p) => sum + p.price, 0),
+    price: estimatedBundlePrice,
+    originalPrice: estimatedOriginalPrice,
     expiresOn: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
     isActive: true,
     isDynamicPricingEnabled: false,
@@ -288,6 +401,8 @@ export {
   getBundleById,
   updateBundle,
   deleteBundle,
+  deleteMultipleBundles,
   generateBundleFromExternal,
+  generateMultipleBundlesFromExternal,
   convertExternalBundleToRequest
 };

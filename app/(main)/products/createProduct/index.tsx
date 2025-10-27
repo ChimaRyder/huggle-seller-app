@@ -39,12 +39,12 @@ import {
 } from 'lucide-react-native';
 import { colors, spacing, typography, radii } from '@/constants/theme';
 import { createProduct, getAllProducts } from '@/utils/Controllers/ProductController';
-import { createBundle, generateBundleFromExternal, convertExternalBundleToRequest } from '@/utils/Controllers/BundleController';
+import { createBundle, updateBundle, generateBundleFromExternal, generateMultipleBundlesFromExternal, convertExternalBundleToRequest, deleteMultipleBundles } from '@/utils/Controllers/BundleController';
 import { validateSellerAccess } from '@/utils/sellerUtils';
 import { showToast } from '@/components/Toast';
 import * as ImagePicker from 'expo-image-picker';
 import { useImageUpload } from '@/hooks/useImageUpload';
-import { BundleCreationMode, SelectableProduct, BundleFormData, BundleRequestDto } from '@/types/bundle';
+import { BundleCreationMode, SelectableProduct, BundleFormData, BundleRequestDto, ExternalBundleResponse } from '@/types/bundle';
 
 const { width } = Dimensions.get('window');
 const IMAGE_SIZE = (width - spacing.lg * 3) / 2;
@@ -90,13 +90,18 @@ const CreateProduct = () => {
   const [selectedProducts, setSelectedProducts] = useState<SelectableProduct[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [isGeneratingBundle, setIsGeneratingBundle] = useState(false);
+  
+  // AI Generated bundles state
+  const [generatedBundles, setGeneratedBundles] = useState<ExternalBundleResponse[]>([]);
+  const [selectedBundleIndex, setSelectedBundleIndex] = useState<number | null>(null);
+  const [showBundleSelection, setShowBundleSelection] = useState(false);
 
   // Image upload hook
   const { uploadState, uploadImageUri } = useImageUpload();
 
   // Load seller's products for bundle creation
   useEffect(() => {
-    if (creationMode === 'bundle' && bundleCreationMode === 'from-products') {
+    if (creationMode === 'bundle') {
       loadSellerProducts();
     }
   }, [creationMode, bundleCreationMode]);
@@ -108,17 +113,32 @@ const CreateProduct = () => {
       if (!token) return;
 
       const response = await getAllProducts('', token);
-      const products: SelectableProduct[] = response.data.map((product: any) => ({
-        id: product.id,
-        name: product.name,
-        price: product.discountedPrice || product.price,
-        originalPrice: product.originalPrice,
-        stock: product.stock,
-        coverImage: product.coverImage,
-        isSelected: false,
-        productType: product.productType,
-        expiresOn: product.expiresOn ? new Date(product.expiresOn) : undefined,
-      }));
+      console.log('📦 [loadSellerProducts] Raw products response:', response.data);
+      
+      const products: SelectableProduct[] = response.data.map((product: any, index: number) => {
+        console.log(`📦 [loadSellerProducts] Processing product ${index}:`, {
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          discountedPrice: product.discountedPrice,
+          originalPrice: product.originalPrice,
+          stock: product.stock,
+        });
+        
+        return {
+          id: product.id,
+          name: product.name,
+          price: product.discountedPrice || product.price || 0,
+          originalPrice: product.originalPrice || product.price || 0,
+          stock: product.stock || 0,
+          coverImage: product.coverImage || '',
+          isSelected: false,
+          productType: product.productType || 'Unknown',
+          expiresOn: product.expiresOn ? new Date(product.expiresOn) : undefined,
+        };
+      });
+      
+      console.log('📦 [loadSellerProducts] Processed products:', products.length);
       
       setAvailableProducts(products);
     } catch (error) {
@@ -149,7 +169,7 @@ const CreateProduct = () => {
     });
   };
 
-  const generateExternalBundle = async () => {
+  const generateExternalBundles = async () => {
     try {
       setIsGeneratingBundle(true);
       const token = await getToken({ template: "seller_app" });
@@ -160,10 +180,109 @@ const CreateProduct = () => {
         throw new Error('Seller access validation failed');
       }
 
-      const response = await generateBundleFromExternal(validation.storeId, token);
-      const bundleRequest = convertExternalBundleToRequest(response.data, validation.storeId);
+      console.log('🚀 [generateExternalBundles] Calling API with store ID:', validation.storeId);
+      const response = await generateMultipleBundlesFromExternal(validation.storeId, token, 3);
+      
+      console.log('📦 [generateExternalBundles] Full API response:', response);
+      console.log('📦 [generateExternalBundles] Response data:', response.data);
+      
+      // The API returns bundles directly as an array
+      if (response.data && Array.isArray(response.data)) {
+        console.log('✅ [generateExternalBundles] Found bundles array:', response.data.length);
+        setGeneratedBundles(response.data);
+        setShowBundleSelection(true);
+        setSelectedBundleIndex(null);
+        showToast('success', 'Bundles Generated', `${response.data.length} bundle options have been generated. Choose your favorite!`);
+      } else {
+        console.error('❌ [generateExternalBundles] Unexpected response structure:', response.data);
+        throw new Error('Invalid response format from bundle generation service');
+      }
+    } catch (error: any) {
+      console.error('❌ [generateExternalBundles] Error generating bundles:', error);
+      showToast('error', 'Generation Failed', error?.response?.data?.message || error?.message || 'Failed to generate bundles from external service');
+    } finally {
+      setIsGeneratingBundle(false);
+    }
+  };
 
-      // Pre-fill form with generated data
+  const selectBundle = async (index: number) => {
+    try {
+      const selectedBundle = generatedBundles[index];
+      const token = await getToken({ template: "seller_app" });
+      const validation = validateSellerAccess(token, user);
+      
+      if (!validation.isValid || !validation.storeId) {
+        throw new Error('Seller access validation failed');
+      }
+
+      console.log(`🎯 [selectBundle] Selected bundle ${index}: ${selectedBundle.name} (ID: ${selectedBundle.id})`);
+
+      // Delete unselected bundles from the database
+      const unselectedBundleIds = generatedBundles
+        .filter((_, i) => i !== index)
+        .map(bundle => bundle.id);
+
+      if (unselectedBundleIds.length > 0) {
+        console.log('🗑️ [selectBundle] Cleaning up unselected bundles:', unselectedBundleIds);
+        try {
+          const deleteResults = await deleteMultipleBundles(unselectedBundleIds, token);
+          console.log('🧹 [selectBundle] Cleanup results:', deleteResults);
+          
+          if (deleteResults.failed.length > 0) {
+            console.warn('⚠️ [selectBundle] Some bundles failed to delete:', deleteResults.failed);
+          }
+        } catch (error) {
+          console.error('❌ [selectBundle] Failed to cleanup unselected bundles:', error);
+          // Don't fail the selection process if cleanup fails
+        }
+      }
+
+      const bundleRequest = convertExternalBundleToRequest(selectedBundle, validation.storeId);
+
+      // Load product details for the bundle products
+      const bundleProductIds = selectedBundle.products.map(p => p.id);
+      const bundleProducts: SelectableProduct[] = [];
+      
+      // Find matching products from available products
+      for (const productId of bundleProductIds) {
+        const matchingProduct = availableProducts.find(p => p.id === productId);
+        if (matchingProduct) {
+          bundleProducts.push({
+            ...matchingProduct,
+            isSelected: true
+          });
+        } else {
+          // If product not in availableProducts, we need to fetch it
+          // For now, create a basic product object from the AI bundle data
+          const aiProduct = selectedBundle.products.find(p => p.id === productId);
+          if (aiProduct) {
+            bundleProducts.push({
+              id: aiProduct.id,
+              name: aiProduct.name,
+              price: 100, // Default price since AI bundles don't include pricing
+              originalPrice: 100,
+              stock: aiProduct.stock,
+              coverImage: '',
+              isSelected: true,
+              productType: aiProduct.product_type || 'Unknown',
+              expiresOn: aiProduct.expires_on ? new Date(aiProduct.expires_on) : undefined,
+            });
+          }
+        }
+      }
+
+      // Update available products to mark selected ones
+      setAvailableProducts(prev => 
+        prev.map(product => ({
+          ...product,
+          isSelected: bundleProductIds.includes(product.id)
+        }))
+      );
+
+      // Set selected products
+      setSelectedProducts(bundleProducts);
+
+      // Pre-fill form with selected bundle data
       setName(bundleRequest.name);
       setDescription(bundleRequest.description || '');
       setOriginalPrice(bundleRequest.originalPrice.toString());
@@ -173,24 +292,53 @@ const CreateProduct = () => {
         setCoverImage(bundleRequest.imageUrl);
       }
 
-      showToast('success', 'Bundle Generated', 'Bundle has been generated successfully. Review and submit.');
-    } catch (error: any) {
-      console.error('Error generating bundle:', error);
-      showToast('error', 'Generation Failed', error?.response?.data?.message || 'Failed to generate bundle from external service');
-    } finally {
-      setIsGeneratingBundle(false);
+      setSelectedBundleIndex(index);
+      setShowBundleSelection(false);
+      
+      const cleanupMessage = unselectedBundleIds.length > 0 
+        ? ` ${unselectedBundleIds.length} unused bundles have been cleaned up.`
+        : '';
+      
+      showToast('success', 'Bundle Selected', `Bundle has been loaded into the form.${cleanupMessage} Review and submit when ready.`);
+    } catch (error) {
+      console.error('❌ [selectBundle] Error selecting bundle:', error);
+      showToast('error', 'Selection Failed', 'Failed to select bundle. Please try again.');
     }
   };
 
   const navigateBack = () => {
     const hasChanges = name.trim() || description.trim() || coverImage || additionalImages.length > 0 || selectedProducts.length > 0;
-    if (hasChanges) {
+    const hasUnselectedBundles = generatedBundles.length > 0 && selectedBundleIndex === null;
+    
+    if (hasChanges || hasUnselectedBundles) {
+      let message = 'Are you sure you want to discard your changes?';
+      if (hasUnselectedBundles) {
+        message = 'You have unselected AI bundles that will be deleted. Are you sure you want to go back?';
+      }
+      
       Alert.alert(
         'Discard Changes',
-        'Are you sure you want to discard your changes?',
+        message,
         [
           { text: 'Keep Editing', style: 'cancel' },
-          { text: 'Discard', style: 'destructive', onPress: () => router.back() },
+          { 
+            text: 'Discard', 
+            style: 'destructive', 
+            onPress: async () => {
+              // Clean up unselected bundles before navigating away
+              if (hasUnselectedBundles) {
+                try {
+                  const token = await getToken({ template: "seller_app" });
+                  const bundleIds = generatedBundles.map(bundle => bundle.id);
+                  console.log('🗑️ [navigateBack] Cleaning up unselected bundles:', bundleIds);
+                  await deleteMultipleBundles(bundleIds, token);
+                } catch (error) {
+                  console.error('❌ [navigateBack] Failed to cleanup bundles:', error);
+                }
+              }
+              router.back();
+            }
+          },
         ]
       );
     } else {
@@ -384,27 +532,48 @@ const CreateProduct = () => {
         await createProduct(productData, token);
         showToast('success', 'Product Created!', 'Your product has been created successfully.');
       } else {
-        // Create bundle
-        const bundleData: BundleRequestDto = {
-          storeId: validation.storeId,
-          name: name.trim(),
-          description: description.trim() || '',
-          productIds: bundleCreationMode === 'from-products' 
-            ? selectedProducts.map(p => p.id) 
-            : [], // For external generation, product IDs might be different
-          images: additionalImages,
-          stock: parseInt(stock),
-          imageUrl: coverImage,
-          price: parseFloat(discountedPrice),
-          originalPrice: parseFloat(originalPrice),
-          expiresOn: duration,
-          isActive: true,
-          isDynamicPricingEnabled: isDynamicPricingEnabled,
-          dynamicPricingStartDays: isDynamicPricingEnabled ? parseInt(dynamicPricingStartDays) : 14,
-        };
+        // Handle bundle creation/update
+        if (bundleCreationMode === 'external-generation' && selectedBundleIndex !== null && generatedBundles[selectedBundleIndex]) {
+          // Update existing AI-generated bundle instead of creating a new one
+          const selectedBundle = generatedBundles[selectedBundleIndex];
+          const updateData = {
+            name: name.trim(),
+            description: description.trim() || '',
+            productIds: selectedProducts.map(p => p.id),
+            images: additionalImages,
+            stock: parseInt(stock),
+            imageUrl: coverImage,
+            price: parseFloat(discountedPrice),
+            originalPrice: parseFloat(originalPrice),
+            expiresOn: duration,
+            isActive: true,
+            isDynamicPricingEnabled: isDynamicPricingEnabled,
+            dynamicPricingStartDays: isDynamicPricingEnabled ? parseInt(dynamicPricingStartDays) : 14,
+          };
 
-        await createBundle(bundleData, token);
-        showToast('success', 'Bundle Created!', 'Your bundle has been created successfully.');
+          await updateBundle(selectedBundle.id.toString(), updateData, token);
+          showToast('success', 'Bundle Updated!', 'Your AI-generated bundle has been updated successfully.');
+        } else {
+          // Create new bundle (for from-products mode or when no AI bundle selected)
+          const bundleData: BundleRequestDto = {
+            storeId: validation.storeId,
+            name: name.trim(),
+            description: description.trim() || '',
+            productIds: selectedProducts.map(p => p.id),
+            images: additionalImages,
+            stock: parseInt(stock),
+            imageUrl: coverImage,
+            price: parseFloat(discountedPrice),
+            originalPrice: parseFloat(originalPrice),
+            expiresOn: duration,
+            isActive: true,
+            isDynamicPricingEnabled: isDynamicPricingEnabled,
+            dynamicPricingStartDays: isDynamicPricingEnabled ? parseInt(dynamicPricingStartDays) : 14,
+          };
+
+          await createBundle(bundleData, token);
+          showToast('success', 'Bundle Created!', 'Your bundle has been created successfully.');
+        }
       }
 
       router.back();
@@ -443,12 +612,19 @@ const CreateProduct = () => {
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>
-            Create {creationMode === 'product' ? 'Product' : 'Bundle'}
+            {creationMode === 'product' 
+              ? 'Create Product'
+              : (bundleCreationMode === 'external-generation' && selectedBundleIndex !== null)
+                ? 'Update Bundle'
+                : 'Create Bundle'
+            }
           </Text>
           <Text style={styles.headerSubtitle}>
             {creationMode === 'product' 
               ? 'Add a new product to your store' 
-              : 'Create a bundle from your products'
+              : (bundleCreationMode === 'external-generation' && selectedBundleIndex !== null)
+                ? 'Review and update your AI-generated bundle'
+                : 'Create a bundle from your products'
             }
           </Text>
         </View>
@@ -470,7 +646,24 @@ const CreateProduct = () => {
         <View style={styles.modeToggle}>
           <TouchableOpacity
             style={[styles.modeButton, creationMode === 'product' && styles.modeButtonActive]}
-            onPress={() => setCreationMode('product')}
+            onPress={async () => {
+              // Clean up any unselected bundles when switching to product mode
+              if (creationMode !== 'product' && generatedBundles.length > 0 && selectedBundleIndex === null) {
+                try {
+                  const token = await getToken({ template: "seller_app" });
+                  const bundleIds = generatedBundles.map(bundle => bundle.id);
+                  console.log('🗑️ [modeSwitch] Cleaning up unselected bundles:', bundleIds);
+                  await deleteMultipleBundles(bundleIds, token);
+                } catch (error) {
+                  console.error('❌ [modeSwitch] Failed to cleanup bundles:', error);
+                }
+              }
+              
+              setCreationMode('product');
+              setGeneratedBundles([]);
+              setSelectedBundleIndex(null);
+              setShowBundleSelection(false);
+            }}
           >
             <Package size={18} color={creationMode === 'product' ? colors.text.inverse : colors.text.secondary} />
             <Text style={[styles.modeButtonText, creationMode === 'product' && styles.modeButtonTextActive]}>
@@ -479,7 +672,24 @@ const CreateProduct = () => {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.modeButton, creationMode === 'bundle' && styles.modeButtonActive]}
-            onPress={() => setCreationMode('bundle')}
+            onPress={async () => {
+              // Clean up any unselected bundles when switching modes
+              if (creationMode !== 'bundle' && generatedBundles.length > 0 && selectedBundleIndex === null) {
+                try {
+                  const token = await getToken({ template: "seller_app" });
+                  const bundleIds = generatedBundles.map(bundle => bundle.id);
+                  console.log('🗑️ [modeSwitch] Cleaning up unselected bundles:', bundleIds);
+                  await deleteMultipleBundles(bundleIds, token);
+                } catch (error) {
+                  console.error('❌ [modeSwitch] Failed to cleanup bundles:', error);
+                }
+              }
+              
+              setCreationMode('bundle');
+              setGeneratedBundles([]);
+              setSelectedBundleIndex(null);
+              setShowBundleSelection(false);
+            }}
           >
             <Package2 size={18} color={creationMode === 'bundle' ? colors.text.inverse : colors.text.secondary} />
             <Text style={[styles.modeButtonText, creationMode === 'bundle' && styles.modeButtonTextActive]}>
@@ -542,10 +752,10 @@ const CreateProduct = () => {
             </View>
 
             {/* AI Generation Button */}
-            {bundleCreationMode === 'external-generation' && (
+            {bundleCreationMode === 'external-generation' && !showBundleSelection && (
               <TouchableOpacity
                 style={[styles.generateBundleButton, isGeneratingBundle && styles.generateBundleButtonDisabled]}
-                onPress={generateExternalBundle}
+                onPress={generateExternalBundles}
                 disabled={isGeneratingBundle}
               >
                 {isGeneratingBundle ? (
@@ -556,16 +766,119 @@ const CreateProduct = () => {
                 ) : (
                   <>
                     <Sparkles size={20} color={colors.text.inverse} />
-                    <Text style={styles.generateBundleButtonText}>Generate Bundle</Text>
+                    <Text style={styles.generateBundleButtonText}>Generate 3 Bundle Options</Text>
                   </>
                 )}
               </TouchableOpacity>
+            )}
+
+            {/* Bundle Selection UI */}
+            {bundleCreationMode === 'external-generation' && showBundleSelection && generatedBundles && generatedBundles.length > 0 && (
+              <View style={styles.bundleSelectionContainer}>
+                <View style={styles.bundleSelectionHeader}>
+                  <Sparkles size={20} color={colors.primary} />
+                  <Text style={styles.bundleSelectionTitle}>Choose Your Bundle</Text>
+                </View>
+                <Text style={styles.bundleSelectionDescription}>
+                  Select the bundle option you like most. You can review and edit the details afterwards.
+                </Text>
+                
+                <FlatList
+                  data={generatedBundles}
+                  keyExtractor={(item, index) => `bundle-${index}`}
+                  renderItem={({ item, index }) => (
+                    <TouchableOpacity
+                      style={[
+                        styles.bundleOption,
+                        selectedBundleIndex === index && styles.bundleOptionSelected
+                      ]}
+                      onPress={() => selectBundle(index)}
+                    >
+                      <View style={styles.bundleOptionHeader}>
+                        <View style={styles.bundleOptionInfo}>
+                          <Text style={styles.bundleOptionName}>{item.name}</Text>
+                          <Text style={styles.bundleOptionDescription} numberOfLines={2}>
+                            {item.description || 'No description available'}
+                          </Text>
+                        </View>
+                        {item.image_url && (
+                          <Image source={{ uri: item.image_url }} style={styles.bundleOptionImage} />
+                        )}
+                      </View>
+                      
+                      <View style={styles.bundleOptionDetails}>
+                        <View style={styles.bundleOptionStat}>
+                          <Package size={16} color={colors.text.secondary} />
+                          <Text style={styles.bundleOptionStatText}>
+                            {item.products.length} products
+                          </Text>
+                        </View>
+                        <View style={styles.bundleOptionStat}>
+                          <DollarSign size={16} color={colors.primary} />
+                          <Text style={styles.bundleOptionStatText}>
+                            ₱{(item.products.length * 100 * 0.85).toFixed(2)}
+                          </Text>
+                        </View>
+                        <View style={styles.bundleOptionStat}>
+                          <BarChart3 size={16} color={colors.text.secondary} />
+                          <Text style={styles.bundleOptionStatText}>
+                            Stock: {item.stock}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.bundleOptionProducts}>
+                        <Text style={styles.bundleOptionProductsTitle}>Products included:</Text>
+                        {item.products.map((product, productIndex) => (
+                          <Text key={productIndex} style={styles.bundleOptionProductItem}>
+                            • {product.name}{product.product_type ? ` (${product.product_type})` : ''}
+                          </Text>
+                        ))}
+                      </View>
+
+                      <View style={styles.bundleOptionFooter}>
+                        <Text style={styles.bundleOptionSelectText}>
+                          {selectedBundleIndex === index ? 'Selected' : 'Tap to select'}
+                        </Text>
+                        {selectedBundleIndex === index && (
+                          <Check size={20} color={colors.primary} />
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                  scrollEnabled={false}
+                />
+
+                <TouchableOpacity
+                  style={styles.regenerateBundlesButton}
+                  onPress={async () => {
+                    // Clean up all currently generated bundles before generating new ones
+                    if (generatedBundles.length > 0) {
+                      try {
+                        const token = await getToken({ template: "seller_app" });
+                        const bundleIds = generatedBundles.map(bundle => bundle.id);
+                        console.log('🗑️ [regenerate] Cleaning up all current bundles:', bundleIds);
+                        await deleteMultipleBundles(bundleIds, token);
+                      } catch (error) {
+                        console.error('❌ [regenerate] Failed to cleanup bundles:', error);
+                      }
+                    }
+                    
+                    setShowBundleSelection(false);
+                    setGeneratedBundles([]);
+                    setSelectedBundleIndex(null);
+                  }}
+                >
+                  <Sparkles size={16} color={colors.text.secondary} />
+                  <Text style={styles.regenerateBundlesButtonText}>Generate New Options</Text>
+                </TouchableOpacity>
+              </View>
             )}
           </View>
         )}
 
         {/* Product Selection for Bundle */}
-        {creationMode === 'bundle' && bundleCreationMode === 'from-products' && (
+        {creationMode === 'bundle' && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Package size={20} color={colors.primary} />
@@ -580,6 +893,9 @@ const CreateProduct = () => {
             )}
             <Text style={styles.sectionDescription}>
               Choose at least 2 products to create a bundle
+              {bundleCreationMode === 'external-generation' && selectedBundleIndex !== null && 
+                ' (AI bundle products are pre-selected, but you can modify the selection)'
+              }
             </Text>
 
             {isLoadingProducts ? (
@@ -599,8 +915,8 @@ const CreateProduct = () => {
                     <Image source={{ uri: item.coverImage }} style={styles.productSelectionImage} />
                     <View style={styles.productSelectionDetails}>
                       <Text style={styles.productSelectionName}>{item.name}</Text>
-                      <Text style={styles.productSelectionPrice}>₱{item.price.toFixed(2)}</Text>
-                      <Text style={styles.productSelectionStock}>Stock: {item.stock}</Text>
+                      <Text style={styles.productSelectionPrice}>₱{(item.price || 0).toFixed(2)}</Text>
+                      <Text style={styles.productSelectionStock}>Stock: {item.stock || 0}</Text>
                     </View>
                     <View style={[styles.productSelectionCheck, item.isSelected && styles.productSelectionCheckActive]}>
                       {item.isSelected && <Check size={16} color={colors.text.inverse} />}
@@ -1652,6 +1968,135 @@ const styles = StyleSheet.create({
   productSelectionCheckActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
+  },
+
+  // Bundle Selection Styles
+  bundleSelectionContainer: {
+    backgroundColor: colors.background.secondary,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    marginTop: spacing.md,
+  },
+  bundleSelectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  bundleSelectionTitle: {
+    fontSize: typography.fontSizes.lg,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.primary,
+  },
+  bundleSelectionDescription: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+    marginBottom: spacing.lg,
+    lineHeight: 18,
+  },
+  bundleOption: {
+    backgroundColor: colors.background.primary,
+    borderRadius: radii.lg,
+    borderWidth: 2,
+    borderColor: colors.border.primary,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  bundleOptionSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.background.successSubtle,
+  },
+  bundleOptionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.md,
+  },
+  bundleOptionInfo: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
+  bundleOptionName: {
+    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  bundleOptionDescription: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+    lineHeight: 18,
+  },
+  bundleOptionImage: {
+    width: 60,
+    height: 60,
+    borderRadius: radii.md,
+    backgroundColor: colors.background.tertiary,
+  },
+  bundleOptionDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    backgroundColor: colors.background.secondary,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  bundleOptionStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  bundleOptionStatText: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+    fontWeight: typography.fontWeights.medium,
+  },
+  bundleOptionProducts: {
+    backgroundColor: colors.background.tertiary,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  bundleOptionProductsTitle: {
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  bundleOptionProductItem: {
+    fontSize: typography.fontSizes.xs,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+    lineHeight: 16,
+  },
+  bundleOptionFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  bundleOptionSelectText: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+    fontWeight: typography.fontWeights.medium,
+  },
+  regenerateBundlesButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background.primary,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+    borderRadius: radii.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  regenerateBundlesButtonText: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+    fontWeight: typography.fontWeights.medium,
   },
 });
 

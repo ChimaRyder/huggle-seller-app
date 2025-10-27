@@ -23,6 +23,8 @@ const mapNotificationTypeToNumber = (type: string): number => {
       return 1; // Order notification
     case 'OrderPickedUp':
       return 1; // Order notification
+    case 'OrderCancelled':
+      return 1; // Order notification - cancelled orders should also navigate to order details
     case 'NewReport':
       return 2; // Review/Report notification
     case 'NewVerificationRequest':
@@ -68,9 +70,13 @@ const getNotifications = async (token: string, id: string) => {
 const getUnreadCount = async (token: string, id: string) => {
   try {
     const response = await getSellerUnreadNotificationCount(token);
+    console.log('🔔 Seller NotificationController received raw response:', JSON.stringify(response));
+    
+    const count = response.data?.UnreadCount || response.data?.unreadCount || response.UnreadCount || response.unreadCount || 0;
+    console.log('🔔 Seller NotificationController extracted count:', count);
     
     return {
-      data: { count: response.data.UnreadCount || 0 },
+      data: { count: count },
       status: 200
     };
   } catch (error) {

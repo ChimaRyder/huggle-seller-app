@@ -37,17 +37,25 @@ const getStatusIndex = (status: string): number => {
 
 interface ProductItemProps {
   product: FullProduct;
-  quantity: number,
+  quantity: number;
+  itemType?: string;
 }
 
-const ProductItem: React.FC<ProductItemProps> = ({ product, quantity }) => (
+const ProductItem: React.FC<ProductItemProps> = ({ product, quantity, itemType }) => (
   <View style={productItemStyles.container}>
     <View style={productItemStyles.productCard}>
       <Image source={{ uri: product.coverImage }} style={productItemStyles.productImage} />
       <View style={productItemStyles.productInfo}>
-        <Text style={productItemStyles.productName} numberOfLines={2}>
-          {product.name}
-        </Text>
+        <View style={productItemStyles.productHeader}>
+          <Text style={productItemStyles.productName} numberOfLines={2}>
+            {product.name}
+          </Text>
+          {itemType === 'bundle' && (
+            <Text style={productItemStyles.bundleTypeLabel}>
+              Bundle
+            </Text>
+          )}
+        </View>
         <Text style={productItemStyles.productDescription} numberOfLines={2}>
           {product.description || 'No description available'}
         </Text>
@@ -86,10 +94,27 @@ const productItemStyles = StyleSheet.create({
     justifyContent: 'space-between',
     position: 'relative',
   },
+  productHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
   productName: {
     fontSize: typography.fontSizes.lg,
     fontWeight: '600',
     color: colors.text.primary,
+    flex: 1,
+  },
+  bundleTypeLabel: {
+    fontSize: typography.fontSizes.xs,
+    color: colors.primary,
+    fontWeight: typography.fontWeights.semibold,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+    backgroundColor: colors.primary + '20',
+    borderRadius: 4,
+    marginLeft: spacing.sm,
   },
   productDescription: {
     fontSize: typography.fontSizes.sm,
@@ -200,9 +225,9 @@ export default function OrderDetailsScreen() {
       
       // Convert order items to FullProduct format for display
       const products = order.items.map((item) => ({
-        id: item.productId,
+        id: item.productId || item.bundleId,
         name: item.productName,
-        description: '', // Not provided in order item
+        description: item.productDescription || 'No description available',
         discountedPrice: item.unitPrice,
         coverImage: item.productImage || 'https://via.placeholder.com/150x150?text=No+Image'
       } as FullProduct));
@@ -215,9 +240,9 @@ export default function OrderDetailsScreen() {
       // Set fallback products from items if available
       if (order.items && order.items.length > 0) {
         const fallbackProducts = order.items.map((item) => ({
-          id: item.productId,
+          id: item.productId || item.bundleId,
           name: item.productName || 'Unknown Product',
-          description: 'Product details unavailable',
+          description: item.productDescription || 'Product details unavailable',
           discountedPrice: item.unitPrice || 0,
           coverImage: item.productImage || 'https://via.placeholder.com/150x150?text=No+Image'
         } as FullProduct));
@@ -563,14 +588,17 @@ export default function OrderDetailsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Items Ordered</Text>
           {products.map((product, index) => {
-            // Get quantity from the corresponding order item
-            const quantity = order.items[index]?.quantity || 1;
+            // Get quantity and item type from the corresponding order item
+            const orderItem = order.items[index];
+            const quantity = orderItem?.quantity || 1;
+            const itemType = orderItem?.itemType || 'product';
             
             return (
               <ProductItem
                 key={product.id}
                 product={product}
                 quantity={quantity}
+                itemType={itemType}
               />
             );
           })}

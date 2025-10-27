@@ -135,6 +135,34 @@ const NotificationScreen = () => {
         prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n))
       );
     }
+
+    // Handle navigation based on notification type
+    try {
+      switch (notif.type) {
+        case 1: // Order notification (NewOrder, OrderPickedUp)
+          if (notif.relatedEntityId) {
+            router.push({
+              pathname: '/(main)/orders/orderDetails' as any,
+              params: { id: notif.relatedEntityId },
+            });
+          } else {
+            router.push('/(main)/orders');
+          }
+          break;
+        case 2: // Review/Report notification
+          router.push('/(main)/analytics');
+          break;
+        case 5: // Verification notification
+          router.push('/(main)/profile/storeVerification');
+          break;
+        default:
+          // For other types, stay in notifications screen
+          console.log('Notification tapped, no specific navigation defined for type:', notif.type);
+          break;
+      }
+    } catch (error) {
+      console.error('Navigation error from notification card:', error);
+    }
   };
 
   const onRefresh = () => {

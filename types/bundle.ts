@@ -69,23 +69,35 @@ export interface BundleUpdateRequestDto {
   dynamicPricingStartDays?: number;
 }
 
-// External server response format
+// External server response format (matches BundleOut from API)
 export interface ExternalBundleResponse {
-  id: string;
+  id: number;
   name: string;
   description?: string;
   products: ExternalProductIn[];
+  images: string[];
   image_url?: string;
   stock: number;
   created_at: string;
 }
 
+// The API returns bundles directly as an array, not wrapped
+export type ExternalMultipleBundlesResponse = ExternalBundleResponse[];
+
+// Bundle generation request for AI service
+export interface BundleGenerationRequest {
+  store_id: string;
+  num_bundles: number;
+}
+
 export interface ExternalProductIn {
   id: string;
   name: string;
-  price: number;
-  description?: string;
-  category?: string;
+  product_type?: string;
+  expires_on?: string;
+  stock: number;
+  tags: string[];
+  // Note: The API doesn't include price in ProductIn, we'll need to handle this
 }
 
 // Bundle creation form data

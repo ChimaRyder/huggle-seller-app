@@ -79,14 +79,24 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     try {
       switch (type) {
         case 'NewOrder':
-          // Navigate to orders screen
-          router.push('/(main)/orders');
+          // Navigate to specific order details if ID provided, otherwise orders list
+          if (relatedEntityId) {
+            router.push({
+              pathname: '/(main)/orders/orderDetails' as any,
+              params: { id: relatedEntityId },
+            });
+          } else {
+            router.push('/(main)/orders');
+          }
           break;
           
         case 'OrderPickedUp':
-          // Navigate to specific order if ID provided, otherwise orders list
+          // Navigate to specific order details if ID provided, otherwise orders list
           if (relatedEntityId) {
-            router.push(`/(main)/orders?id=${relatedEntityId}`);
+            router.push({
+              pathname: '/(main)/orders/orderDetails' as any,
+              params: { id: relatedEntityId },
+            });
           } else {
             router.push('/(main)/orders');
           }

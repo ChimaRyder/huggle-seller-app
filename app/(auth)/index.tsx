@@ -12,7 +12,8 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import { registerForPushNotificationsAsync } from "@/utils/Notifications";
-import { addToken } from "@/utils/data/TokenController";
+import { addSellerPushToken } from "@/utils/api/pushToken";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -23,19 +24,30 @@ export default function AuthScreen() {
   const { getToken } = useAuth();
 
   const registerAndFetchToken = async () => {
-    const pToken = await registerForPushNotificationsAsync().catch((err) => {
-      console.log("Push notification registration error:", err);
-    });
-    const token = await getToken({ template: "seller_app" });
-    if (user && pToken) {
-      await addToken(
-        token ?? "",
-        {
-          userId: user.id,
-          pushToken: pToken,
-          isActive: true,
+    try {
+      console.log('📱 AuthScreen: Starting seller push token registration...');
+      const pToken = await registerForPushNotificationsAsync();
+      
+      if (user && pToken) {
+        console.log('📱 AuthScreen: Got push token, registering with backend...');
+        const token = await getToken({ template: "seller_app" });
+        const response = await addSellerPushToken(token ?? "", { token: pToken });
+        
+        if (response.success) {
+          console.log('✅ AuthScreen: Seller push token registered successfully');
+          // Store the token ID for later deactivation
+          if (response.data && response.data.data && response.data.data.id) {
+            await AsyncStorage.setItem('sellerPushTokenId', response.data.data.id);
+            console.log('💾 AuthScreen: Stored seller push token ID for future use');
+          }
+        } else {
+          console.error('❌ AuthScreen: Failed to register seller push token:', response.error);
         }
-      );
+      } else {
+        console.log('⚠️ AuthScreen: No push token or user available');
+      }
+    } catch (error) {
+      console.error('❌ AuthScreen: Error in seller push token registration:', error);
     }
   }
 
@@ -57,7 +69,7 @@ export default function AuthScreen() {
 
           setStatus("Redirecting...");
           if (exists === 200) {
-            // await registerAndFetchToken();
+            await registerAndFetchToken();
             setTimeout(() => {
               router.dismissTo("/(main)");
             }, 500); // Small delay for smoother transition
