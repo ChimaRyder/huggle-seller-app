@@ -31,6 +31,7 @@ export default {
           apiKey: process.env.GOOGLE_MAPS_API_KEY,
         },
       },
+      googleServicesFile: "./android/app/google-services.json",
     },
     web: {
       bundler: "metro",
@@ -38,6 +39,7 @@ export default {
       favicon: "./assets/images/favicon.png",
     },
     plugins: [
+      "expo-notifications",
       "expo-router",
       [
         "expo-splash-screen",
