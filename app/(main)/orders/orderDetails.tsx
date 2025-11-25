@@ -5,7 +5,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { Order, getOrderbyID, updateOrder, cancelOrder } from '@/utils/Controllers/OrderController';
-import { Buyer, getBuyer } from '@/utils/data/BuyerController';
+import { Buyer, getBuyer } from '@/utils/Controllers/BuyerController';
 import { getProductbyID } from '@/utils/Controllers/ProductController';
 import { FullProduct } from '@/types/product';
 import { showToast } from "@/components/Toast";
@@ -187,17 +187,11 @@ export default function OrderDetailsScreen() {
 
   const getUser = async (token: string) => {
     try {
-      // If the order already has buyerName, use it as a fallback
-      if (order.buyerName) {
-        setBuyer({ 
-          name: order.buyerName,
-          emailAddress: 'No email provided',
-        } as Buyer);
-      }
       
       // Try to get full buyer details from API
       try {
         const buyerResponse = await getBuyer(token, order.buyerId);
+        console.log(`testBuyer: ${buyerResponse}`);
         setBuyer((buyerResponse as any).data);
       } catch (buyerError) {
         console.warn("Could not fetch buyer details from API, using fallback:", buyerError);
@@ -604,6 +598,16 @@ export default function OrderDetailsScreen() {
           })}
         </View>
 
+        {/* Notes Section */}
+        {order.notes && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Order Notes</Text>
+            <View style={styles.notesCard}>
+              <Text style={styles.notesText}>{order.notes}</Text>
+            </View>
+          </View>
+        )}
+
         <View style={{ height: 120 }} />
       </ScrollView>
 
@@ -976,4 +980,14 @@ const styles = StyleSheet.create({
     color: colors.text.inverse,
     fontWeight: '600',
   },
-}); 
+  notesCard: {
+    backgroundColor: colors.background.primary,
+    borderRadius: 12,
+    padding: spacing.lg,
+  },
+  notesText: {
+    fontSize: typography.fontSizes.md,
+    color: colors.text.secondary,
+    lineHeight: typography.lineHeights.relaxed * typography.fontSizes.md,
+  },
+});

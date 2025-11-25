@@ -23,6 +23,7 @@ interface Order {
     items: OrderItem[],
     totalAmount: number,
     status: string,
+    notes?: string,
     createdAt: string | Date,
     updatedAt: string | Date,
     // Legacy fields for backwards compatibility

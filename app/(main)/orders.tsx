@@ -252,13 +252,15 @@ export default function OrdersScreen({ unread = 0 }: { unread?: number }) {
         </Text>
       </View>
 
-      <View style={styles.statusSection}>
-        <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(order.status)}20` }]}>
-          <Text style={[styles.statusText, { color: getStatusColor(order.status) }]}>
-            {order.status}
-          </Text>
+      {(order.status !== "Completed" && order.status !== "Canceled") &&
+        <View style={styles.statusSection}>
+          <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(order.status)}20` }]}>
+            <Text style={[styles.statusText, { color: getStatusColor(order.status) }]}>
+              {order.status}
+            </Text>
+          </View>
         </View>
-      </View>
+      }
     </TouchableOpacity>
   );
 
