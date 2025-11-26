@@ -18,6 +18,8 @@ interface Order {
     id: string,
     buyerId: string,
     buyerName?: string,
+    buyerEmail?: string,
+    buyerProfileImage?: string,
     storeId: string,
     storeName?: string,
     items: OrderItem[],

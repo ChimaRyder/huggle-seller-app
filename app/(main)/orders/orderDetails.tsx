@@ -5,7 +5,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { Order, getOrderbyID, updateOrder, cancelOrder } from '@/utils/Controllers/OrderController';
-import { Buyer, getBuyer } from '@/utils/Controllers/BuyerController';
 import { getProductbyID } from '@/utils/Controllers/ProductController';
 import { FullProduct } from '@/types/product';
 import { showToast } from "@/components/Toast";
@@ -145,7 +144,6 @@ export default function OrderDetailsScreen() {
   const router = useRouter();
 
   const [order, setOrder] = useState<Order>({} as Order);
-  const [buyer, setBuyer] = useState<Buyer>({} as Buyer);
   const [products, setProducts] = useState<FullProduct[]>([]);
 
   const [loading, setLoading] = useState(true);
@@ -185,27 +183,6 @@ export default function OrderDetailsScreen() {
     }  
   }
 
-  const getUser = async (token: string) => {
-    try {
-      
-      // Try to get full buyer details from API
-      try {
-        const buyerResponse = await getBuyer(token, order.buyerId);
-        console.log(`testBuyer: ${buyerResponse}`);
-        setBuyer((buyerResponse as any).data);
-      } catch (buyerError) {
-        console.warn("Could not fetch buyer details from API, using fallback:", buyerError);
-        // Keep the fallback buyer data we set above
-      }
-    } catch (error) {
-      console.error("Error getting buyer: ", error);
-      // Set minimal buyer info as fallback
-      setBuyer({ 
-        name: order.buyerName || 'Unknown Customer',
-        emailAddress: 'No email provided',
-      } as Buyer);
-    }
-  }
 
   const getProducts = async (token: string) => {
     try {
@@ -470,10 +447,7 @@ export default function OrderDetailsScreen() {
       try {
         setLoading(true);
         const token = await getToken({template: "seller_app"});
-        await Promise.all([
-          getUser(token as string),
-          getProducts(token as string)
-        ]);
+        await getProducts(token as string);
       } catch (error) {
         console.error("Error loading order data:", error);
       } finally {
@@ -564,15 +538,19 @@ export default function OrderDetailsScreen() {
           <View style={styles.buyerCard}>
             <View style={styles.buyerHeader}>
               <View style={styles.buyerAvatarContainer}>
-                <View style={styles.buyerAvatar}>
-                  <Text style={styles.buyerAvatarText}>
-                    {buyer.name?.charAt(0)?.toUpperCase() || 'U'}
-                  </Text>
-                </View>
+                {order.buyerProfileImage ? (
+                  <Image source={{ uri: order.buyerProfileImage }} style={styles.buyerAvatar} />
+                ) : (
+                  <View style={styles.buyerAvatar}>
+                    <Text style={styles.buyerAvatarText}>
+                      {order.buyerName?.charAt(0)?.toUpperCase() || 'U'}
+                    </Text>
+                  </View>
+                )}
               </View>
               <View style={styles.buyerInfo}>
-                <Text style={styles.buyerName}>{buyer.name || 'Unknown Buyer'}</Text>
-                <Text style={styles.buyerEmail}>{buyer.emailAddress || 'No email provided'}</Text>
+                <Text style={styles.buyerName}>{order.buyerName || 'Unknown Buyer'}</Text>
+                <Text style={styles.buyerEmail}>{order.buyerEmail || 'No email provided'}</Text>
               </View>
             </View>
           </View>
