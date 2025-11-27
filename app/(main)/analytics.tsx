@@ -5,7 +5,7 @@ import { useRouter , useFocusEffect } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { getStoreAnalyticsSummary, getStoreTopProducts, calculateConversionFunnel, StoreAnalyticsSummary, TopProductsResponse, ConversionFunnelResponse } from '@/utils/Controllers/AnalyticsController';
 import { getAllOrders, Order } from '@/utils/Controllers/OrderController';
-import { Bell, DollarSign, TrendingUp, TrendingDown, Eye, ShoppingCart, ShoppingBag, Target, Users, Zap, Clock, Calendar, ArrowLeft } from 'lucide-react-native';
+import { Bell, PhilippinePeso, TrendingUp, TrendingDown, Eye, ShoppingCart, ShoppingBag, Target, Users, Zap, Clock, Calendar, ArrowLeft } from 'lucide-react-native';
 import { colors, spacing, typography, radii } from '@/constants/theme';
 
 const TIME_PERIODS = ['1 Month', '3 Months', '6 Months', '1 Year'];
@@ -27,7 +27,7 @@ export default function AnalyticsScreen({ unread = 0 }: { unread?: number }) {
 
   // Helper functions
   const formatCurrency = (amount: number): string => {
-    return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const calculateConversionRate = (purchases: number, views: number): number => {
@@ -295,7 +295,7 @@ export default function AnalyticsScreen({ unread = 0 }: { unread?: number }) {
           <Text style={styles.sectionTitle}>Revenue Overview</Text>
           <View style={styles.revenueCard}>
             <View style={styles.revenueHeader}>
-              <DollarSign size={28} color={colors.success} />
+              <PhilippinePeso size={28} color={colors.success} />
               <View style={styles.revenueHeaderText}>
                 <Text style={styles.revenueTitle}>Total Revenue</Text>
                 <Text style={styles.revenueAmount}>{formatCurrency(totalRevenue)}</Text>
