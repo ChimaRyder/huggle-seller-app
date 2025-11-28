@@ -89,7 +89,7 @@ const RootLayout = () => {
                   options={{ headerShown: true, title: "Not Found" }}
                 />
               </Stack>
-              <StatusBar style="auto" />
+              <StatusBar translucent backgroundColor="transparent" style="light" />
             </ChatProvider>
           </NotificationProvider>
         </ClerkProvider>
