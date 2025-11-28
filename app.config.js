@@ -8,7 +8,7 @@ export default {
     slug: "huggle-seller-app",
     version: "1.0.0",
     orientation: "portrait",
-    icon: "./assets/images/icon.png",
+    icon: "./assets/images/logo.png",
     scheme: "myapp",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
@@ -21,7 +21,7 @@ export default {
     },
     android: {
       adaptiveIcon: {
-        foregroundImage: "./assets/images/adaptive-icon.png",
+        foregroundImage: "./assets/images/logo.png",
         backgroundColor: "#ffffff",
       },
       softwareKeyboardLayoutMode: "pan",
@@ -36,13 +36,13 @@ export default {
     web: {
       bundler: "metro",
       output: "static",
-      favicon: "./assets/images/favicon.png",
+      favicon: "./assets/images/logo.png",
     },
     plugins: [
       [
         "expo-notifications",
         {
-          icon: "./assets/images/icon.png",
+          icon: "./assets/images/logo.png",
           color: "#ffffff",
           sounds: [],
         },
@@ -51,8 +51,8 @@ export default {
       [
         "expo-splash-screen",
         {
-          image: "./assets/images/splash-icon.png",
-          imageWidth: 200,
+          image: "./assets/images/logo.png",
+          imageWidth: 1024,
           resizeMode: "contain",
           backgroundColor: "#ffffff",
         },
