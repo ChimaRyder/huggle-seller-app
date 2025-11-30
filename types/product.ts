@@ -95,6 +95,9 @@ export interface FullProduct extends Product {
   updatedAt: string;
   rating: number;
   ratingCount: number;
+  // Additional dynamic pricing fields from SellerProductDto
+  lastPriceUpdate?: string;
+  discountPercentage?: number;
 }
 
 // Helper type for converting between legacy and new formats

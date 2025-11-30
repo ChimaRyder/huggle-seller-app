@@ -177,6 +177,7 @@ const updateProduct = async (product: FullProduct, token: string) => {
     
     // Convert legacy format to ProductRequestDto
     const productRequest = productAdapter.toProductRequest(product, product.storeId);
+    console.log(productRequest);
     
     // Make API call to update product
     const response = await apiClient.put<any, ProductRequestDto>(

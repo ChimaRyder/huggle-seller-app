@@ -59,6 +59,12 @@ export class ProductAdapterImpl implements ProductAdapter {
       updatedAt: dto.updatedAt,
       rating: 0, // These fields aren't available in SellerProductDto
       ratingCount: 0,
+      // Dynamic pricing fields from SellerProductDto
+      isDynamicPricingEnabled: dto.isDynamicPricingEnabled,
+      dynamicPricingStartDays: dto.dynamicPricingStartDays,
+      productCost: dto.productCost,
+      lastPriceUpdate: dto.lastPriceUpdate,
+      discountPercentage: dto.discountPercentage,
     };
     
     console.log('✅ Converted product result:', JSON.stringify(result, null, 2));

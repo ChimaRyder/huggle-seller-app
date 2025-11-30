@@ -175,6 +175,9 @@ const EditProduct = () => {
           setCategory(data.category || []);
           setMetadata(data);
           setIsActive(data.isActive);
+          setIsDynamicPricingEnabled(data.isDynamicPricingEnabled || false);
+          setProductCost(data.productCost ? data.productCost.toString() : '');
+          setDynamicPricingStartDays(data.dynamicPricingStartDays?.toString() || '14');
           console.log('✅ Successfully loaded as product');
         }
       } catch (productError) {
@@ -383,6 +386,19 @@ const EditProduct = () => {
       newErrors.stock = 'Valid stock quantity is required';
     }
 
+    // Dynamic pricing validation for products
+    if (!isBundle && isDynamicPricingEnabled) {
+      if (!productCost || parseFloat(productCost) <= 0) {
+        newErrors.productCost = 'Valid product cost is required for dynamic pricing';
+      } else if (parseFloat(productCost) >= parseFloat(discountedPrice)) {
+        newErrors.productCost = 'Product cost must be less than the current price';
+      }
+      
+      if (!dynamicPricingStartDays || parseInt(dynamicPricingStartDays) <= 0) {
+        newErrors.dynamicPricingStartDays = 'Valid start days is required';
+      }
+    }
+
     // Bundle-specific validation
     if (isBundle) {
       if (selectedProducts.length < 2) {
@@ -455,6 +471,9 @@ const EditProduct = () => {
           updatedAt: new Date().toISOString(),
           rating: product.rating || 0,
           ratingCount: product.ratingCount || 0,
+          isDynamicPricingEnabled: isDynamicPricingEnabled,
+          productCost: isDynamicPricingEnabled ? parseFloat(productCost) : parseFloat(originalPrice) * 0.7,
+          dynamicPricingStartDays: isDynamicPricingEnabled ? parseInt(dynamicPricingStartDays) : 14,
         };
 
         await updateProduct(productData, token ?? "");
@@ -774,6 +793,131 @@ const EditProduct = () => {
                 Discount: {(((parseFloat(originalPrice) - parseFloat(discountedPrice)) / parseFloat(originalPrice)) * 100).toFixed(1)}%
               </Text>
             </View>
+          )}
+
+          {/* Dynamic Pricing Toggle - Only for products */}
+          {!isBundle && (
+            <>
+              <TouchableOpacity 
+                style={styles.dynamicPricingToggle}
+                onPress={() => {
+                  setIsDynamicPricingEnabled(!isDynamicPricingEnabled);
+                  if (!isDynamicPricingEnabled) {
+                    setIsDynamicPricingExpanded(true);
+                  }
+                }}
+              >
+                <View style={styles.toggleLeft}>
+                  <Zap size={20} color={isDynamicPricingEnabled ? colors.primary : colors.text.secondary} />
+                  <Text style={[styles.toggleText, isDynamicPricingEnabled && { color: colors.primary }]}>
+                    Enable Dynamic Pricing
+                  </Text>
+                </View>
+                <View style={[styles.toggleSwitch, isDynamicPricingEnabled && styles.toggleSwitchActive]}>
+                  <View style={[styles.toggleIndicator, isDynamicPricingEnabled && styles.toggleIndicatorActive]} />
+                </View>
+              </TouchableOpacity>
+
+              {isDynamicPricingEnabled && (
+                <View style={styles.dynamicPricingInfo}>
+                  <View style={styles.infoBox}>
+                    <Info size={16} color={colors.info} />
+                    <Text style={styles.infoText}>
+                      Dynamic pricing automatically reduces the price daily as the product approaches its expiration date, reaching the product cost on the final day.
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Expandable Dynamic Pricing Section */}
+              {isDynamicPricingEnabled && (
+                <TouchableOpacity 
+                  style={styles.expandToggle}
+                  onPress={() => setIsDynamicPricingExpanded(!isDynamicPricingExpanded)}
+                >
+                  <Text style={styles.expandToggleText}>Dynamic Pricing Settings</Text>
+                  {isDynamicPricingExpanded ? (
+                    <ChevronUp size={20} color={colors.primary} />
+                  ) : (
+                    <ChevronDown size={20} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              )}
+
+              {isDynamicPricingEnabled && isDynamicPricingExpanded && (
+                <View style={styles.dynamicPricingSection}>
+                  <Text style={styles.label}>Product Cost (₱)</Text>
+                  <Text style={styles.fieldDescription}>
+                    The minimum price the product will reach on its final day before expiration
+                  </Text>
+                  {errors.productCost && (
+                    <View style={styles.errorContainer}>
+                      <AlertCircle size={16} color={colors.error} />
+                      <Text style={styles.errorText}>{errors.productCost}</Text>
+                    </View>
+                  )}
+                  <TextInput
+                    style={[
+                      styles.textInput,
+                      errors.productCost && { borderColor: colors.error }
+                    ]}
+                    placeholder="0.00"
+                    placeholderTextColor={colors.text.tertiary}
+                    value={productCost}
+                    onChangeText={setProductCost}
+                    keyboardType="numeric"
+                  />
+
+                  <Text style={styles.label}>Start Dynamic Pricing (Days Before Expiration)</Text>
+                  <Text style={styles.fieldDescription}>
+                    Number of days before expiration when dynamic pricing begins
+                  </Text>
+                  {errors.dynamicPricingStartDays && (
+                    <View style={styles.errorContainer}>
+                      <AlertCircle size={16} color={colors.error} />
+                      <Text style={styles.errorText}>{errors.dynamicPricingStartDays}</Text>
+                    </View>
+                  )}
+                  <TextInput
+                    style={[
+                      styles.textInput,
+                      errors.dynamicPricingStartDays && { borderColor: colors.error }
+                    ]}
+                    placeholder="14"
+                    placeholderTextColor={colors.text.tertiary}
+                    value={dynamicPricingStartDays}
+                    onChangeText={setDynamicPricingStartDays}
+                    keyboardType="numeric"
+                  />
+
+                  {/* Dynamic Pricing Preview */}
+                  {discountedPrice && productCost && dynamicPricingStartDays && 
+                   parseFloat(discountedPrice) > parseFloat(productCost) && 
+                   parseInt(dynamicPricingStartDays) > 0 && (
+                    <View style={styles.pricingPreview}>
+                      <View style={styles.previewHeader}>
+                        <TrendingDown size={16} color={colors.info} />
+                        <Text style={styles.previewTitle}>Pricing Preview</Text>
+                      </View>
+                      <View style={styles.previewRow}>
+                        <Text style={styles.previewLabel}>Current Price:</Text>
+                        <Text style={styles.previewValue}>₱{parseFloat(discountedPrice).toFixed(2)}</Text>
+                      </View>
+                      <View style={styles.previewRow}>
+                        <Text style={styles.previewLabel}>Final Price (Day {dynamicPricingStartDays}):</Text>
+                        <Text style={styles.previewValue}>₱{parseFloat(productCost).toFixed(2)}</Text>
+                      </View>
+                      <View style={styles.previewRow}>
+                        <Text style={styles.previewLabel}>Daily Reduction:</Text>
+                        <Text style={styles.previewValue}>
+                          ₱{((parseFloat(discountedPrice) - parseFloat(productCost)) / parseInt(dynamicPricingStartDays)).toFixed(2)}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              )}
+            </>
           )}
         </View>
 
@@ -1102,6 +1246,137 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: typography.fontWeights.medium,
     marginBottom: spacing.xs,
+  },
+  fieldDescription: {
+    fontSize: typography.fontSizes.xs,
+    color: colors.text.tertiary,
+    marginBottom: spacing.sm,
+    lineHeight: 16,
+  },
+
+  // Dynamic Pricing Toggle
+  dynamicPricingToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.background.secondary,
+    borderRadius: radii.lg,
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  toggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  toggleText: {
+    fontSize: typography.fontSizes.md,
+    color: colors.text.secondary,
+    fontWeight: typography.fontWeights.medium,
+    marginLeft: spacing.sm,
+  },
+  toggleSwitch: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.border.primary,
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  toggleSwitchActive: {
+    backgroundColor: colors.primary,
+  },
+  toggleIndicator: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.background.primary,
+    alignSelf: 'flex-start',
+  },
+  toggleIndicatorActive: {
+    alignSelf: 'flex-end',
+  },
+
+  // Dynamic Pricing Info
+  dynamicPricingInfo: {
+    marginBottom: spacing.md,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.background.infoSubtle,
+    padding: spacing.md,
+    borderRadius: radii.md,
+    gap: spacing.sm,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: typography.fontSizes.sm,
+    color: colors.info,
+    lineHeight: 18,
+  },
+
+  // Expandable Section
+  expandToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.background.secondary,
+    borderRadius: radii.md,
+    marginBottom: spacing.md,
+  },
+  expandToggleText: {
+    fontSize: typography.fontSizes.md,
+    color: colors.primary,
+    fontWeight: typography.fontWeights.medium,
+  },
+
+  // Dynamic Pricing Section
+  dynamicPricingSection: {
+    backgroundColor: colors.background.secondary,
+    padding: spacing.lg,
+    borderRadius: radii.lg,
+    marginBottom: spacing.md,
+  },
+
+  // Pricing Preview
+  pricingPreview: {
+    backgroundColor: colors.background.primary,
+    padding: spacing.md,
+    borderRadius: radii.md,
+    marginTop: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  previewTitle: {
+    fontSize: typography.fontSizes.md,
+    color: colors.info,
+    fontWeight: typography.fontWeights.semibold,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  previewLabel: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+  },
+  previewValue: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.primary,
+    fontWeight: typography.fontWeights.semibold,
   },
 
   // Categories/Tags
