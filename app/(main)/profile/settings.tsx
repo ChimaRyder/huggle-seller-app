@@ -11,12 +11,23 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Bell, MapPin, Moon, Shield, FileText, Info, ChevronRight } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/constants/theme';
+import ContentModal from '@/components/ContentModal';
+
+// Import markdown content
+import privacyPolicyContent from '../../../about/privacy-policy';
+import termsOfServiceContent from '../../../about/terms-of-service';
+import aboutHuggleContent from '../../../about/about-huggle';
 
 const SettingsScreen = () => {
   const router = useRouter();
   const [notificationsEnabled, setNotificationsEnabled] = React.useState(true);
   const [locationEnabled, setLocationEnabled] = React.useState(true);
   const [darkModeEnabled, setDarkModeEnabled] = React.useState(false);
+  
+  // Modal state
+  const [modalVisible, setModalVisible] = React.useState(false);
+  const [modalTitle, setModalTitle] = React.useState('');
+  const [modalContent, setModalContent] = React.useState('');
 
   const handleBackPress = () => {
     router.back();
@@ -26,19 +37,26 @@ const SettingsScreen = () => {
     router.push('/(main)/profile/storeVerification/');
   };
 
+  const openModal = (title: string, content: string) => {
+    setModalTitle(title);
+    setModalContent(content);
+    setModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+  };
+
   const handlePrivacyPolicy = () => {
-    // Navigate to privacy policy screen
-    console.log('Navigate to privacy policy');
+    openModal('Privacy Policy', privacyPolicyContent);
   };
 
   const handleTermsOfService = () => {
-    // Navigate to terms and conditions screen
-    console.log('Navigate to terms and conditions');
+    openModal('Terms of Service', termsOfServiceContent);
   };
 
   const handleAboutUs = () => {
-    // Navigate to about us screen
-    console.log('Navigate to about us');
+    openModal('About Huggle', aboutHuggleContent);
   };
 
   const accountItems = [
@@ -209,6 +227,14 @@ const SettingsScreen = () => {
           <Text style={styles.versionText}>Huggle Seller App v1.0.0</Text>
         </View>
       </ScrollView>
+
+      {/* Content Modal */}
+      <ContentModal
+        visible={modalVisible}
+        title={modalTitle}
+        content={modalContent}
+        onClose={closeModal}
+      />
     </SafeAreaView>
   );
 };
