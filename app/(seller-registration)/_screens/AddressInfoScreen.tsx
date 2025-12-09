@@ -108,9 +108,10 @@ const AddressInfoScreen = () => {
     latitudeDelta: 0.0922,
     longitudeDelta: 0.0421,
   });
-  const [locationStatus, setLocationStatus] = useState<'loading' | 'found' | 'manual' | 'error'>('loading');
+  const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'found' | 'manual' | 'error'>('idle');
   const [isLocationLoading, setIsLocationLoading] = useState(false);
   const [showProvinceModal, setShowProvinceModal] = useState(false);
+  const [mapError, setMapError] = useState(false);
   const mapRef = useRef<MapView>(null);
 
   // Request location permission on component mount
@@ -125,26 +126,43 @@ const AddressInfoScreen = () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === "granted") {
-        const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
+        // Add a timeout for location request (10 seconds)
+        const locationPromise = Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced, // Use balanced for faster response
         });
-        const newLocation = {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          latitudeDelta: 0.0922,
-          longitudeDelta: 0.0421,
-        };
-        setCurrentLocation(newLocation);
-        setLocationStatus('found');
-        // Animate map to new location if map is ready
-        if (mapRef.current) {
-          mapRef.current.animateToRegion(newLocation, 1000);
+        
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Location timeout')), 10000)
+        );
+        
+        try {
+          const location = await Promise.race([locationPromise, timeoutPromise]) as Location.LocationObject;
+          const newLocation = {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
+          };
+          setCurrentLocation(newLocation);
+          setLocationStatus('found');
+          // Animate map to new location if map is ready
+          if (mapRef.current) {
+            mapRef.current.animateToRegion(newLocation, 1000);
+          }
+        } catch (timeoutError) {
+          console.warn('Location request timed out, using default location');
+          setLocationStatus('manual');
+          Alert.alert(
+            'Location Timeout',
+            'Could not get your current location. You can manually set your location on the map.',
+            [{ text: 'OK' }]
+          );
         }
       } else {
         setLocationStatus('error');
         Alert.alert(
           'Location Permission Required',
-          'Please enable location access to automatically set your business location.',
+          'Please enable location access to automatically set your business location, or manually pin your location on the map.',
           [{ text: 'OK' }]
         );
       }
@@ -208,16 +226,28 @@ const AddressInfoScreen = () => {
               <Navigation size={20} color={colors.primary} />
               <Text style={styles.sectionTitle}>Set Location</Text>
               <View style={styles.locationStatusContainer}>
+                {locationStatus === 'loading' && (
+                  <View style={[styles.locationStatus, styles.locationStatusLoading]}>
+                    <View style={styles.statusSpinner} />
+                    <Text style={[styles.locationStatusText, { color: colors.primary }]}>Finding...</Text>
+                  </View>
+                )}
                 {locationStatus === 'found' && (
                   <View style={styles.locationStatus}>
                     <CheckCircle size={16} color={colors.success} />
                     <Text style={styles.locationStatusText}>Location Found</Text>
                   </View>
                 )}
+                {locationStatus === 'manual' && (
+                  <View style={[styles.locationStatus, styles.locationStatusManual]}>
+                    <MapPin size={16} color={colors.info} />
+                    <Text style={[styles.locationStatusText, { color: colors.info }]}>Manual</Text>
+                  </View>
+                )}
                 {locationStatus === 'error' && (
                   <View style={[styles.locationStatus, styles.locationStatusError]}>
                     <AlertCircle size={16} color={colors.error} />
-                    <Text style={[styles.locationStatusText, { color: colors.error }]}>Manual Setup</Text>
+                    <Text style={[styles.locationStatusText, { color: colors.error }]}>Error</Text>
                   </View>
                 )}
               </View>
@@ -249,46 +279,96 @@ const AddressInfoScreen = () => {
 
             {/* Map Container */}
             <View style={styles.mapContainer}>
-              <MapView
-                ref={mapRef}
-                provider={PROVIDER_GOOGLE}
-                style={styles.map}
-                initialRegion={currentLocation}
-                onPress={(e) => {
-                  const { latitude, longitude } = e.nativeEvent.coordinate;
-                  setFieldValue("latitude", latitude);
-                  setFieldValue("longitude", longitude);
-                  setLocationStatus('manual');
-                }}
-                showsUserLocation={true}
-                showsMyLocationButton={false}
-                showsCompass={true}
-                toolbarEnabled={false}
-              >
-                <Marker
-                  coordinate={{
-                    latitude: values.latitude || currentLocation.latitude,
-                    longitude: values.longitude || currentLocation.longitude,
-                  }}
-                  draggable
-                  onDragStart={() => setLocationStatus('manual')}
-                  onDragEnd={(e) => {
-                    const { latitude, longitude } = e.nativeEvent.coordinate;
-                    setFieldValue("latitude", latitude);
-                    setFieldValue("longitude", longitude);
-                  }}
-                  title="Your Business Location"
-                  description="Tap map or drag marker to adjust"
-                />
-              </MapView>
+              {mapError ? (
+                <View style={styles.mapErrorContainer}>
+                  <AlertCircle size={48} color={colors.error} />
+                  <Text style={styles.mapErrorTitle}>Map unavailable</Text>
+                  <Text style={styles.mapErrorText}>
+                    Unable to load the map. You can still enter your coordinates manually below.
+                  </Text>
+                  <View style={styles.coordinateInputs}>
+                    <View style={styles.coordinateInput}>
+                      <Text style={styles.coordinateLabel}>Latitude</Text>
+                      <TextInput
+                        style={styles.coordinateTextInput}
+                        value={String(values.latitude || '')}
+                        onChangeText={(text) => {
+                          const num = parseFloat(text);
+                          if (!isNaN(num)) setFieldValue("latitude", num);
+                        }}
+                        keyboardType="numeric"
+                        placeholder="e.g., 14.5995"
+                        placeholderTextColor={colors.text.tertiary}
+                      />
+                    </View>
+                    <View style={styles.coordinateInput}>
+                      <Text style={styles.coordinateLabel}>Longitude</Text>
+                      <TextInput
+                        style={styles.coordinateTextInput}
+                        value={String(values.longitude || '')}
+                        onChangeText={(text) => {
+                          const num = parseFloat(text);
+                          if (!isNaN(num)) setFieldValue("longitude", num);
+                        }}
+                        keyboardType="numeric"
+                        placeholder="e.g., 120.9842"
+                        placeholderTextColor={colors.text.tertiary}
+                      />
+                    </View>
+                  </View>
+                </View>
+              ) : (
+                <>
+                  <MapView
+                    ref={mapRef}
+                    provider={PROVIDER_GOOGLE}
+                    style={styles.map}
+                    initialRegion={currentLocation}
+                    onPress={(e) => {
+                      const { latitude, longitude } = e.nativeEvent.coordinate;
+                      setFieldValue("latitude", latitude);
+                      setFieldValue("longitude", longitude);
+                      setLocationStatus('manual');
+                    }}
+                    showsUserLocation={true}
+                    showsMyLocationButton={false}
+                    showsCompass={true}
+                    toolbarEnabled={false}
+                    onMapReady={() => {
+                      console.log('Map is ready');
+                      setMapError(false);
+                    }}
+                    onError={(error) => {
+                      console.error('Map error:', error);
+                      setMapError(true);
+                    }}
+                  >
+                    <Marker
+                      coordinate={{
+                        latitude: values.latitude || currentLocation.latitude,
+                        longitude: values.longitude || currentLocation.longitude,
+                      }}
+                      draggable
+                      onDragStart={() => setLocationStatus('manual')}
+                      onDragEnd={(e) => {
+                        const { latitude, longitude } = e.nativeEvent.coordinate;
+                        setFieldValue("latitude", latitude);
+                        setFieldValue("longitude", longitude);
+                      }}
+                      title="Your Business Location"
+                      description="Tap map or drag marker to adjust"
+                    />
+                  </MapView>
 
-              {/* Map Instructions */}
-              <View style={styles.mapInstructionsContainer}>
-                <Text style={styles.mapInstructions}>
-                  {locationStatus === 'loading' ? 'Finding your location...' :
-                   'Tap anywhere on the map to set your business location'}
-                </Text>
-              </View>
+                  {/* Map Instructions */}
+                  <View style={styles.mapInstructionsContainer}>
+                    <Text style={styles.mapInstructions}>
+                      {locationStatus === 'loading' ? 'Finding your location...' :
+                       'Tap anywhere on the map to set your business location'}
+                    </Text>
+                  </View>
+                </>
+              )}
             </View>
           </View>
 
@@ -525,6 +605,20 @@ const styles = StyleSheet.create({
   locationStatusError: {
     backgroundColor: colors.background.dangerSubtle,
   },
+  locationStatusLoading: {
+    backgroundColor: colors.primary + '15',
+  },
+  locationStatusManual: {
+    backgroundColor: colors.info + '15',
+  },
+  statusSpinner: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: colors.primary + '30',
+    borderTopColor: colors.primary,
+  },
   locationStatusText: {
     fontSize: typography.fontSizes.xs,
     fontWeight: typography.fontWeights.medium,
@@ -593,6 +687,50 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     textAlign: "center",
     lineHeight: 18,
+  },
+  // Map error fallback styles
+  mapErrorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+    backgroundColor: colors.background.secondary,
+  },
+  mapErrorTitle: {
+    fontSize: typography.fontSizes.lg,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text.primary,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  mapErrorText: {
+    fontSize: typography.fontSizes.sm,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: spacing.lg,
+  },
+  coordinateInputs: {
+    width: '100%',
+    gap: spacing.md,
+  },
+  coordinateInput: {
+    width: '100%',
+  },
+  coordinateLabel: {
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.medium,
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  coordinateTextInput: {
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    fontSize: typography.fontSizes.md,
+    color: colors.text.primary,
+    backgroundColor: colors.background.primary,
   },
 
   // Select Input

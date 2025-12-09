@@ -6,6 +6,46 @@ apply plugin: "com.google.gms.google-services"
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
 /**
+ * Helper function to get Google Maps API key from .env file or environment variables
+ */
+def getGoogleMapsApiKey() {
+    // In app/build.gradle, rootDir is android/, so parent is huggle-seller-app/
+    def appProjectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
+    
+    // Try to read from .env file in the project root (huggle-seller-app/)
+    def envFile = new File(appProjectRoot, '.env')
+    
+    if (envFile.exists()) {
+        def props = new Properties()
+        envFile.eachLine { line ->
+            if (line.contains('=') && !line.startsWith('#')) {
+                def parts = line.split('=', 2)
+                if (parts.length == 2) {
+                    props.setProperty(parts[0].trim(), parts[1].trim())
+                }
+            }
+        }
+        
+        // Check for EXPO_PUBLIC_GOOGLE_MAPS_API_KEY first (most common in Expo projects)
+        def apiKey = props.getProperty('EXPO_PUBLIC_GOOGLE_MAPS_API_KEY') ?: props.getProperty('GOOGLE_MAPS_API_KEY')
+        if (apiKey) {
+            println "✅ Google Maps API key found in .env"
+            return apiKey
+        }
+    }
+    
+    // Fallback to environment variable or gradle property
+    def envKey = System.getenv('EXPO_PUBLIC_GOOGLE_MAPS_API_KEY') ?: System.getenv('GOOGLE_MAPS_API_KEY') ?: project.findProperty('GOOGLE_MAPS_API_KEY')
+    if (envKey) {
+        println "✅ Google Maps API key found from environment"
+        return envKey
+    }
+    
+    println "⚠️ Google Maps API key not found in .env at: ${envFile.absolutePath}"
+    return ''
+}
+
+/**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.
  */
@@ -97,6 +137,9 @@ android {
         versionName "1.0.0"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
+        
+        // Pass Google Maps API key to AndroidManifest.xml
+        manifestPlaceholders = [googleMapsApiKey: getGoogleMapsApiKey()]
     }
     signingConfigs {
         debug {

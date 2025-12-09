@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -98,6 +98,10 @@ const CreateProduct = () => {
 
   // Image upload hook
   const { uploadState, uploadImageUri } = useImageUpload();
+
+  // Refs for scrolling to errors
+  const scrollViewRef = useRef<ScrollView>(null);
+  const fieldRefs = useRef<{ [key: string]: number }>({});
 
   // Load seller's products for bundle creation
   useEffect(() => {
@@ -433,6 +437,37 @@ const CreateProduct = () => {
     setCategory(prev => prev.filter(cat => cat !== categoryToRemove));
   };
 
+  // Define field order for scrolling to first error
+  const fieldOrder = [
+    'selectedProducts',
+    'name',
+    'description',
+    'productType',
+    'coverImage',
+    'originalPrice',
+    'discountedPrice',
+    'productCost',
+    'dynamicPricingStartDays',
+    'stock',
+  ];
+
+  const scrollToFirstError = (errors: { [key: string]: string }) => {
+    // Find the first error field based on field order
+    for (const field of fieldOrder) {
+      if (errors[field] && fieldRefs.current[field] !== undefined) {
+        const yOffset = fieldRefs.current[field];
+        scrollViewRef.current?.scrollTo({
+          y: Math.max(0, yOffset - 100), // Offset by 100px to show some context above
+          animated: true,
+        });
+        
+        // Show toast to indicate which field has the error
+        showToast('error', 'Missing Information', errors[field]);
+        return;
+      }
+    }
+  };
+
   const validateForm = (): boolean => {
     const newErrors: { [key: string]: string } = {};
 
@@ -490,6 +525,12 @@ const CreateProduct = () => {
     }
 
     setErrors(newErrors);
+    
+    // Scroll to first error if validation fails
+    if (Object.keys(newErrors).length > 0) {
+      setTimeout(() => scrollToFirstError(newErrors), 100);
+    }
+    
     return Object.keys(newErrors).length === 0;
   };
 
@@ -699,7 +740,7 @@ const CreateProduct = () => {
         </View>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollViewRef} style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Bundle Creation Options */}
         {creationMode === 'bundle' && (
           <View style={styles.section}>
@@ -879,7 +920,7 @@ const CreateProduct = () => {
 
         {/* Product Selection for Bundle */}
         {creationMode === 'bundle' && (
-          <View style={styles.section}>
+          <View style={styles.section} onLayout={(e) => { fieldRefs.current['selectedProducts'] = e.nativeEvent.layout.y; }}>
             <View style={styles.sectionHeader}>
               <Package size={20} color={colors.primary} />
               <Text style={styles.sectionTitle}>Select Products</Text>
@@ -942,49 +983,53 @@ const CreateProduct = () => {
             Basic information about your {creationMode}
           </Text>
 
-          <Text style={styles.label}>
-            {creationMode === 'product' ? 'Product' : 'Bundle'} Name
-          </Text>
-          {errors.name && (
-            <View style={styles.errorContainer}>
-              <AlertCircle size={16} color={colors.error} />
-              <Text style={styles.errorText}>{errors.name}</Text>
-            </View>
-          )}
-          <TextInput
-            style={[
-              styles.textInput,
-              errors.name && { borderColor: colors.error }
-            ]}
-            placeholder={`Enter ${creationMode} name...`}
-            placeholderTextColor={colors.text.tertiary}
-            value={name}
-            onChangeText={setName}
-          />
+          <View onLayout={(e) => { fieldRefs.current['name'] = e.nativeEvent.layout.y; }}>
+            <Text style={styles.label}>
+              {creationMode === 'product' ? 'Product' : 'Bundle'} Name
+            </Text>
+            {errors.name && (
+              <View style={styles.errorContainer}>
+                <AlertCircle size={16} color={colors.error} />
+                <Text style={styles.errorText}>{errors.name}</Text>
+              </View>
+            )}
+            <TextInput
+              style={[
+                styles.textInput,
+                errors.name && { borderColor: colors.error }
+              ]}
+              placeholder={`Enter ${creationMode} name...`}
+              placeholderTextColor={colors.text.tertiary}
+              value={name}
+              onChangeText={setName}
+            />
+          </View>
 
-          <Text style={styles.label}>Description <Text style={styles.optionalText}>(Optional)</Text></Text>
-          {errors.description && (
-            <View style={styles.errorContainer}>
-              <AlertCircle size={16} color={colors.error} />
-              <Text style={styles.errorText}>{errors.description}</Text>
-            </View>
-          )}
-          <TextInput
-            style={[
-              styles.descriptionInput,
-              errors.description && { borderColor: colors.error }
-            ]}
-            multiline
-            placeholder={`Describe your ${creationMode} in detail...`}
-            placeholderTextColor={colors.text.tertiary}
-            value={description}
-            onChangeText={setDescription}
-            textAlignVertical="top"
-          />
+          <View onLayout={(e) => { fieldRefs.current['description'] = e.nativeEvent.layout.y; }}>
+            <Text style={styles.label}>Description <Text style={styles.optionalText}>(Optional)</Text></Text>
+            {errors.description && (
+              <View style={styles.errorContainer}>
+                <AlertCircle size={16} color={colors.error} />
+                <Text style={styles.errorText}>{errors.description}</Text>
+              </View>
+            )}
+            <TextInput
+              style={[
+                styles.descriptionInput,
+                errors.description && { borderColor: colors.error }
+              ]}
+              multiline
+              placeholder={`Describe your ${creationMode} in detail...`}
+              placeholderTextColor={colors.text.tertiary}
+              value={description}
+              onChangeText={setDescription}
+              textAlignVertical="top"
+            />
+          </View>
 
           {/* Product Type - Only for products */}
           {creationMode === 'product' && (
-            <>
+            <View onLayout={(e) => { fieldRefs.current['productType'] = e.nativeEvent.layout.y; }}>
               <Text style={styles.label}>Product Type</Text>
               {errors.productType && (
                 <View style={styles.errorContainer}>
@@ -1011,12 +1056,12 @@ const CreateProduct = () => {
                   </TouchableOpacity>
                 ))}
               </View>
-            </>
+            </View>
           )}
         </View>
 
         {/* Images Section */}
-        <View style={styles.section}>
+        <View style={styles.section} onLayout={(e) => { fieldRefs.current['coverImage'] = e.nativeEvent.layout.y; }}>
           <View style={styles.sectionHeader}>
             <ImageIcon size={20} color={colors.primary} />
             <Text style={styles.sectionTitle}>
@@ -1122,43 +1167,47 @@ const CreateProduct = () => {
             Set competitive prices for your product
           </Text>
 
-          <Text style={styles.label}>Original Price (₱)</Text>
-          {errors.originalPrice && (
-            <View style={styles.errorContainer}>
-              <AlertCircle size={16} color={colors.error} />
-              <Text style={styles.errorText}>{errors.originalPrice}</Text>
-            </View>
-          )}
-          <TextInput
-            style={[
-              styles.textInput,
-              errors.originalPrice && { borderColor: colors.error }
-            ]}
-            placeholder="0.00"
-            placeholderTextColor={colors.text.tertiary}
-            value={originalPrice}
-            onChangeText={setOriginalPrice}
-            keyboardType="numeric"
-          />
+          <View onLayout={(e) => { fieldRefs.current['originalPrice'] = e.nativeEvent.layout.y; }}>
+            <Text style={styles.label}>Original Price (₱)</Text>
+            {errors.originalPrice && (
+              <View style={styles.errorContainer}>
+                <AlertCircle size={16} color={colors.error} />
+                <Text style={styles.errorText}>{errors.originalPrice}</Text>
+              </View>
+            )}
+            <TextInput
+              style={[
+                styles.textInput,
+                errors.originalPrice && { borderColor: colors.error }
+              ]}
+              placeholder="0.00"
+              placeholderTextColor={colors.text.tertiary}
+              value={originalPrice}
+              onChangeText={setOriginalPrice}
+              keyboardType="numeric"
+            />
+          </View>
 
-          <Text style={styles.label}>Current Price (₱)</Text>
-          {errors.discountedPrice && (
-            <View style={styles.errorContainer}>
-              <AlertCircle size={16} color={colors.error} />
-              <Text style={styles.errorText}>{errors.discountedPrice}</Text>
-            </View>
-          )}
-          <TextInput
-            style={[
-              styles.textInput,
-              errors.discountedPrice && { borderColor: colors.error }
-            ]}
-            placeholder="0.00"
-            placeholderTextColor={colors.text.tertiary}
-            value={discountedPrice}
-            onChangeText={setDiscountedPrice}
-            keyboardType="numeric"
-          />
+          <View onLayout={(e) => { fieldRefs.current['discountedPrice'] = e.nativeEvent.layout.y; }}>
+            <Text style={styles.label}>Current Price (₱)</Text>
+            {errors.discountedPrice && (
+              <View style={styles.errorContainer}>
+                <AlertCircle size={16} color={colors.error} />
+                <Text style={styles.errorText}>{errors.discountedPrice}</Text>
+              </View>
+            )}
+            <TextInput
+              style={[
+                styles.textInput,
+                errors.discountedPrice && { borderColor: colors.error }
+              ]}
+              placeholder="0.00"
+              placeholderTextColor={colors.text.tertiary}
+              value={discountedPrice}
+              onChangeText={setDiscountedPrice}
+              keyboardType="numeric"
+            />
+          </View>
 
           {originalPrice && discountedPrice && parseFloat(originalPrice) > parseFloat(discountedPrice) && (
             <View style={styles.priceCalculation}>
@@ -1220,49 +1269,53 @@ const CreateProduct = () => {
 
           {isDynamicPricingEnabled && isDynamicPricingExpanded && (
             <View style={styles.dynamicPricingSection}>
-              <Text style={styles.label}>Product Cost (₱)</Text>
-              <Text style={styles.fieldDescription}>
-                The minimum price the product will reach on its final day before expiration
-              </Text>
-              {errors.productCost && (
-                <View style={styles.errorContainer}>
-                  <AlertCircle size={16} color={colors.error} />
-                  <Text style={styles.errorText}>{errors.productCost}</Text>
-                </View>
-              )}
-              <TextInput
-                style={[
-                  styles.textInput,
-                  errors.productCost && { borderColor: colors.error }
-                ]}
-                placeholder="0.00"
-                placeholderTextColor={colors.text.tertiary}
-                value={productCost}
-                onChangeText={setProductCost}
-                keyboardType="numeric"
-              />
+              <View onLayout={(e) => { fieldRefs.current['productCost'] = e.nativeEvent.layout.y; }}>
+                <Text style={styles.label}>Product Cost (₱)</Text>
+                <Text style={styles.fieldDescription}>
+                  The minimum price the product will reach on its final day before expiration
+                </Text>
+                {errors.productCost && (
+                  <View style={styles.errorContainer}>
+                    <AlertCircle size={16} color={colors.error} />
+                    <Text style={styles.errorText}>{errors.productCost}</Text>
+                  </View>
+                )}
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    errors.productCost && { borderColor: colors.error }
+                  ]}
+                  placeholder="0.00"
+                  placeholderTextColor={colors.text.tertiary}
+                  value={productCost}
+                  onChangeText={setProductCost}
+                  keyboardType="numeric"
+                />
+              </View>
 
-              <Text style={styles.label}>Start Dynamic Pricing (Days Before Expiration)</Text>
-              <Text style={styles.fieldDescription}>
-                Number of days before expiration when dynamic pricing begins
-              </Text>
-              {errors.dynamicPricingStartDays && (
-                <View style={styles.errorContainer}>
-                  <AlertCircle size={16} color={colors.error} />
-                  <Text style={styles.errorText}>{errors.dynamicPricingStartDays}</Text>
-                </View>
-              )}
-              <TextInput
-                style={[
-                  styles.textInput,
-                  errors.dynamicPricingStartDays && { borderColor: colors.error }
-                ]}
-                placeholder="14"
-                placeholderTextColor={colors.text.tertiary}
-                value={dynamicPricingStartDays}
-                onChangeText={setDynamicPricingStartDays}
-                keyboardType="numeric"
-              />
+              <View onLayout={(e) => { fieldRefs.current['dynamicPricingStartDays'] = e.nativeEvent.layout.y; }}>
+                <Text style={styles.label}>Start Dynamic Pricing (Days Before Expiration)</Text>
+                <Text style={styles.fieldDescription}>
+                  Number of days before expiration when dynamic pricing begins
+                </Text>
+                {errors.dynamicPricingStartDays && (
+                  <View style={styles.errorContainer}>
+                    <AlertCircle size={16} color={colors.error} />
+                    <Text style={styles.errorText}>{errors.dynamicPricingStartDays}</Text>
+                  </View>
+                )}
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    errors.dynamicPricingStartDays && { borderColor: colors.error }
+                  ]}
+                  placeholder="14"
+                  placeholderTextColor={colors.text.tertiary}
+                  value={dynamicPricingStartDays}
+                  onChangeText={setDynamicPricingStartDays}
+                  keyboardType="numeric"
+                />
+              </View>
 
               {/* Dynamic Pricing Preview */}
               {discountedPrice && productCost && dynamicPricingStartDays && 
@@ -1294,7 +1347,7 @@ const CreateProduct = () => {
         </View>
 
         {/* Stock Section */}
-        <View style={styles.section}>
+        <View style={styles.section} onLayout={(e) => { fieldRefs.current['stock'] = e.nativeEvent.layout.y; }}>
           <View style={styles.sectionHeader}>
             <BarChart3 size={20} color={colors.primary} />
             <Text style={styles.sectionTitle}>Inventory</Text>

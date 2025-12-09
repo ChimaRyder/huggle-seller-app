@@ -1,12 +1,23 @@
-import React from 'react';
-import { View, StyleSheet, Text } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, StyleSheet, Text, Animated } from 'react-native';
 import { useSellerRegistration } from '../SellerRegistrationContext';
 import { colors, spacing, typography, radii } from '@/constants/theme';
 
 export const ProgressIndicator = () => {
   const { currentStep, totalSteps } = useSellerRegistration();
+  const progressAnim = useRef(new Animated.Value(0)).current;
 
   const progressPercentage = (currentStep / totalSteps) * 100;
+
+  // Animate progress bar when step changes
+  useEffect(() => {
+    Animated.spring(progressAnim, {
+      toValue: progressPercentage,
+      friction: 8,
+      tension: 40,
+      useNativeDriver: false, // width animation requires native driver to be false
+    }).start();
+  }, [progressPercentage, progressAnim]);
 
   return (
     <View style={styles.container}>
@@ -21,13 +32,23 @@ export const ProgressIndicator = () => {
 
       <View style={styles.progressBarContainer}>
         <View style={styles.progressBarBackground}>
-          <View style={[styles.progressBarFill, { width: `${progressPercentage}%` }]} />
+          <Animated.View 
+            style={[
+              styles.progressBarFill, 
+              { 
+                width: progressAnim.interpolate({
+                  inputRange: [0, 100],
+                  outputRange: ['0%', '100%'],
+                }),
+              },
+            ]} 
+          />
         </View>
       </View>
 
       <View style={styles.stepDots}>
         {Array.from({ length: totalSteps }, (_, index) => (
-          <View
+          <Animated.View
             key={index}
             style={[
               styles.stepDot,

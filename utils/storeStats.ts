@@ -90,7 +90,7 @@ export const getStoreReviewStats = async (token: string): Promise<{ averageRatin
     let totalRating = 0;
     let totalReviews = 0;
     
-    // Get reviews for each product
+    // Get reviews for each product (silently handle 404s for products with no reviews)
     for (const product of products) {
       try {
         const reviewsResponse = await apiClient.get<any>(
@@ -98,17 +98,24 @@ export const getStoreReviewStats = async (token: string): Promise<{ averageRatin
           token
         );
         
-        const reviews = handleApiResponse<ProductReview[]>(reviewsResponse) || [];
-        
-        for (const review of reviews) {
-          if (review.rating && review.rating > 0) {
-            totalRating += review.rating;
-            totalReviews++;
+        // Check if response indicates success
+        if (reviewsResponse.status === 200 || reviewsResponse.status === 201) {
+          const reviews = handleApiResponse<ProductReview[]>(reviewsResponse) || [];
+          
+          for (const review of reviews) {
+            if (review.rating && review.rating > 0) {
+              totalRating += review.rating;
+              totalReviews++;
+            }
           }
         }
-      } catch (error) {
-        // Continue if we can't get reviews for a specific product
-        console.warn(`Could not fetch reviews for product ${product.id}:`, error);
+        // 404 means no reviews exist - this is normal, not an error
+      } catch (error: any) {
+        // Only log non-404 errors as warnings
+        if (error?.response?.status !== 404 && error?.status !== 404) {
+          console.warn(`Could not fetch reviews for product ${product.id}:`, error);
+        }
+        // 404 is expected for products with no reviews - continue silently
       }
     }
     

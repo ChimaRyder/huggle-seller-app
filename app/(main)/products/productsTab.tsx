@@ -95,21 +95,35 @@ const ProductsTab = ({ theme, unread = 0 }: { theme: ThemeType; unread?: number 
     } catch (error: any) {
       console.log('❌ Error in fetchProducts:', error);
       
-      let errorMessage = "Something went wrong while getting your products. Please try again.";
+      // Check if this is a "store not ready" error (common after fresh registration)
+      const isStoreNotReady = error.message?.includes('seller registration') || 
+                              error.message?.includes('Store ID not found') ||
+                              error.message?.includes('Invalid seller access');
       
+      // 404 is expected for new stores with no products - don't show error
       if (error.response?.status === 404) {
-        errorMessage = "No products found. Start by adding your first product!";
+        console.log('📦 No products found - this is normal for new stores');
+        setProducts([]);
+        // Don't show error toast for empty products
+      } else if (isStoreNotReady) {
+        // Store was just created - token might need refresh
+        console.log('🔄 Store might still be setting up...');
+        // Don't show error toast - this resolves on re-login or token refresh
+        setProducts([]);
       } else if (error.response?.status === 401) {
-        errorMessage = "Authentication failed. Please log in again.";
-      } else if (error.message?.includes('seller registration') || error.message?.includes('Store ID not found')) {
-        errorMessage = error.message;
+        showToast(
+          "error",
+          "Session Expired",
+          "Please log in again."
+        );
+      } else {
+        // Only show toast for unexpected errors
+        showToast(
+          "error",
+          "Uh oh!",
+          "Something went wrong while getting your products. Please try again."
+        );
       }
-      
-      showToast(
-        "error",
-        "Uh oh!",
-        errorMessage
-      );
     } finally {
       setLoading(false);
     }

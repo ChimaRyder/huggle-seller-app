@@ -653,7 +653,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: colors.background.secondary,
     position: 'relative',
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
   },
   profileImage: {
     width: '100%',
