@@ -402,6 +402,88 @@ const convertExternalBundleToRequest = (
   };
 };
 
+/**
+ * Generates multiple bundle previews from AI service WITHOUT saving to database.
+ * Bundles are returned with generated images but are NOT persisted.
+ * Use this for the preview/selection flow, then save only the selected bundle
+ * via createBundle().
+ * 
+ * @param storeId - The store ID for context
+ * @param token - Authentication token
+ * @param numBundles - Number of bundles to generate (default: 3)
+ * @returns Promise with the generated bundle previews (not saved)
+ */
+const previewBundlesFromExternal = async (storeId: string, token: string, numBundles: number = 3) => {
+  try {
+    // Use the new preview endpoint that doesn't save bundles
+    const bundlePreviewUrl = process.env.EXPO_PUBLIC_BUNDLE_PREVIEW_URL;
+
+    console.log('🌐 [previewBundlesFromExternal] Bundle preview URL:', bundlePreviewUrl);
+
+    if (!bundlePreviewUrl) {
+      // Fallback to old save-with-images endpoint if preview URL not configured
+      console.warn('⚠️ [previewBundlesFromExternal] BUNDLE_PREVIEW_URL not configured, falling back to save-with-images');
+      return generateMultipleBundlesFromExternal(storeId, token, numBundles);
+    }
+
+    // Prepare request payload for external service
+    const requestPayload: BundleGenerationRequest = {
+      store_id: storeId,
+      num_bundles: numBundles,
+    };
+
+    console.log('📤 [previewBundlesFromExternal] Request payload:', requestPayload);
+
+    // Make API call to preview endpoint (no database save)
+    const response = await fetch(bundlePreviewUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(requestPayload),
+    });
+
+    console.log('📥 [previewBundlesFromExternal] Response status:', response.status);
+    console.log('📥 [previewBundlesFromExternal] Response ok:', response.ok);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ [previewBundlesFromExternal] Error response:', errorText);
+      throw new Error(`Bundle preview generation failed: ${response.statusText} - ${errorText}`);
+    }
+
+    const responseText = await response.text();
+    console.log('📄 [previewBundlesFromExternal] Raw response text:', responseText);
+
+    let previewBundlesData;
+    try {
+      previewBundlesData = JSON.parse(responseText);
+      console.log('📦 [previewBundlesFromExternal] Parsed response:', previewBundlesData);
+    } catch (parseError) {
+      console.error('❌ [previewBundlesFromExternal] JSON parse error:', parseError);
+      throw new Error('Invalid JSON response from bundle preview service');
+    }
+
+    return {
+      data: previewBundlesData,
+      status: response.status,
+      isPreview: true  // Flag indicating these bundles are NOT saved to DB
+    };
+  } catch (error) {
+    console.error('❌ [previewBundlesFromExternal] Full error:', error);
+    if (error instanceof Error) {
+      throw {
+        response: {
+          status: 500,
+          data: { message: error.message }
+        }
+      };
+    }
+    throw error;
+  }
+};
+
 export {
   createBundle,
   getAllBundles,
@@ -411,5 +493,6 @@ export {
   deleteMultipleBundles,
   generateBundleFromExternal,
   generateMultipleBundlesFromExternal,
+  previewBundlesFromExternal,
   convertExternalBundleToRequest
 };

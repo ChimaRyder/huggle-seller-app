@@ -39,7 +39,7 @@ import {
 } from 'lucide-react-native';
 import { colors, spacing, typography, radii } from '@/constants/theme';
 import { createProduct, getAllProducts } from '@/utils/Controllers/ProductController';
-import { createBundle, updateBundle, generateBundleFromExternal, generateMultipleBundlesFromExternal, convertExternalBundleToRequest, deleteMultipleBundles } from '@/utils/Controllers/BundleController';
+import { createBundle, previewBundlesFromExternal, convertExternalBundleToRequest } from '@/utils/Controllers/BundleController';
 import { validateSellerAccess } from '@/utils/sellerUtils';
 import { showToast } from '@/components/Toast';
 import * as ImagePicker from 'expo-image-picker';
@@ -184,19 +184,21 @@ const CreateProduct = () => {
         throw new Error('Seller access validation failed');
       }
 
-      console.log('🚀 [generateExternalBundles] Calling API with store ID:', validation.storeId);
-      const response = await generateMultipleBundlesFromExternal(validation.storeId, token, 3);
+      console.log('🚀 [generateExternalBundles] Calling preview API with store ID:', validation.storeId);
+      // Use preview endpoint - bundles are NOT saved to database
+      const response = await previewBundlesFromExternal(validation.storeId, token, 3);
 
       console.log('📦 [generateExternalBundles] Full API response:', response);
       console.log('📦 [generateExternalBundles] Response data:', response.data);
+      console.log('📦 [generateExternalBundles] Is preview (not saved):', (response as any).isPreview ?? 'unknown');
 
       // The API returns bundles directly as an array
       if (response.data && Array.isArray(response.data)) {
-        console.log('✅ [generateExternalBundles] Found bundles array:', response.data.length);
+        console.log('✅ [generateExternalBundles] Found previews array:', response.data.length);
         setGeneratedBundles(response.data);
         setShowBundleSelection(true);
         setSelectedBundleIndex(null);
-        showToast('success', 'Bundles Generated', `${response.data.length} bundle options have been generated. Choose your favorite!`);
+        showToast('success', 'Bundles Generated', `${response.data.length} bundle previews generated. Choose your favorite!`);
       } else {
         console.error('❌ [generateExternalBundles] Unexpected response structure:', response.data);
         throw new Error('Invalid response format from bundle generation service');
@@ -219,27 +221,8 @@ const CreateProduct = () => {
         throw new Error('Seller access validation failed');
       }
 
-      console.log(`🎯 [selectBundle] Selected bundle ${index}: ${selectedBundle.name} (ID: ${selectedBundle.id})`);
-
-      // Delete unselected bundles from the database
-      const unselectedBundleIds = generatedBundles
-        .filter((_, i) => i !== index)
-        .map(bundle => bundle.id);
-
-      if (unselectedBundleIds.length > 0) {
-        console.log('🗑️ [selectBundle] Cleaning up unselected bundles:', unselectedBundleIds);
-        try {
-          const deleteResults = await deleteMultipleBundles(unselectedBundleIds, token);
-          console.log('🧹 [selectBundle] Cleanup results:', deleteResults);
-
-          if (deleteResults.failed.length > 0) {
-            console.warn('⚠️ [selectBundle] Some bundles failed to delete:', deleteResults.failed);
-          }
-        } catch (error) {
-          console.error('❌ [selectBundle] Failed to cleanup unselected bundles:', error);
-          // Don't fail the selection process if cleanup fails
-        }
-      }
+      console.log(`🎯 [selectBundle] Selected preview bundle ${index}: ${selectedBundle.name}`);
+      // Note: No need to delete unselected bundles - previews are NOT saved to database
 
       const bundleRequest = convertExternalBundleToRequest(selectedBundle, validation.storeId);
 
@@ -256,15 +239,14 @@ const CreateProduct = () => {
             isSelected: true
           });
         } else {
-          // If product not in availableProducts, we need to fetch it
-          // For now, create a basic product object from the AI bundle data
+          // If product not in availableProducts, create from AI bundle data
           const aiProduct = selectedBundle.products.find(p => p.id === productId);
           if (aiProduct) {
             bundleProducts.push({
               id: aiProduct.id,
               name: aiProduct.name,
-              price: 100, // Default price since AI bundles don't include pricing
-              originalPrice: 100,
+              price: aiProduct.price || 100,
+              originalPrice: aiProduct.original_price || aiProduct.price || 100,
               stock: aiProduct.stock,
               coverImage: '',
               isSelected: true,
@@ -286,11 +268,12 @@ const CreateProduct = () => {
       // Set selected products
       setSelectedProducts(bundleProducts);
 
-      // Pre-fill form with selected bundle data
+      // Pre-fill form with selected bundle data (including AI-calculated pricing)
       setName(bundleRequest.name);
       setDescription(bundleRequest.description || '');
-      setOriginalPrice(bundleRequest.originalPrice.toString());
-      setDiscountedPrice(bundleRequest.price.toString());
+      // Use pricing from AI bundle if available, otherwise use estimated prices
+      setOriginalPrice((selectedBundle.original_price || bundleRequest.originalPrice).toString());
+      setDiscountedPrice((selectedBundle.price || bundleRequest.price).toString());
       setStock(bundleRequest.stock.toString());
       if (bundleRequest.imageUrl) {
         setCoverImage(bundleRequest.imageUrl);
@@ -299,11 +282,7 @@ const CreateProduct = () => {
       setSelectedBundleIndex(index);
       setShowBundleSelection(false);
 
-      const cleanupMessage = unselectedBundleIds.length > 0
-        ? ` ${unselectedBundleIds.length} unused bundles have been cleaned up.`
-        : '';
-
-      showToast('success', 'Bundle Selected', `Bundle has been loaded into the form.${cleanupMessage} Review and submit when ready.`);
+      showToast('success', 'Bundle Selected', `Bundle has been loaded into the form. Review and submit when ready.`);
     } catch (error) {
       console.error('❌ [selectBundle] Error selecting bundle:', error);
       showToast('error', 'Selection Failed', 'Failed to select bundle. Please try again.');
@@ -312,36 +291,17 @@ const CreateProduct = () => {
 
   const navigateBack = () => {
     const hasChanges = name.trim() || description.trim() || coverImage || additionalImages.length > 0 || selectedProducts.length > 0;
-    const hasUnselectedBundles = generatedBundles.length > 0 && selectedBundleIndex === null;
 
-    if (hasChanges || hasUnselectedBundles) {
-      let message = 'Are you sure you want to discard your changes?';
-      if (hasUnselectedBundles) {
-        message = 'You have unselected AI bundles that will be deleted. Are you sure you want to go back?';
-      }
-
+    if (hasChanges) {
       Alert.alert(
         'Discard Changes',
-        message,
+        'Are you sure you want to discard your changes?',
         [
           { text: 'Keep Editing', style: 'cancel' },
           {
             text: 'Discard',
             style: 'destructive',
-            onPress: async () => {
-              // Clean up unselected bundles before navigating away
-              if (hasUnselectedBundles) {
-                try {
-                  const token = await getToken({ template: "seller_app" });
-                  const bundleIds = generatedBundles.map(bundle => bundle.id);
-                  console.log('🗑️ [navigateBack] Cleaning up unselected bundles:', bundleIds);
-                  await deleteMultipleBundles(bundleIds, token);
-                } catch (error) {
-                  console.error('❌ [navigateBack] Failed to cleanup bundles:', error);
-                }
-              }
-              router.back();
-            }
+            onPress: () => router.back()
           },
         ]
       );
@@ -573,48 +533,26 @@ const CreateProduct = () => {
         await createProduct(productData, token);
         showToast('success', 'Product Created!', 'Your product has been created successfully.');
       } else {
-        // Handle bundle creation/update
-        if (bundleCreationMode === 'external-generation' && selectedBundleIndex !== null && generatedBundles[selectedBundleIndex]) {
-          // Update existing AI-generated bundle instead of creating a new one
-          const selectedBundle = generatedBundles[selectedBundleIndex];
-          const updateData = {
-            name: name.trim(),
-            description: description.trim() || '',
-            productIds: selectedProducts.map(p => p.id),
-            images: additionalImages,
-            stock: parseInt(stock),
-            imageUrl: coverImage,
-            price: parseFloat(discountedPrice),
-            originalPrice: parseFloat(originalPrice),
-            expiresOn: duration,
-            isActive: true,
-            isDynamicPricingEnabled: isDynamicPricingEnabled,
-            dynamicPricingStartDays: isDynamicPricingEnabled ? parseInt(dynamicPricingStartDays) : 14,
-          };
+        // Handle bundle creation - always create new bundle
+        // (For AI previews, the bundle was not saved to DB, so we create it now)
+        const bundleData: BundleRequestDto = {
+          storeId: validation.storeId,
+          name: name.trim(),
+          description: description.trim() || '',
+          productIds: selectedProducts.map(p => p.id),
+          images: additionalImages,
+          stock: parseInt(stock),
+          imageUrl: coverImage,
+          price: parseFloat(discountedPrice),
+          originalPrice: parseFloat(originalPrice),
+          expiresOn: duration,
+          isActive: true,
+          isDynamicPricingEnabled: isDynamicPricingEnabled,
+          dynamicPricingStartDays: isDynamicPricingEnabled ? parseInt(dynamicPricingStartDays) : 14,
+        };
 
-          await updateBundle(selectedBundle.id.toString(), updateData, token);
-          showToast('success', 'Bundle Updated!', 'Your AI-generated bundle has been updated successfully.');
-        } else {
-          // Create new bundle (for from-products mode or when no AI bundle selected)
-          const bundleData: BundleRequestDto = {
-            storeId: validation.storeId,
-            name: name.trim(),
-            description: description.trim() || '',
-            productIds: selectedProducts.map(p => p.id),
-            images: additionalImages,
-            stock: parseInt(stock),
-            imageUrl: coverImage,
-            price: parseFloat(discountedPrice),
-            originalPrice: parseFloat(originalPrice),
-            expiresOn: duration,
-            isActive: true,
-            isDynamicPricingEnabled: isDynamicPricingEnabled,
-            dynamicPricingStartDays: isDynamicPricingEnabled ? parseInt(dynamicPricingStartDays) : 14,
-          };
-
-          await createBundle(bundleData, token);
-          showToast('success', 'Bundle Created!', 'Your bundle has been created successfully.');
-        }
+        await createBundle(bundleData, token);
+        showToast('success', 'Bundle Created!', 'Your bundle has been created successfully.');
       }
 
       router.back();
@@ -653,18 +591,13 @@ const CreateProduct = () => {
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>
-            {creationMode === 'product'
-              ? 'Create Product'
-              : (bundleCreationMode === 'external-generation' && selectedBundleIndex !== null)
-                ? 'Update Bundle'
-                : 'Create Bundle'
-            }
+            {creationMode === 'product' ? 'Create Product' : 'Create Bundle'}
           </Text>
           <Text style={styles.headerSubtitle}>
             {creationMode === 'product'
               ? 'Add a new product to your store'
               : (bundleCreationMode === 'external-generation' && selectedBundleIndex !== null)
-                ? 'Review and update your AI-generated bundle'
+                ? 'Review and save your AI-generated bundle'
                 : 'Create a bundle from your products'
             }
           </Text>
@@ -687,19 +620,8 @@ const CreateProduct = () => {
         <View style={styles.modeToggle}>
           <TouchableOpacity
             style={[styles.modeButton, creationMode === 'product' && styles.modeButtonActive]}
-            onPress={async () => {
-              // Clean up any unselected bundles when switching to product mode
-              if (creationMode !== 'product' && generatedBundles.length > 0 && selectedBundleIndex === null) {
-                try {
-                  const token = await getToken({ template: "seller_app" });
-                  const bundleIds = generatedBundles.map(bundle => bundle.id);
-                  console.log('🗑️ [modeSwitch] Cleaning up unselected bundles:', bundleIds);
-                  await deleteMultipleBundles(bundleIds, token);
-                } catch (error) {
-                  console.error('❌ [modeSwitch] Failed to cleanup bundles:', error);
-                }
-              }
-
+            onPress={() => {
+              // No cleanup needed - preview bundles are not saved to database
               setCreationMode('product');
               setGeneratedBundles([]);
               setSelectedBundleIndex(null);
@@ -713,19 +635,8 @@ const CreateProduct = () => {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.modeButton, creationMode === 'bundle' && styles.modeButtonActive]}
-            onPress={async () => {
-              // Clean up any unselected bundles when switching modes
-              if (creationMode !== 'bundle' && generatedBundles.length > 0 && selectedBundleIndex === null) {
-                try {
-                  const token = await getToken({ template: "seller_app" });
-                  const bundleIds = generatedBundles.map(bundle => bundle.id);
-                  console.log('🗑️ [modeSwitch] Cleaning up unselected bundles:', bundleIds);
-                  await deleteMultipleBundles(bundleIds, token);
-                } catch (error) {
-                  console.error('❌ [modeSwitch] Failed to cleanup bundles:', error);
-                }
-              }
-
+            onPress={() => {
+              // No cleanup needed - preview bundles are not saved to database
               setCreationMode('bundle');
               setGeneratedBundles([]);
               setSelectedBundleIndex(null);
@@ -892,19 +803,8 @@ const CreateProduct = () => {
 
                 <TouchableOpacity
                   style={styles.regenerateBundlesButton}
-                  onPress={async () => {
-                    // Clean up all currently generated bundles before generating new ones
-                    if (generatedBundles.length > 0) {
-                      try {
-                        const token = await getToken({ template: "seller_app" });
-                        const bundleIds = generatedBundles.map(bundle => bundle.id);
-                        console.log('🗑️ [regenerate] Cleaning up all current bundles:', bundleIds);
-                        await deleteMultipleBundles(bundleIds, token);
-                      } catch (error) {
-                        console.error('❌ [regenerate] Failed to cleanup bundles:', error);
-                      }
-                    }
-
+                  onPress={() => {
+                    // No cleanup needed - preview bundles are not saved to database
                     setShowBundleSelection(false);
                     setGeneratedBundles([]);
                     setSelectedBundleIndex(null);

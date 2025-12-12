@@ -69,7 +69,7 @@ export interface BundleUpdateRequestDto {
   dynamicPricingStartDays?: number;
 }
 
-// External server response format (matches BundleOut from API)
+// External server response format (matches BundleCreate/BundleOut from API)
 export interface ExternalBundleResponse {
   id: number;
   name: string;
@@ -78,7 +78,11 @@ export interface ExternalBundleResponse {
   images: string[];
   image_url?: string;
   stock: number;
-  created_at: string;
+  // Pricing fields from new preview endpoint
+  price?: number;
+  original_price?: number;
+  total_cost?: number;
+  created_at?: string;
 }
 
 // The API returns bundles directly as an array, not wrapped
@@ -97,7 +101,9 @@ export interface ExternalProductIn {
   expires_on?: string;
   stock: number;
   tags: string[];
-  // Note: The API doesn't include price in ProductIn, we'll need to handle this
+  // Pricing fields from new preview endpoint
+  price?: number;
+  original_price?: number;
 }
 
 // Bundle creation form data
