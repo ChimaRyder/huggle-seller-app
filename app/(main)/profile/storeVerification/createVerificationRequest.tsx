@@ -29,8 +29,7 @@ import {
 import { colors, spacing, typography, radii } from '@/constants/theme';
 import { createRequest, InitialRequest } from '@/utils/data/VerificationController';
 
-const { width } = Dimensions.get('window');
-
+import FirebaseStorageService from '@/utils/firebaseStorage';
 
 const governmentIdTypes = [
   "Philippine Passport",
@@ -70,6 +69,27 @@ const formatFileName = (file: any) => {
   return "File selected";
 };
 
+/**
+ * Uploads a file to Firebase Storage for verification documents
+ * @param uri - Local file URI
+ * @param folder - Storage folder path (e.g., 'verification/government-ids')
+ * @param fileName - Optional custom filename
+ * @returns Promise<string> - Download URL of the uploaded file
+ */
+const uploadToFirebase = async (
+  uri: string,
+  folder: string = 'verification',
+  fileName?: string
+): Promise<string> => {
+  try {
+    const result = await FirebaseStorageService.uploadImage(uri, folder, fileName);
+    console.log('✅ File uploaded successfully:', result.downloadURL);
+    return result.downloadURL;
+  } catch (error) {
+    console.error('❌ Firebase upload failed:', error);
+    throw new Error(`Failed to upload file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+};
 
 export default function CreateVerificationRequest() {
   const router = useRouter();
@@ -100,12 +120,6 @@ export default function CreateVerificationRequest() {
     }
   };
 
-  const uploadPlaceholder = async () => {
-    // Simulate upload for demo
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    return "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=400&h=250&fit=crop";
-  };
-
   const handleUploadGovernmentId = async () => {
     try {
       const hasPermission = await requestMediaLibraryPermissions();
@@ -132,7 +146,12 @@ export default function CreateVerificationRequest() {
         }
 
         try {
-          const uploadUrl = await uploadPlaceholder();
+          // Upload to Firebase Storage in the verification/government-ids folder
+          const uploadUrl = await uploadToFirebase(
+            selectedImage.uri,
+            'verification/government-ids',
+            `gov_id_${user?.id || 'unknown'}_${Date.now()}.jpg`
+          );
           setGovernmentIdImage({
             uri: selectedImage.uri,
             name: selectedImage.fileName || 'government_id.jpg',
@@ -180,7 +199,12 @@ export default function CreateVerificationRequest() {
         }
 
         try {
-          const uploadUrl = await uploadPlaceholder();
+          // Upload to Firebase Storage in the verification/business-permits folder
+          const uploadUrl = await uploadToFirebase(
+            selectedDocument.uri,
+            'verification/business-permits',
+            `permit_${user?.id || 'unknown'}_${Date.now()}.pdf`
+          );
           setBusinessPermitPdf({
             uri: selectedDocument.uri,
             name: selectedDocument.name,
@@ -239,7 +263,7 @@ export default function CreateVerificationRequest() {
         businessPermitPdfUrl: businessPermitPdf?.serverUrl || businessPermitPdf?.uri,
       };
 
-      const token = await getToken({template: "seller_app"});
+      const token = await getToken({ template: "seller_app" });
       await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate processing
       const response = await createRequest(token ?? "", request as InitialRequest);
 
