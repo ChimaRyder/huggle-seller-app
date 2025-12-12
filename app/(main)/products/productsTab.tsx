@@ -24,6 +24,7 @@ import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { getAllProducts, bulkUpdateStock } from "@/utils/Controllers/ProductController";
+import { getAllBundles } from "@/utils/Controllers/BundleController";
 import { showToast } from "@/components/Toast";
 import { validateSellerAccess } from "@/utils/sellerUtils";
 import { AlertCircle, CookingPot, Filter, SortAsc, BarChart3, Package, Plus, Package2 } from "lucide-react-native";
@@ -58,7 +59,7 @@ const ProductsTab = ({ theme, unread = 0 }: { theme: ThemeType; unread?: number 
   const [sortBy, setSortBy] = useState(new IndexPath(0));
   const [filterStatus, setFilterStatus] = useState(new IndexPath(0));
   const [isInventoryMode, setIsInventoryMode] = useState(false);
-  const [pendingStockUpdates, setPendingStockUpdates] = useState<Array<{productId: string, newStock: number, newExpiryDate: Date}>>([]);
+  const [pendingStockUpdates, setPendingStockUpdates] = useState<Array<{ productId: string, newStock: number, newExpiryDate: Date }>>([]);
   const [isUpdatingStock, setIsUpdatingStock] = useState(false);
   const { getToken } = useAuth();
   const { user } = useUser();
@@ -67,39 +68,98 @@ const ProductsTab = ({ theme, unread = 0 }: { theme: ThemeType; unread?: number 
     try {
       setLoading(true);
       console.log('🔄 Starting fetchProducts...');
-      
+
       // Get token with seller_app template (contains storeId in claims)
       const token = await getToken({ template: "seller_app" });
       console.log('🔑 Token obtained:', token ? 'Token exists' : 'No token');
-      
+
       // Validate seller access using token claims (optional - controller will also validate)
       const sellerValidation = validateSellerAccess(token, user);
       console.log('✅ Seller validation result:', sellerValidation);
-      
+
       if (!sellerValidation.isValid) {
         console.log('❌ Seller validation failed:', sellerValidation.error);
         throw new Error(sellerValidation.error || 'Invalid seller access');
       }
-      
-      console.log('📞 Calling getAllProducts API...');
-      // Call getAllProducts - storeId will be extracted from token automatically
-      const response = await getAllProducts("", token ?? "");
-      console.log('📦 Products API response:', response);
-      
-      const data = ((response as any).data);
-      console.log('📋 Products data received:', data);
-      console.log('📊 Number of products:', Array.isArray(data) ? data.length : 'Not an array');
-      
-      setProducts(data);
-      console.log('✅ Products state updated successfully');
+
+      console.log('📞 Calling getAllProducts and getAllBundles APIs...');
+
+      // Fetch products and bundles in parallel
+      const [productsResponse, bundlesResponse] = await Promise.all([
+        getAllProducts("", token ?? ""),
+        getAllBundles("", token ?? "", sellerValidation.storeId || undefined).catch((error) => {
+          console.log('📦 Bundles fetch failed (may not have any):', error);
+          return { data: [] };
+        })
+      ]);
+
+      console.log('📦 Products API response:', productsResponse);
+      console.log('📦 Bundles API response:', bundlesResponse);
+
+      const productsData = ((productsResponse as any).data) || [];
+      const bundlesData = ((bundlesResponse as any).data) || [];
+
+      console.log('📊 Number of products:', Array.isArray(productsData) ? productsData.length : 'Not an array');
+      console.log('📊 Number of bundles:', Array.isArray(bundlesData) ? bundlesData.length : 'Not an array');
+
+      // Log first bundle details for debugging
+      if (Array.isArray(bundlesData) && bundlesData.length > 0) {
+        console.log('🎁 First bundle sample:', JSON.stringify(bundlesData[0], null, 2));
+        console.log('🎁 Bundle has products array?', bundlesData[0].products ? 'YES' : 'NO');
+        console.log('🎁 Bundle has signature?', bundlesData[0].signature ? 'YES' : 'NO');
+      } else {
+        console.log('🎁 No bundles returned from bundle API');
+      }
+
+      // Process products - check if any are already bundles and ensure they're properly marked
+      const processedProducts = (Array.isArray(productsData) ? productsData : []).map((item: any) => {
+        // Check if this item is a bundle (might already be marked from the adapter)
+        const itemIsBundle = item.isBundle === true || item.productType === 'Bundle' ||
+          (item.bundleProducts && Array.isArray(item.bundleProducts));
+
+        if (itemIsBundle) {
+          return {
+            ...item,
+            isBundle: true,
+            productType: 'Bundle',
+            discountedPrice: item.discountedPrice || item.price,
+          };
+        }
+        return item;
+      });
+
+      // Create a Set of existing product/bundle IDs to avoid duplicates
+      const existingIds = new Set(processedProducts.map((p: any) => p.id));
+
+      // Filter bundles API response to only include those not already in products
+      const uniqueBundles = (Array.isArray(bundlesData) ? bundlesData : [])
+        .filter((bundle: any) => !existingIds.has(bundle.id))
+        .map((bundle: any) => ({
+          ...bundle,
+          isBundle: true,
+          discountedPrice: bundle.price, // Map for consistency with products
+          productType: 'Bundle', // Set product type for display
+          coverImage: bundle.imageUrl || (bundle.images && bundle.images.length > 0 ? bundle.images[0] : ''),
+        }));
+
+      // Merge products and unique bundles
+      const allItems = [...processedProducts, ...uniqueBundles];
+
+      // Log bundle info for debugging
+      const bundlesInProducts = processedProducts.filter((p: any) => p.isBundle).length;
+      console.log('📊 Bundles already in products:', bundlesInProducts);
+      console.log('📊 Unique bundles from bundle API:', uniqueBundles.length);
+
+      setProducts(allItems);
+      console.log('✅ Products and bundles state updated successfully. Total items:', allItems.length);
     } catch (error: any) {
       console.log('❌ Error in fetchProducts:', error);
-      
+
       // Check if this is a "store not ready" error (common after fresh registration)
-      const isStoreNotReady = error.message?.includes('seller registration') || 
-                              error.message?.includes('Store ID not found') ||
-                              error.message?.includes('Invalid seller access');
-      
+      const isStoreNotReady = error.message?.includes('seller registration') ||
+        error.message?.includes('Store ID not found') ||
+        error.message?.includes('Invalid seller access');
+
       // 404 is expected for new stores with no products - don't show error
       if (error.response?.status === 404) {
         console.log('📦 No products found - this is normal for new stores');
@@ -140,7 +200,7 @@ const ProductsTab = ({ theme, unread = 0 }: { theme: ThemeType; unread?: number 
 
     // Apply search filter
     if (search.trim()) {
-      filtered = filtered.filter(product => 
+      filtered = filtered.filter(product =>
         product.name.toLowerCase().includes(search.toLowerCase()) ||
         product.description.toLowerCase().includes(search.toLowerCase()) ||
         product.category.some((cat: string) => cat.toLowerCase().includes(search.toLowerCase()))
@@ -197,7 +257,7 @@ const ProductsTab = ({ theme, unread = 0 }: { theme: ThemeType; unread?: number 
     setPendingStockUpdates(current => {
       const existing = current.find(u => u.productId === productId);
       if (existing) {
-        return current.map(u => u.productId === productId 
+        return current.map(u => u.productId === productId
           ? { productId, newStock, newExpiryDate }
           : u
         );
@@ -208,20 +268,20 @@ const ProductsTab = ({ theme, unread = 0 }: { theme: ThemeType; unread?: number 
 
   const processPendingStockUpdates = async () => {
     if (pendingStockUpdates.length === 0) return;
-    
+
     try {
       setIsUpdatingStock(true);
       const token = await getToken({ template: "seller_app" });
-      
+
       if (!token) {
         throw new Error('No authentication token available');
       }
-      
+
       const response = await bulkUpdateStock(pendingStockUpdates, token);
-      
+
       if (response.status === 200) {
         // Update local products state with new stock values
-        setProducts(currentProducts => 
+        setProducts(currentProducts =>
           currentProducts.map(product => {
             const update = pendingStockUpdates.find(u => u.productId === product.id);
             if (update) {
@@ -235,9 +295,9 @@ const ProductsTab = ({ theme, unread = 0 }: { theme: ThemeType; unread?: number 
             return product;
           })
         );
-        
+
         setPendingStockUpdates([]);
-        
+
         const result = response.data?.data;
         if (result?.TotalUpdated > 0) {
           showToast(
@@ -246,7 +306,7 @@ const ProductsTab = ({ theme, unread = 0 }: { theme: ThemeType; unread?: number 
             `Successfully updated ${result.TotalUpdated} product${result.TotalUpdated !== 1 ? 's' : ''}.`
           );
         }
-        
+
         if (result?.TotalFailed > 0) {
           showToast(
             "error",
@@ -258,14 +318,14 @@ const ProductsTab = ({ theme, unread = 0 }: { theme: ThemeType; unread?: number 
     } catch (error: any) {
       console.log('❌ Error updating stock:', error);
       console.log('❌ Error response data:', error.response?.data);
-      
+
       let errorMessage = "Failed to update stock. Please try again.";
       let errorTitle = "Update Failed";
-      
+
       // Check if we have detailed error information from the backend
       // The error structure is: error.details.data.failures
       let errorData = null;
-      
+
       if (error.details?.data) {
         errorData = error.details.data;
         console.log('📋 Detailed error data from error.details.data:', errorData);
@@ -276,12 +336,12 @@ const ProductsTab = ({ theme, unread = 0 }: { theme: ThemeType; unread?: number 
         errorData = error.response.data;
         console.log('📋 Detailed error data from error.response.data:', errorData);
       }
-      
+
       if (errorData) {
         if (errorData.failures && errorData.failures.length > 0) {
           const firstFailure = errorData.failures[0];
           errorTitle = "Stock Update Issues";
-          
+
           if (errorData.failures.length === 1) {
             // Single failure - show specific error with product name if available
             const productName = firstFailure.productName || 'Item';
@@ -301,7 +361,7 @@ const ProductsTab = ({ theme, unread = 0 }: { theme: ThemeType; unread?: number 
         // Final fallback
         errorMessage = error.message;
       }
-      
+
       showToast(
         "error",
         errorTitle,
@@ -344,7 +404,7 @@ const ProductsTab = ({ theme, unread = 0 }: { theme: ThemeType; unread?: number 
       >
         {/* Greeting Section */}
         <GreetingSection unread={unread} />
-        
+
         {/* Inventory Mode Toggle */}
         <View style={styles.inventoryModeSection}>
           <View style={styles.inventoryModeToggle}>
@@ -358,7 +418,7 @@ const ProductsTab = ({ theme, unread = 0 }: { theme: ThemeType; unread?: number 
                 Inventory Mode
               </Text>
             </TouchableOpacity>
-            
+
             {isInventoryMode && pendingStockUpdates.length > 0 && (
               <Button
                 size="small"
@@ -431,11 +491,11 @@ const ProductsTab = ({ theme, unread = 0 }: { theme: ThemeType; unread?: number 
         <View style={styles.productListContainer}>
           <FlatList
             data={filteredProducts}
-            renderItem={({ item }) => 
+            renderItem={({ item }) =>
               isInventoryMode ? (
-                <InventoryProductItem 
-                  item={item} 
-                  theme={theme} 
+                <InventoryProductItem
+                  item={item}
+                  theme={theme}
                   onStockChange={handleStockChange}
                   isUpdating={isUpdatingStock}
                 />
@@ -449,7 +509,7 @@ const ProductsTab = ({ theme, unread = 0 }: { theme: ThemeType; unread?: number 
             contentContainerStyle={[(filteredProducts?.length || 0) === 0 && { justifyContent: 'center' }, styles.productList]}
             ListEmptyComponent={
               <View style={styles.noProductsContainer}>
-                <CookingPot size={60} color={colors.icon.secondary}/>
+                <CookingPot size={60} color={colors.icon.secondary} />
                 <Text style={styles.noProductsTitle} category="h6">
                   {search || filterStatus.row !== 0 ? 'No products match your filters' : 'No products yet'}
                 </Text>
@@ -494,7 +554,7 @@ const ProductsTab = ({ theme, unread = 0 }: { theme: ThemeType; unread?: number 
       >
         <Card disabled={true} style={styles.filterModal}>
           <Text category="h6" style={styles.modalTitle}>Sort & Filter Products</Text>
-          
+
           <View style={styles.filterSection}>
             <Text category="s1" style={styles.filterLabel}>Sort by</Text>
             <Select

@@ -23,7 +23,7 @@ const createBundle = async (bundle: BundleRequestDto, token: string) => {
       bundle,
       token
     );
-    
+
     return {
       data: response.data,
       status: response.status
@@ -45,34 +45,38 @@ const getAllBundles = async (search: string, token: string, storeId?: string) =>
     // Extract storeId from token if not provided
     const extractedStoreId = getStoreIdFromToken(token);
     const actualStoreId = storeId || extractedStoreId;
-    
+
     if (!actualStoreId) {
       throw new Error('Store ID not found in token or parameters. Please ensure you have a valid seller account.');
     }
-    
-    let endpoint = `/api/products/store/${actualStoreId}`;
+
+    // Use the bundles-specific endpoint on main backend
+    let endpoint = `/api/products/bundles/store/${actualStoreId}`;
     const params = new URLSearchParams();
-    
+
     // Add search parameter if provided
     if (search && search.trim()) {
       params.append('search', search.trim());
     }
-    
-    // Add bundles filter
-    params.append('type', 'bundles');
-    
-    // Add query params to endpoint
+
+    // Add query params to endpoint if any
     const queryString = params.toString();
     if (queryString) {
       endpoint += `?${queryString}`;
     }
-    
+
+    console.log('📦 [getAllBundles] Fetching bundles from main API:', endpoint);
+
     // Make API call
     const response = await apiClient.get<any>(endpoint, token);
-    
+
+    console.log('📦 [getAllBundles] Response:', response);
+
     // Extract the actual data from the response
     const rawData = handleApiResponse<any>(response);
-    
+
+    console.log('📦 [getAllBundles] Raw data:', rawData);
+
     // Ensure we have an array to work with
     let bundles: SellerBundleDto[];
     if (Array.isArray(rawData)) {
@@ -86,17 +90,20 @@ const getAllBundles = async (search: string, token: string, storeId?: string) =>
     } else {
       bundles = [];
     }
-    
+
+    console.log('📦 [getAllBundles] Parsed bundles count:', bundles.length);
+
     return {
       data: bundles,
       status: response.status
     };
   } catch (error) {
+    console.error('❌ [getAllBundles] Error:', error);
     if (error instanceof Error) {
       const apiError = error as ApiError;
       throw {
         response: {
-          status: apiError.status,
+          status: apiError.status || 500,
           data: { message: apiError.message }
         }
       };
@@ -114,9 +121,9 @@ const getAllBundles = async (search: string, token: string, storeId?: string) =>
 const getBundleById = async (bundleId: string, token: string) => {
   try {
     const response = await apiClient.get<any>(`/api/products/bundles/${bundleId}`, token);
-    
+
     const bundleData = handleApiResponse<SellerBundleDto>(response);
-    
+
     return {
       data: bundleData,
       status: response.status
@@ -150,7 +157,7 @@ const updateBundle = async (bundleId: string, bundle: BundleUpdateRequestDto, to
       bundle,
       token
     );
-    
+
     return {
       data: response.data,
       status: response.status
@@ -160,7 +167,7 @@ const updateBundle = async (bundleId: string, bundle: BundleUpdateRequestDto, to
     if (error.response && error.response.data) {
       throw error;
     }
-    
+
     // If it's an ApiError object, format it properly
     if (error.message && error.status) {
       throw {
@@ -170,7 +177,7 @@ const updateBundle = async (bundleId: string, bundle: BundleUpdateRequestDto, to
         }
       };
     }
-    
+
     // Fallback for unknown error types
     throw error;
   }
@@ -185,7 +192,7 @@ const updateBundle = async (bundleId: string, bundle: BundleUpdateRequestDto, to
 const deleteBundle = async (bundleId: string | number, token: string) => {
   try {
     const response = await apiClient.delete<any>(`/api/products/bundles/${bundleId}`, token);
-    
+
     return {
       data: response.data,
       status: response.status
@@ -216,9 +223,9 @@ const deleteMultipleBundles = async (bundleIds: (string | number)[], token: stri
     failed: [],
     totalAttempted: bundleIds.length,
   };
-  
+
   console.log(`🗑️ [deleteMultipleBundles] Attempting to delete ${bundleIds.length} bundles:`, bundleIds);
-  
+
   for (const bundleId of bundleIds) {
     try {
       await deleteBundle(bundleId, token);
@@ -229,7 +236,7 @@ const deleteMultipleBundles = async (bundleIds: (string | number)[], token: stri
       console.error(`❌ [deleteMultipleBundles] Failed to delete bundle ${bundleId}:`, error);
     }
   }
-  
+
   console.log(`📊 [deleteMultipleBundles] Results: ${results.deleted.length} deleted, ${results.failed.length} failed`);
   return results;
 };
@@ -243,17 +250,17 @@ const deleteMultipleBundles = async (bundleIds: (string | number)[], token: stri
 const generateBundleFromExternal = async (storeId: string, token: string) => {
   try {
     const bundleGenerationUrl = process.env.EXPO_PUBLIC_BUNDLE_GENERATION_URL;
-    
+
     if (!bundleGenerationUrl) {
       throw new Error('Bundle generation service URL not configured');
     }
-    
+
     // Prepare request payload for external service
     const requestPayload = {
       store_id: storeId,
       // Additional context can be added here
     };
-    
+
     // Make API call to external bundle generation service
     const response = await fetch(bundleGenerationUrl, {
       method: 'POST',
@@ -263,13 +270,13 @@ const generateBundleFromExternal = async (storeId: string, token: string) => {
       },
       body: JSON.stringify(requestPayload),
     });
-    
+
     if (!response.ok) {
       throw new Error(`External bundle generation failed: ${response.statusText}`);
     }
-    
+
     const externalBundleData: ExternalBundleResponse = await response.json();
-    
+
     return {
       data: externalBundleData,
       status: response.status
@@ -297,21 +304,21 @@ const generateBundleFromExternal = async (storeId: string, token: string) => {
 const generateMultipleBundlesFromExternal = async (storeId: string, token: string, numBundles: number = 3) => {
   try {
     const bundleGenerationUrl = process.env.EXPO_PUBLIC_BUNDLE_GENERATION_URL;
-    
+
     console.log('🌐 [generateMultipleBundlesFromExternal] Bundle generation URL:', bundleGenerationUrl);
-    
+
     if (!bundleGenerationUrl) {
       throw new Error('Bundle generation service URL not configured');
     }
-    
+
     // Prepare request payload for external service
     const requestPayload: BundleGenerationRequest = {
       store_id: storeId,
       num_bundles: numBundles,
     };
-    
+
     console.log('📤 [generateMultipleBundlesFromExternal] Request payload:', requestPayload);
-    
+
     // Make API call to external bundle generation service
     const response = await fetch(bundleGenerationUrl, {
       method: 'POST',
@@ -321,19 +328,19 @@ const generateMultipleBundlesFromExternal = async (storeId: string, token: strin
       },
       body: JSON.stringify(requestPayload),
     });
-    
+
     console.log('📥 [generateMultipleBundlesFromExternal] Response status:', response.status);
     console.log('📥 [generateMultipleBundlesFromExternal] Response ok:', response.ok);
-    
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error('❌ [generateMultipleBundlesFromExternal] Error response:', errorText);
       throw new Error(`External bundle generation failed: ${response.statusText} - ${errorText}`);
     }
-    
+
     const responseText = await response.text();
     console.log('📄 [generateMultipleBundlesFromExternal] Raw response text:', responseText);
-    
+
     let externalBundlesData;
     try {
       externalBundlesData = JSON.parse(responseText);
@@ -342,7 +349,7 @@ const generateMultipleBundlesFromExternal = async (storeId: string, token: strin
       console.error('❌ [generateMultipleBundlesFromExternal] JSON parse error:', parseError);
       throw new Error('Invalid JSON response from bundle generation service');
     }
-    
+
     return {
       data: externalBundlesData,
       status: response.status
@@ -368,7 +375,7 @@ const generateMultipleBundlesFromExternal = async (storeId: string, token: strin
  * @returns BundleRequestDto formatted for backend
  */
 const convertExternalBundleToRequest = (
-  externalBundle: ExternalBundleResponse, 
+  externalBundle: ExternalBundleResponse,
   storeId: string
 ): BundleRequestDto => {
   // Since the AI bundles don't include product prices, we'll use estimated pricing
@@ -377,7 +384,7 @@ const convertExternalBundleToRequest = (
   const totalProductCount = externalBundle.products.length;
   const estimatedOriginalPrice = totalProductCount * estimatedPricePerProduct;
   const estimatedBundlePrice = estimatedOriginalPrice * 0.85; // 15% bundle discount
-  
+
   return {
     storeId: storeId,
     name: externalBundle.name,

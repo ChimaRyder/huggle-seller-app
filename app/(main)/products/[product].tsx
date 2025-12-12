@@ -47,15 +47,15 @@ export default function ProductPage() {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [productAnalytics, setProductAnalytics] = useState<ProductPerformanceResponse | null>(null);
   const screenWidth = Dimensions.get('window').width;
-  const {getToken} = useAuth();
+  const { getToken } = useAuth();
   const theme = useTheme();
-  
+
   // Find the product/bundle based on the ID
   const getProduct = async () => {
     try {
       setLoading(true);
-      const token = await getToken({template: "seller_app"});
-      
+      const token = await getToken({ template: "seller_app" });
+
       // First try to get as a product
       try {
         const [productResponse, reviewsResponse, analyticsResponse] = await Promise.all([
@@ -72,7 +72,7 @@ export default function ProductPage() {
         console.log('✅ Successfully loaded as product');
       } catch (productError) {
         console.log('❌ Failed to load as product, trying as bundle...', productError);
-        
+
         // If product fetch fails, try as a bundle
         try {
           const [bundleResponse, reviewsResponse, analyticsResponse] = await Promise.all([
@@ -92,7 +92,7 @@ export default function ProductPage() {
           throw bundleError;
         }
       }
-    } catch(error) {
+    } catch (error) {
       console.error('Error getting product/bundle: ', error);
     } finally {
       setLoading(false);
@@ -102,11 +102,11 @@ export default function ProductPage() {
   const getReviews = async () => {
     try {
       setLoading(true);
-      const token = await getToken({template: "seller_app"});
+      const token = await getToken({ template: "seller_app" });
       const response = await getProductReviews(token ?? "", productId as string);
 
       setReviews(((response as any).data).slice(0, 5));
-    } catch(error) {
+    } catch (error) {
       console.error('Error getting reviews: ', error);
     } finally {
       setLoading(false);
@@ -118,7 +118,7 @@ export default function ProductPage() {
     try {
       // Use the same logic as getProduct
       await getProduct();
-    } catch(error) {
+    } catch (error) {
       console.error('Error refreshing product/bundle: ', error);
       showToast('error', 'Refresh Failed', 'Unable to refresh data. Please try again.');
     } finally {
@@ -129,50 +129,50 @@ export default function ProductPage() {
   const deleteProd = async () => {
     try {
       setLoading(true);
-      
+
       const itemName = isBundle ? bundle?.name : product.name;
       const itemType = isBundle ? 'Bundle' : 'Product';
-      
+
       console.log(`🗑️ [ProductPage] Starting ${itemType.toLowerCase()} deletion...`, {
         id: productId,
         name: itemName,
         isBundle
       });
-      
-      const token = await getToken({template: "seller_app"});
+
+      const token = await getToken({ template: "seller_app" });
       if (!token) {
         throw new Error('Authentication token not available');
       }
-      
+
       if (isBundle) {
         await deleteBundle(productId as string, token);
       } else {
         await deleteProduct(productId as string, token);
       }
-      
+
       console.log(`✅ [ProductPage] ${itemType} deleted successfully`);
-      
+
       // Navigate back first, then show success message
       router.back();
-      
+
       // Small delay to ensure navigation completes before showing toast
       setTimeout(() => {
         showToast('success', `${itemType} Deleted`, `${itemName} has been deleted successfully.`);
       }, 100);
-      
-    } catch(error: any) {
+
+    } catch (error: any) {
       const itemName = isBundle ? bundle?.name : product.name;
       const itemType = isBundle ? 'bundle' : 'product';
-      
+
       console.error(`❌ [ProductPage] Error deleting ${itemType}:`, error);
-      
+
       let errorMessage = `An error occurred while deleting ${itemName}. Please try again.`;
       if (error?.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error?.message) {
         errorMessage = error.message;
       }
-      
+
       showToast('error', 'Delete Failed', errorMessage);
     } finally {
       setLoading(false);
@@ -182,10 +182,10 @@ export default function ProductPage() {
   const handleDelete = () => {
     const itemName = isBundle ? bundle?.name : product.name;
     const itemType = isBundle ? 'Bundle' : 'Product';
-    
+
     Alert.alert(
-      `Delete ${itemType}`, 
-      `Are you sure you want to delete "${itemName}"?\n\nThis action cannot be undone and will permanently remove the ${itemType.toLowerCase()} from your store.`, 
+      `Delete ${itemType}`,
+      `Are you sure you want to delete "${itemName}"?\n\nThis action cannot be undone and will permanently remove the ${itemType.toLowerCase()} from your store.`,
       [
         {
           text: "Cancel",
@@ -204,7 +204,7 @@ export default function ProductPage() {
     useCallback(() => {
       getProduct();
 
-      return () => {}
+      return () => { }
     }, [])
   );
 
@@ -226,7 +226,7 @@ export default function ProductPage() {
   const renderImageIndicators = () => {
     const images = getProductImagesArray();
     if (images.length <= 1) return null; // Don't show indicators for single image
-    
+
     return (
       <View style={styles.indicatorContainer}>
         {images.map((_, index) => (
@@ -259,7 +259,7 @@ export default function ProductPage() {
     if (isBundle && bundle) {
       // Start with bundle's main images
       const bundleMainImages = bundle.imageUrl ? [bundle.imageUrl, ...bundle.images] : bundle.images;
-      
+
       // Add images from individual products in the bundle
       const productImages = bundle.products?.reduce((acc: string[], product) => {
         if (product.image && product.image.length > 0) {
@@ -267,7 +267,7 @@ export default function ProductPage() {
         }
         return acc;
       }, []) || [];
-      
+
       // Combine bundle images and product images, remove duplicates
       const allImages = [...bundleMainImages, ...productImages];
       return [...new Set(allImages)].filter(img => img);
@@ -292,359 +292,359 @@ export default function ProductPage() {
 
   return (
     <>
-    {!loading && (
-      <View style={styles.container}>
-        <ScrollView 
-          style={styles.scrollContainer}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[colors.primary]}
-              tintColor={colors.primary}
-            />
-          }
-        >
-          <View style={styles.imageContainer}>
-            <FlatList
-              data={getProductImagesArray()}
-              renderItem={renderImageItem}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              onScroll={handleImageScroll}
-              scrollEventThrottle={16}
-              keyExtractor={(item, index) => `image-${index}`}
-            />
-            {renderImageIndicators()}
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={navigateBack}
-            >
-              <ArrowLeft size={24} color="#fff" />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.content}>
-            {/* Product/Bundle name and price */}
-            <View style={styles.nameRow}>
-              <Text style={styles.title}>{isBundle ? bundle?.name : product.name}</Text>
-            </View>
-
-            {/* Price section */}
-            <View style={styles.priceSection}>
-              <Text style={styles.price}>
-                ₱{isBundle ? bundle?.price?.toFixed(2) : product.discountedPrice?.toFixed(2)}
-              </Text>
-              {isBundle ? (
-                bundle?.originalPrice && bundle.originalPrice > bundle.price && (
-                  <>
-                    <Text style={styles.originalPrice}>₱{bundle.originalPrice?.toFixed(2)}</Text>
-                    <View style={styles.discountBadge}>
-                      <Text style={styles.discountText}>
-                        -{bundle.discountPercentage?.toFixed(0)}% OFF
-                      </Text>
-                    </View>
-                  </>
-                )
-              ) : (
-                product.originalPrice && product.originalPrice > product.discountedPrice && (
-                  <>
-                    <Text style={styles.originalPrice}>₱{product.originalPrice?.toFixed(2)}</Text>
-                    <View style={styles.discountBadge}>
-                      <Text style={styles.discountText}>
-                        -{(((product.originalPrice - product.discountedPrice) / product.originalPrice) * 100).toFixed()}% OFF
-                      </Text>
-                    </View>
-                  </>
-                )
-              )}
-            </View>
-
-            {/* Status and Stock Info */}
-            <View style={styles.infoRow}>
-              <View style={[styles.statusBadge, { 
-                backgroundColor: (isBundle ? bundle?.isActive : product.isActive) ? colors.success : colors.warning 
-              }]}>
-                <Text style={styles.statusText}>
-                  {(isBundle ? bundle?.isActive : product.isActive) ? 'Active' : 'Inactive'}
-                </Text>
-              </View>
-              <Text style={styles.stockText}>
-                Stock: {(isBundle ? bundle?.stock : product.stock) || 0} units
-              </Text>
-            </View>
-
-            {/* Divider */}
-            <View style={styles.divider} />
-
-            {/* Description */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Description</Text>
-              <Text style={styles.description}>
-                {isBundle ? bundle?.description : product.description}
-              </Text>
-            </View>
-
-            {isBundle && bundle?.products && bundle.products.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Bundle Products ({bundle.products.length})</Text>
-                <View style={styles.bundleProductsContainer}>
-                  {bundle.products.map((bundleProduct, index) => (
-                    <TouchableOpacity 
-                      key={index} 
-                      style={styles.bundleProductCard}
-                      onPress={() => {
-                        // Navigate to individual product screen
-                        router.push({
-                          pathname: "/(main)/products/[product]",
-                          params: { product: bundleProduct.id }
-                        });
-                      }}
-                    >
-                      {bundleProduct.image && bundleProduct.image.length > 0 && (
-                        <Image 
-                          source={{ uri: bundleProduct.image[0] }} 
-                          style={styles.bundleProductImage}
-                        />
-                      )}
-                      <View style={styles.bundleProductInfo}>
-                        <Text style={styles.bundleProductName}>{bundleProduct.name}</Text>
-                        <Text style={styles.bundleProductPrice}>₱{bundleProduct.price?.toFixed(2)}</Text>
-                        {bundleProduct.originalPrice > bundleProduct.price && (
-                          <Text style={styles.bundleProductOriginalPrice}>
-                            ₱{bundleProduct.originalPrice?.toFixed(2)}
-                          </Text>
-                        )}
-                      </View>
-                      <View style={styles.bundleProductArrow}>
-                        <ArrowLeft size={16} color={colors.text.secondary} style={{ transform: [{ rotate: '180deg' }] }} />
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {/* Product/Bundle Details */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{isBundle ? 'Bundle' : 'Product'} Details</Text>
-              <View style={styles.detailsContainer}>
-                {isBundle ? (
-                  <>
-                    {bundle?.expiresOn && (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Expires On:</Text>
-                        <Text style={styles.detailValue}>
-                          {new Date(bundle.expiresOn).toLocaleDateString()}
-                        </Text>
-                      </View>
-                    )}
-                    {bundle?.totalCost && (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Total Cost:</Text>
-                        <Text style={styles.detailValue}>₱{bundle.totalCost.toFixed(2)}</Text>
-                      </View>
-                    )}
-                    {bundle?.profitMargin && (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Profit Margin:</Text>
-                        <Text style={styles.detailValue}>{bundle.profitMargin.toFixed(1)}%</Text>
-                      </View>
-                    )}
-                    {bundle?.isDynamicPricingEnabled && (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Dynamic Pricing:</Text>
-                        <Text style={styles.detailValue}>Enabled</Text>
-                      </View>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    {product.productType && (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Product Type:</Text>
-                        <Text style={styles.detailValue}>{product.productType}</Text>
-                      </View>
-                    )}
-                    {product.expirationDate && (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Expires On:</Text>
-                        <Text style={styles.detailValue}>
-                          {new Date(product.expirationDate).toLocaleDateString()}
-                        </Text>
-                      </View>
-                    )}
-                  </>
-                )}
-                {(isBundle ? bundle?.createdAt : product.createdAt) && (
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Created:</Text>
-                    <Text style={styles.detailValue}>
-                      {new Date(isBundle ? bundle!.createdAt : product.createdAt).toLocaleDateString()}
-                    </Text>
-                  </View>
-                )}
-                {(isBundle ? bundle?.updatedAt : product.updatedAt) && (
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Last Updated:</Text>
-                    <Text style={styles.detailValue}>
-                      {new Date(isBundle ? bundle!.updatedAt : product.updatedAt).toLocaleDateString()}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-
-            {/* Categories */}
-            {product.category && product.category.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Categories</Text>
-                <View style={styles.categoriesContainer}>
-                  {product.category.map((category, index) => (
-                    <View key={index} style={styles.categoryBadge}>
-                      <Text style={styles.categoryText}>{category}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {/* Product Analytics */}
-            {productAnalytics && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Product Performance</Text>
-                <View style={styles.analyticsContainer}>
-                  <View style={styles.analyticsGrid}>
-                    <View style={styles.analyticsCard}>
-                      <View style={styles.analyticsCardHeader}>
-                        <Eye size={20} color={colors.info} />
-                        <Text style={styles.analyticsCardLabel}>Views</Text>
-                      </View>
-                      <Text style={styles.analyticsCardValue}>{(productAnalytics.totalViews || 0).toLocaleString()}</Text>
-                      <Text style={styles.analyticsCardSubtext}>Total impressions</Text>
-                    </View>
-
-                    <View style={styles.analyticsCard}>
-                      <View style={styles.analyticsCardHeader}>
-                        <ShoppingCart size={20} color={colors.warning} />
-                        <Text style={styles.analyticsCardLabel}>Cart Adds</Text>
-                      </View>
-                      <Text style={styles.analyticsCardValue}>{(productAnalytics.totalAddToCarts || 0).toLocaleString()}</Text>
-                      <Text style={styles.analyticsCardSubtext}>Added to cart</Text>
-                    </View>
-
-                    <View style={styles.analyticsCard}>
-                      <View style={styles.analyticsCardHeader}>
-                        <ShoppingBag size={20} color={colors.success} />
-                        <Text style={styles.analyticsCardLabel}>Orders</Text>
-                      </View>
-                      <Text style={styles.analyticsCardValue}>{(productAnalytics.totalOrders || 0).toLocaleString()}</Text>
-                      <Text style={styles.analyticsCardSubtext}>Total sold</Text>
-                    </View>
-
-                    <View style={styles.analyticsCard}>
-                      <View style={styles.analyticsCardHeader}>
-                        <TrendingUp size={20} color={colors.primary} />
-                        <Text style={styles.analyticsCardLabel}>Conversion</Text>
-                      </View>
-                      <Text style={styles.analyticsCardValue}>{(productAnalytics.conversionRate || 0).toFixed(1)}%</Text>
-                      <Text style={styles.analyticsCardSubtext}>Views to orders</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.revenueSection}>
-                    <Text style={styles.revenueSectionTitle}>Revenue Metrics</Text>
-                    <View style={styles.revenueRow}>
-                      <View style={styles.revenueItem}>
-                        <Text style={styles.revenueLabel}>Total Revenue</Text>
-                        <Text style={styles.revenueValue}>₱{(productAnalytics.totalRevenue || 0).toFixed(2)}</Text>
-                      </View>
-                      <View style={styles.revenueItem}>
-                        <Text style={styles.revenueLabel}>Avg Order Value</Text>
-                        <Text style={styles.revenueValue}>₱{(productAnalytics.averageOrderValue || 0).toFixed(2)}</Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            )}
-
-            {/* Divider */}
-            <View style={styles.divider} />
-
-            {/* Reviews section */}
-            <View style={styles.reviewsHeader}>
-              <View style={styles.reviewsTitleContainer}>
-                <Text style={styles.sectionTitle}>Reviews</Text>
-              </View>
-              <TouchableOpacity onPress={() => router.push({
-                pathname: '/(main)/profile/reviewsSummary',
-                params: { productId: product.id, productName: product.name }
-              })}>
-                <Text style={styles.viewAllText}>View All</Text>
+      {!loading && (
+        <View style={styles.container}>
+          <ScrollView
+            style={styles.scrollContainer}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[colors.primary]}
+                tintColor={colors.primary}
+              />
+            }
+          >
+            <View style={styles.imageContainer}>
+              <FlatList
+                data={getProductImagesArray()}
+                renderItem={renderImageItem}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onScroll={handleImageScroll}
+                scrollEventThrottle={16}
+                keyExtractor={(item, index) => `image-${index}`}
+              />
+              {renderImageIndicators()}
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={navigateBack}
+              >
+                <ArrowLeft size={24} color="#fff" />
               </TouchableOpacity>
             </View>
 
-            {/* Reviews list */}
-            <View style={styles.reviewsContainer}>
-              <FlatList
-                scrollEnabled={false}
-                data={reviews}
-                renderItem={({item} : {item : Review}) => <ReviewItem review={item} key={item.id}/>}
-                ListEmptyComponent={
-                  <View style={styles.noReviewsContainer}>
-                    <CookingPot size={60} color={colors.icon.secondary}/>
-                    <Text style={styles.noReviewsText}>No Reviews</Text>
+            <View style={styles.content}>
+              {/* Product/Bundle name and price */}
+              <View style={styles.nameRow}>
+                <Text style={styles.title}>{isBundle ? bundle?.name : product.name}</Text>
+              </View>
+
+              {/* Price section */}
+              <View style={styles.priceSection}>
+                <Text style={styles.price}>
+                  ₱{isBundle ? bundle?.price?.toFixed(2) : product.discountedPrice?.toFixed(2)}
+                </Text>
+                {isBundle ? (
+                  bundle?.originalPrice && bundle.originalPrice > bundle.price && (
+                    <>
+                      <Text style={styles.originalPrice}>₱{bundle.originalPrice?.toFixed(2)}</Text>
+                      <View style={styles.discountBadge}>
+                        <Text style={styles.discountText}>
+                          -{bundle.discountPercentage?.toFixed(0)}% OFF
+                        </Text>
+                      </View>
+                    </>
+                  )
+                ) : (
+                  product.originalPrice && product.originalPrice > product.discountedPrice && (
+                    <>
+                      <Text style={styles.originalPrice}>₱{product.originalPrice?.toFixed(2)}</Text>
+                      <View style={styles.discountBadge}>
+                        <Text style={styles.discountText}>
+                          -{(((product.originalPrice - product.discountedPrice) / product.originalPrice) * 100).toFixed()}% OFF
+                        </Text>
+                      </View>
+                    </>
+                  )
+                )}
+              </View>
+
+              {/* Status and Stock Info */}
+              <View style={styles.infoRow}>
+                <View style={[styles.statusBadge, {
+                  backgroundColor: (isBundle ? bundle?.isActive : product.isActive) ? colors.success : colors.warning
+                }]}>
+                  <Text style={styles.statusText}>
+                    {(isBundle ? bundle?.isActive : product.isActive) ? 'Active' : 'Inactive'}
+                  </Text>
+                </View>
+                <Text style={styles.stockText}>
+                  Stock: {(isBundle ? bundle?.stock : product.stock) || 0} units
+                </Text>
+              </View>
+
+              {/* Divider */}
+              <View style={styles.divider} />
+
+              {/* Description */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Description</Text>
+                <Text style={styles.description}>
+                  {isBundle ? bundle?.description : product.description}
+                </Text>
+              </View>
+
+              {isBundle && bundle?.products && bundle.products.length > 0 && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Bundle Products ({bundle.products.length})</Text>
+                  <View style={styles.bundleProductsContainer}>
+                    {bundle.products.map((bundleProduct, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        style={styles.bundleProductCard}
+                        onPress={() => {
+                          // Navigate to individual product screen
+                          router.push({
+                            pathname: "/(main)/products/[product]",
+                            params: { product: bundleProduct.id }
+                          });
+                        }}
+                      >
+                        {bundleProduct.image && bundleProduct.image.length > 0 && (
+                          <Image
+                            source={{ uri: bundleProduct.image[0] }}
+                            style={styles.bundleProductImage}
+                          />
+                        )}
+                        <View style={styles.bundleProductInfo}>
+                          <Text style={styles.bundleProductName}>{bundleProduct.name}</Text>
+                          <Text style={styles.bundleProductPrice}>₱{bundleProduct.price?.toFixed(2)}</Text>
+                          {bundleProduct.originalPrice > bundleProduct.price && (
+                            <Text style={styles.bundleProductOriginalPrice}>
+                              ₱{bundleProduct.originalPrice?.toFixed(2)}
+                            </Text>
+                          )}
+                        </View>
+                        <View style={styles.bundleProductArrow}>
+                          <ArrowLeft size={16} color={colors.text.secondary} style={{ transform: [{ rotate: '180deg' }] }} />
+                        </View>
+                      </TouchableOpacity>
+                    ))}
                   </View>
-                }
-                contentContainerStyle={styles.reviewsList}
-              />
+                </View>
+              )}
+
+              {/* Product/Bundle Details */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>{isBundle ? 'Bundle' : 'Product'} Details</Text>
+                <View style={styles.detailsContainer}>
+                  {isBundle ? (
+                    <>
+                      {bundle?.expiresOn && (
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>Expires On:</Text>
+                          <Text style={styles.detailValue}>
+                            {new Date(bundle.expiresOn).toLocaleDateString()}
+                          </Text>
+                        </View>
+                      )}
+                      {bundle?.totalCost && (
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>Total Cost:</Text>
+                          <Text style={styles.detailValue}>₱{bundle.totalCost.toFixed(2)}</Text>
+                        </View>
+                      )}
+                      {bundle?.profitMargin && (
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>Profit Margin:</Text>
+                          <Text style={styles.detailValue}>{bundle.profitMargin.toFixed(1)}%</Text>
+                        </View>
+                      )}
+                      {bundle?.isDynamicPricingEnabled && (
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>Dynamic Pricing:</Text>
+                          <Text style={styles.detailValue}>Enabled</Text>
+                        </View>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {product.productType && (
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>Product Type:</Text>
+                          <Text style={styles.detailValue}>{product.productType}</Text>
+                        </View>
+                      )}
+                      {product.expirationDate && (
+                        <View style={styles.detailRow}>
+                          <Text style={styles.detailLabel}>Expires On:</Text>
+                          <Text style={styles.detailValue}>
+                            {new Date(product.expirationDate).toLocaleDateString()}
+                          </Text>
+                        </View>
+                      )}
+                    </>
+                  )}
+                  {(isBundle ? bundle?.createdAt : product.createdAt) && (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Created:</Text>
+                      <Text style={styles.detailValue}>
+                        {new Date(isBundle ? bundle!.createdAt : product.createdAt).toLocaleDateString()}
+                      </Text>
+                    </View>
+                  )}
+                  {(isBundle ? bundle?.updatedAt : product.updatedAt) && (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Last Updated:</Text>
+                      <Text style={styles.detailValue}>
+                        {new Date(isBundle ? bundle!.updatedAt : product.updatedAt).toLocaleDateString()}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Categories */}
+              {product.category && product.category.length > 0 && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Categories</Text>
+                  <View style={styles.categoriesContainer}>
+                    {product.category.map((category, index) => (
+                      <View key={index} style={styles.categoryBadge}>
+                        <Text style={styles.categoryText}>{category}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {/* Product Analytics */}
+              {productAnalytics && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Product Performance</Text>
+                  <View style={styles.analyticsContainer}>
+                    <View style={styles.analyticsGrid}>
+                      <View style={styles.analyticsCard}>
+                        <View style={styles.analyticsCardHeader}>
+                          <Eye size={20} color={colors.info} />
+                          <Text style={styles.analyticsCardLabel}>Views</Text>
+                        </View>
+                        <Text style={styles.analyticsCardValue}>{(productAnalytics.totalViews || 0).toLocaleString()}</Text>
+                        <Text style={styles.analyticsCardSubtext}>Total impressions</Text>
+                      </View>
+
+                      <View style={styles.analyticsCard}>
+                        <View style={styles.analyticsCardHeader}>
+                          <ShoppingCart size={20} color={colors.warning} />
+                          <Text style={styles.analyticsCardLabel}>Cart Adds</Text>
+                        </View>
+                        <Text style={styles.analyticsCardValue}>{(productAnalytics.totalAddToCarts || 0).toLocaleString()}</Text>
+                        <Text style={styles.analyticsCardSubtext}>Added to cart</Text>
+                      </View>
+
+                      <View style={styles.analyticsCard}>
+                        <View style={styles.analyticsCardHeader}>
+                          <ShoppingBag size={20} color={colors.success} />
+                          <Text style={styles.analyticsCardLabel}>Orders</Text>
+                        </View>
+                        <Text style={styles.analyticsCardValue}>{(productAnalytics.totalOrders || 0).toLocaleString()}</Text>
+                        <Text style={styles.analyticsCardSubtext}>Total sold</Text>
+                      </View>
+
+                      <View style={styles.analyticsCard}>
+                        <View style={styles.analyticsCardHeader}>
+                          <TrendingUp size={20} color={colors.primary} />
+                          <Text style={styles.analyticsCardLabel}>Conversion</Text>
+                        </View>
+                        <Text style={styles.analyticsCardValue}>{(productAnalytics.conversionRate || 0).toFixed(1)}%</Text>
+                        <Text style={styles.analyticsCardSubtext}>Views to orders</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.revenueSection}>
+                      <Text style={styles.revenueSectionTitle}>Revenue Metrics</Text>
+                      <View style={styles.revenueRow}>
+                        <View style={styles.revenueItem}>
+                          <Text style={styles.revenueLabel}>Total Revenue</Text>
+                          <Text style={styles.revenueValue}>₱{(productAnalytics.totalRevenue || 0).toFixed(2)}</Text>
+                        </View>
+                        <View style={styles.revenueItem}>
+                          <Text style={styles.revenueLabel}>Avg Order Value</Text>
+                          <Text style={styles.revenueValue}>₱{(productAnalytics.averageOrderValue || 0).toFixed(2)}</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* Divider */}
+              <View style={styles.divider} />
+
+              {/* Reviews section */}
+              <View style={styles.reviewsHeader}>
+                <View style={styles.reviewsTitleContainer}>
+                  <Text style={styles.sectionTitle}>Reviews</Text>
+                </View>
+                <TouchableOpacity onPress={() => router.push({
+                  pathname: '/(main)/profile/reviewsSummary',
+                  params: { productId: product.id, productName: product.name }
+                })}>
+                  <Text style={styles.viewAllText}>View All</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Reviews list */}
+              <View style={styles.reviewsContainer}>
+                <FlatList
+                  scrollEnabled={false}
+                  data={reviews}
+                  renderItem={({ item }: { item: Review }) => <ReviewItem review={item} key={item.id} />}
+                  ListEmptyComponent={
+                    <View style={styles.noReviewsContainer}>
+                      <CookingPot size={60} color={colors.icon.secondary} />
+                      <Text style={styles.noReviewsText}>No Reviews</Text>
+                    </View>
+                  }
+                  contentContainerStyle={styles.reviewsList}
+                />
+              </View>
+            </View>
+          </ScrollView>
+
+          {/* Bottom bar with Edit and Delete actions */}
+          <View style={styles.bottomBarContainer}>
+            <View style={styles.bottomBar}>
+              <TouchableOpacity
+                style={[styles.deleteButton, loading && styles.disabledButton]}
+                onPress={handleDelete}
+                disabled={loading}
+              >
+                <Trash2 size={20} color={loading ? colors.text.tertiary : colors.danger} />
+                <Text style={[styles.deleteButtonText, loading && styles.disabledButtonText]}>
+                  {loading ? 'Deleting...' : 'Delete'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.editButton, loading && styles.disabledButton]}
+                onPress={navigateToEdit}
+                disabled={loading}
+              >
+                <Edit3 size={20} color={loading ? colors.text.tertiary : colors.white} />
+                <Text style={[styles.editButtonText, loading && styles.disabledButtonText]}>
+                  Edit Product
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </ScrollView>
 
-        {/* Bottom bar with Edit and Delete actions */}
-        <View style={styles.bottomBarContainer}>
-          <View style={styles.bottomBar}>
-            <TouchableOpacity 
-              style={[styles.deleteButton, loading && styles.disabledButton]} 
-              onPress={handleDelete}
-              disabled={loading}
-            >
-              <Trash2 size={20} color={loading ? colors.text.tertiary : colors.danger} />
-              <Text style={[styles.deleteButtonText, loading && styles.disabledButtonText]}>
-                {loading ? 'Deleting...' : 'Delete'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.editButton, loading && styles.disabledButton]} 
-              onPress={navigateToEdit}
-              disabled={loading}
-            >
-              <Edit3 size={20} color={loading ? colors.text.tertiary : colors.white} />
-              <Text style={[styles.editButtonText, loading && styles.disabledButtonText]}>
-                Edit Product
-              </Text>
-            </TouchableOpacity>
-          </View>
+          {/* Image Viewer Modal */}
+          <ImageViewing
+            images={getAllProductImages()}
+            imageIndex={selectedImageIndex}
+            visible={imageViewerVisible}
+            onRequestClose={() => setImageViewerVisible(false)}
+          />
         </View>
-        
-        {/* Image Viewer Modal */}
-        <ImageViewing
-          images={getAllProductImages()}
-          imageIndex={selectedImageIndex}
-          visible={imageViewerVisible}
-          onRequestClose={() => setImageViewerVisible(false)}
-        />
-      </View>
-    )}
+      )}
 
-    {loading && (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <Spinner size='giant'/>
-      </View>
-    )}
+      {loading && (
+        <View style={[styles.container, styles.loadingContainer]}>
+          <Spinner size='giant' />
+        </View>
+      )}
     </>
   );
 }
@@ -760,7 +760,10 @@ const styles = StyleSheet.create({
     marginVertical: spacing.lg,
   },
   section: {
-    marginBottom: spacing.sm,
+    marginBottom: spacing.lg,
+    backgroundColor: colors.background.primary,
+    borderRadius: radii.lg,
+    padding: spacing.md,
   },
   description: {
     fontSize: typography.fontSizes.md,

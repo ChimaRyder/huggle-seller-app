@@ -10,6 +10,7 @@ import {
   Alert,
   Dimensions,
   FlatList,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -25,7 +26,6 @@ import {
   AlertCircle,
   Loader,
   Package,
-  DollarSign,
   Calendar,
   BarChart3,
   ChevronDown,
@@ -59,11 +59,11 @@ const CreateProduct = () => {
   const router = useRouter();
   const { getToken } = useAuth();
   const { user } = useUser();
-  
+
   // Mode selection
   const [creationMode, setCreationMode] = useState<'product' | 'bundle'>('product');
   const [bundleCreationMode, setBundleCreationMode] = useState<BundleCreationMode>('from-products');
-  
+
   // Product state
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -78,7 +78,7 @@ const CreateProduct = () => {
   const [currentCategory, setCurrentCategory] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  
+
   // Dynamic pricing state
   const [isDynamicPricingEnabled, setIsDynamicPricingEnabled] = useState(false);
   const [productCost, setProductCost] = useState('');
@@ -90,7 +90,7 @@ const CreateProduct = () => {
   const [selectedProducts, setSelectedProducts] = useState<SelectableProduct[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [isGeneratingBundle, setIsGeneratingBundle] = useState(false);
-  
+
   // AI Generated bundles state
   const [generatedBundles, setGeneratedBundles] = useState<ExternalBundleResponse[]>([]);
   const [selectedBundleIndex, setSelectedBundleIndex] = useState<number | null>(null);
@@ -118,7 +118,7 @@ const CreateProduct = () => {
 
       const response = await getAllProducts('', token);
       console.log('📦 [loadSellerProducts] Raw products response:', response.data);
-      
+
       const products: SelectableProduct[] = response.data.map((product: any, index: number) => {
         console.log(`📦 [loadSellerProducts] Processing product ${index}:`, {
           id: product.id,
@@ -128,7 +128,7 @@ const CreateProduct = () => {
           originalPrice: product.originalPrice,
           stock: product.stock,
         });
-        
+
         return {
           id: product.id,
           name: product.name,
@@ -141,9 +141,9 @@ const CreateProduct = () => {
           expiresOn: product.expiresOn ? new Date(product.expiresOn) : undefined,
         };
       });
-      
+
       console.log('📦 [loadSellerProducts] Processed products:', products.length);
-      
+
       setAvailableProducts(products);
     } catch (error) {
       console.error('Error loading products:', error);
@@ -154,14 +154,14 @@ const CreateProduct = () => {
   };
 
   const toggleProductSelection = (productId: string) => {
-    setAvailableProducts(prev => 
-      prev.map(product => 
-        product.id === productId 
+    setAvailableProducts(prev =>
+      prev.map(product =>
+        product.id === productId
           ? { ...product, isSelected: !product.isSelected }
           : product
       )
     );
-    
+
     setSelectedProducts(prev => {
       const isCurrentlySelected = prev.some(p => p.id === productId);
       if (isCurrentlySelected) {
@@ -186,10 +186,10 @@ const CreateProduct = () => {
 
       console.log('🚀 [generateExternalBundles] Calling API with store ID:', validation.storeId);
       const response = await generateMultipleBundlesFromExternal(validation.storeId, token, 3);
-      
+
       console.log('📦 [generateExternalBundles] Full API response:', response);
       console.log('📦 [generateExternalBundles] Response data:', response.data);
-      
+
       // The API returns bundles directly as an array
       if (response.data && Array.isArray(response.data)) {
         console.log('✅ [generateExternalBundles] Found bundles array:', response.data.length);
@@ -214,7 +214,7 @@ const CreateProduct = () => {
       const selectedBundle = generatedBundles[index];
       const token = await getToken({ template: "seller_app" });
       const validation = validateSellerAccess(token, user);
-      
+
       if (!validation.isValid || !validation.storeId) {
         throw new Error('Seller access validation failed');
       }
@@ -231,7 +231,7 @@ const CreateProduct = () => {
         try {
           const deleteResults = await deleteMultipleBundles(unselectedBundleIds, token);
           console.log('🧹 [selectBundle] Cleanup results:', deleteResults);
-          
+
           if (deleteResults.failed.length > 0) {
             console.warn('⚠️ [selectBundle] Some bundles failed to delete:', deleteResults.failed);
           }
@@ -246,7 +246,7 @@ const CreateProduct = () => {
       // Load product details for the bundle products
       const bundleProductIds = selectedBundle.products.map(p => p.id);
       const bundleProducts: SelectableProduct[] = [];
-      
+
       // Find matching products from available products
       for (const productId of bundleProductIds) {
         const matchingProduct = availableProducts.find(p => p.id === productId);
@@ -276,7 +276,7 @@ const CreateProduct = () => {
       }
 
       // Update available products to mark selected ones
-      setAvailableProducts(prev => 
+      setAvailableProducts(prev =>
         prev.map(product => ({
           ...product,
           isSelected: bundleProductIds.includes(product.id)
@@ -298,11 +298,11 @@ const CreateProduct = () => {
 
       setSelectedBundleIndex(index);
       setShowBundleSelection(false);
-      
-      const cleanupMessage = unselectedBundleIds.length > 0 
+
+      const cleanupMessage = unselectedBundleIds.length > 0
         ? ` ${unselectedBundleIds.length} unused bundles have been cleaned up.`
         : '';
-      
+
       showToast('success', 'Bundle Selected', `Bundle has been loaded into the form.${cleanupMessage} Review and submit when ready.`);
     } catch (error) {
       console.error('❌ [selectBundle] Error selecting bundle:', error);
@@ -313,21 +313,21 @@ const CreateProduct = () => {
   const navigateBack = () => {
     const hasChanges = name.trim() || description.trim() || coverImage || additionalImages.length > 0 || selectedProducts.length > 0;
     const hasUnselectedBundles = generatedBundles.length > 0 && selectedBundleIndex === null;
-    
+
     if (hasChanges || hasUnselectedBundles) {
       let message = 'Are you sure you want to discard your changes?';
       if (hasUnselectedBundles) {
         message = 'You have unselected AI bundles that will be deleted. Are you sure you want to go back?';
       }
-      
+
       Alert.alert(
         'Discard Changes',
         message,
         [
           { text: 'Keep Editing', style: 'cancel' },
-          { 
-            text: 'Discard', 
-            style: 'destructive', 
+          {
+            text: 'Discard',
+            style: 'destructive',
             onPress: async () => {
               // Clean up unselected bundles before navigating away
               if (hasUnselectedBundles) {
@@ -374,10 +374,10 @@ const CreateProduct = () => {
 
       if (!result.canceled && result.assets[0]) {
         const imageUri = result.assets[0].uri;
-        
+
         // Upload to Firebase Storage
         const downloadURL = await uploadImageUri(imageUri, 'products/additional');
-        
+
         if (downloadURL) {
           setAdditionalImages(prev => [...prev, downloadURL]);
         }
@@ -407,10 +407,10 @@ const CreateProduct = () => {
 
       if (!result.canceled && result.assets[0]) {
         const imageUri = result.assets[0].uri;
-        
+
         // Upload to Firebase Storage
         const downloadURL = await uploadImageUri(imageUri, 'products/covers');
-        
+
         if (downloadURL) {
           setCoverImage(downloadURL);
         }
@@ -460,7 +460,7 @@ const CreateProduct = () => {
           y: Math.max(0, yOffset - 100), // Offset by 100px to show some context above
           animated: true,
         });
-        
+
         // Show toast to indicate which field has the error
         showToast('error', 'Missing Information', errors[field]);
         return;
@@ -518,19 +518,19 @@ const CreateProduct = () => {
       } else if (parseFloat(productCost) >= parseFloat(discountedPrice)) {
         newErrors.productCost = 'Product cost must be less than the current price';
       }
-      
+
       if (!dynamicPricingStartDays || parseInt(dynamicPricingStartDays) <= 0) {
         newErrors.dynamicPricingStartDays = 'Valid start days is required';
       }
     }
 
     setErrors(newErrors);
-    
+
     // Scroll to first error if validation fails
     if (Object.keys(newErrors).length > 0) {
       setTimeout(() => scrollToFirstError(newErrors), 100);
     }
-    
+
     return Object.keys(newErrors).length === 0;
   };
 
@@ -620,14 +620,14 @@ const CreateProduct = () => {
       router.back();
     } catch (error: any) {
       console.error(`❌ [Create${creationMode === 'product' ? 'Product' : 'Bundle'}] Error:`, error);
-      
+
       let errorMessage = `Failed to create ${creationMode}. Please try again.`;
       if (error?.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error?.message) {
         errorMessage = error.message;
       }
-      
+
       showToast('error', 'Creation Failed', errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -653,7 +653,7 @@ const CreateProduct = () => {
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>
-            {creationMode === 'product' 
+            {creationMode === 'product'
               ? 'Create Product'
               : (bundleCreationMode === 'external-generation' && selectedBundleIndex !== null)
                 ? 'Update Bundle'
@@ -661,8 +661,8 @@ const CreateProduct = () => {
             }
           </Text>
           <Text style={styles.headerSubtitle}>
-            {creationMode === 'product' 
-              ? 'Add a new product to your store' 
+            {creationMode === 'product'
+              ? 'Add a new product to your store'
               : (bundleCreationMode === 'external-generation' && selectedBundleIndex !== null)
                 ? 'Review and update your AI-generated bundle'
                 : 'Create a bundle from your products'
@@ -675,7 +675,7 @@ const CreateProduct = () => {
           disabled={!name.trim() || !coverImage || isSubmitting}
         >
           {isSubmitting ? (
-            <View style={styles.loadingIndicator} />
+            <ActivityIndicator size="small" color={colors.text.inverse} />
           ) : (
             <Check size={20} color={colors.text.inverse} />
           )}
@@ -699,7 +699,7 @@ const CreateProduct = () => {
                   console.error('❌ [modeSwitch] Failed to cleanup bundles:', error);
                 }
               }
-              
+
               setCreationMode('product');
               setGeneratedBundles([]);
               setSelectedBundleIndex(null);
@@ -725,7 +725,7 @@ const CreateProduct = () => {
                   console.error('❌ [modeSwitch] Failed to cleanup bundles:', error);
                 }
               }
-              
+
               setCreationMode('bundle');
               setGeneratedBundles([]);
               setSelectedBundleIndex(null);
@@ -801,7 +801,7 @@ const CreateProduct = () => {
               >
                 {isGeneratingBundle ? (
                   <>
-                    <View style={styles.loadingIndicator} />
+                    <ActivityIndicator size="small" color={colors.text.inverse} />
                     <Text style={styles.generateBundleButtonText}>Generating...</Text>
                   </>
                 ) : (
@@ -823,7 +823,7 @@ const CreateProduct = () => {
                 <Text style={styles.bundleSelectionDescription}>
                   Select the bundle option you like most. You can review and edit the details afterwards.
                 </Text>
-                
+
                 <FlatList
                   data={generatedBundles}
                   keyExtractor={(item, index) => `bundle-${index}`}
@@ -846,7 +846,7 @@ const CreateProduct = () => {
                           <Image source={{ uri: item.image_url }} style={styles.bundleOptionImage} />
                         )}
                       </View>
-                      
+
                       <View style={styles.bundleOptionDetails}>
                         <View style={styles.bundleOptionStat}>
                           <Package size={16} color={colors.text.secondary} />
@@ -855,9 +855,9 @@ const CreateProduct = () => {
                           </Text>
                         </View>
                         <View style={styles.bundleOptionStat}>
-                          <DollarSign size={16} color={colors.primary} />
+                          <Text style={{ fontSize: 14, color: colors.primary, fontWeight: '600' }}>₱</Text>
                           <Text style={styles.bundleOptionStatText}>
-                            ₱{(item.products.length * 100 * 0.85).toFixed(2)}
+                            {(item.products.length * 100 * 0.85).toFixed(2)}
                           </Text>
                         </View>
                         <View style={styles.bundleOptionStat}>
@@ -904,7 +904,7 @@ const CreateProduct = () => {
                         console.error('❌ [regenerate] Failed to cleanup bundles:', error);
                       }
                     }
-                    
+
                     setShowBundleSelection(false);
                     setGeneratedBundles([]);
                     setSelectedBundleIndex(null);
@@ -934,14 +934,14 @@ const CreateProduct = () => {
             )}
             <Text style={styles.sectionDescription}>
               Choose at least 2 products to create a bundle
-              {bundleCreationMode === 'external-generation' && selectedBundleIndex !== null && 
+              {bundleCreationMode === 'external-generation' && selectedBundleIndex !== null &&
                 ' (AI bundle products are pre-selected, but you can modify the selection)'
               }
             </Text>
 
             {isLoadingProducts ? (
               <View style={styles.loadingContainer}>
-                <View style={styles.loadingIndicator} />
+                <ActivityIndicator size="small" color={colors.primary} />
                 <Text style={styles.loadingText}>Loading your products...</Text>
               </View>
             ) : (
@@ -964,8 +964,10 @@ const CreateProduct = () => {
                     </View>
                   </TouchableOpacity>
                 )}
-                scrollEnabled={false}
+                scrollEnabled={true}
+                nestedScrollEnabled={true}
                 style={styles.productSelectionList}
+                showsVerticalScrollIndicator={true}
               />
             )}
           </View>
@@ -1093,8 +1095,8 @@ const CreateProduct = () => {
                 </TouchableOpacity>
               </View>
             ) : (
-              <TouchableOpacity 
-                style={[styles.addCoverImageButton, uploadState.isUploading && styles.uploadingButton]} 
+              <TouchableOpacity
+                style={[styles.addCoverImageButton, uploadState.isUploading && styles.uploadingButton]}
                 onPress={pickCoverImage}
                 disabled={uploadState.isUploading}
               >
@@ -1132,8 +1134,8 @@ const CreateProduct = () => {
             ))}
 
             {additionalImages.length < 3 && (
-              <TouchableOpacity 
-                style={[styles.addImageButton, uploadState.isUploading && styles.uploadingButton]} 
+              <TouchableOpacity
+                style={[styles.addImageButton, uploadState.isUploading && styles.uploadingButton]}
                 onPress={pickImage}
                 disabled={uploadState.isUploading}
               >
@@ -1160,7 +1162,7 @@ const CreateProduct = () => {
         {/* Pricing Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <DollarSign size={20} color={colors.primary} />
+            <Text style={{ fontSize: 20, color: colors.primary, fontWeight: '600' }}>₱</Text>
             <Text style={styles.sectionTitle}>Pricing</Text>
           </View>
           <Text style={styles.sectionDescription}>
@@ -1221,7 +1223,7 @@ const CreateProduct = () => {
           )}
 
           {/* Dynamic Pricing Toggle */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.dynamicPricingToggle}
             onPress={() => {
               setIsDynamicPricingEnabled(!isDynamicPricingEnabled);
@@ -1254,7 +1256,7 @@ const CreateProduct = () => {
 
           {/* Expandable Dynamic Pricing Section */}
           {isDynamicPricingEnabled && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.expandToggle}
               onPress={() => setIsDynamicPricingExpanded(!isDynamicPricingExpanded)}
             >
@@ -1318,30 +1320,30 @@ const CreateProduct = () => {
               </View>
 
               {/* Dynamic Pricing Preview */}
-              {discountedPrice && productCost && dynamicPricingStartDays && 
-               parseFloat(discountedPrice) > parseFloat(productCost) && 
-               parseInt(dynamicPricingStartDays) > 0 && (
-                <View style={styles.pricingPreview}>
-                  <View style={styles.previewHeader}>
-                    <TrendingDown size={16} color={colors.info} />
-                    <Text style={styles.previewTitle}>Pricing Preview</Text>
+              {discountedPrice && productCost && dynamicPricingStartDays &&
+                parseFloat(discountedPrice) > parseFloat(productCost) &&
+                parseInt(dynamicPricingStartDays) > 0 && (
+                  <View style={styles.pricingPreview}>
+                    <View style={styles.previewHeader}>
+                      <TrendingDown size={16} color={colors.info} />
+                      <Text style={styles.previewTitle}>Pricing Preview</Text>
+                    </View>
+                    <View style={styles.previewRow}>
+                      <Text style={styles.previewLabel}>Current Price:</Text>
+                      <Text style={styles.previewValue}>₱{parseFloat(discountedPrice).toFixed(2)}</Text>
+                    </View>
+                    <View style={styles.previewRow}>
+                      <Text style={styles.previewLabel}>Final Price (Day {dynamicPricingStartDays}):</Text>
+                      <Text style={styles.previewValue}>₱{parseFloat(productCost).toFixed(2)}</Text>
+                    </View>
+                    <View style={styles.previewRow}>
+                      <Text style={styles.previewLabel}>Daily Reduction:</Text>
+                      <Text style={styles.previewValue}>
+                        ₱{((parseFloat(discountedPrice) - parseFloat(productCost)) / parseInt(dynamicPricingStartDays)).toFixed(2)}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={styles.previewRow}>
-                    <Text style={styles.previewLabel}>Current Price:</Text>
-                    <Text style={styles.previewValue}>₱{parseFloat(discountedPrice).toFixed(2)}</Text>
-                  </View>
-                  <View style={styles.previewRow}>
-                    <Text style={styles.previewLabel}>Final Price (Day {dynamicPricingStartDays}):</Text>
-                    <Text style={styles.previewValue}>₱{parseFloat(productCost).toFixed(2)}</Text>
-                  </View>
-                  <View style={styles.previewRow}>
-                    <Text style={styles.previewLabel}>Daily Reduction:</Text>
-                    <Text style={styles.previewValue}>
-                      ₱{((parseFloat(discountedPrice) - parseFloat(productCost)) / parseInt(dynamicPricingStartDays)).toFixed(2)}
-                    </Text>
-                  </View>
-                </View>
-              )}
+                )}
             </View>
           )}
         </View>
@@ -1521,8 +1523,13 @@ const styles = StyleSheet.create({
   // Sections
   section: {
     backgroundColor: colors.background.primary,
-    marginBottom: spacing.md,
-    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    padding: spacing.xl,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1966,7 +1973,7 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
   },
   productSelectionList: {
-    maxHeight: 300,
+    maxHeight: 400,
   },
   productSelectionItem: {
     flexDirection: 'row',

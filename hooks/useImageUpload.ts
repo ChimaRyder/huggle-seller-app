@@ -15,8 +15,8 @@ export interface UseImageUploadReturn {
   pickAndUploadMultipleImages: (folder?: string, maxImages?: number) => Promise<string[]>;
   uploadImageUri: (uri: string, folder?: string) => Promise<string | null>;
   uploadProductImages: (
-    coverImageUri: string, 
-    additionalImageUris: string[], 
+    coverImageUri: string,
+    additionalImageUris: string[],
     productId?: string
   ) => Promise<{ coverImageUrl: string; additionalImageUrls: string[] } | null>;
   resetState: () => void;
@@ -44,7 +44,7 @@ export const useImageUpload = (): UseImageUploadReturn => {
   const handleProgress = (progress: UploadProgress) => {
     setUploadState(prev => ({
       ...prev,
-      progress: progress.progress,
+      progress: Math.min(progress.progress, 100),
     }));
   };
 
@@ -53,7 +53,7 @@ export const useImageUpload = (): UseImageUploadReturn => {
    */
   const pickAndUploadImage = async (folder: string = 'products'): Promise<string | null> => {
     try {
-      
+
       // Request permissions
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
@@ -80,14 +80,14 @@ export const useImageUpload = (): UseImageUploadReturn => {
 
     } catch (error) {
       console.error('❌ [useImageUpload] Pick and upload failed:', error);
-      
+
       const errorMessage = error instanceof Error ? error.message : 'Failed to pick and upload image';
       setUploadState(prev => ({
         ...prev,
         isUploading: false,
         error: errorMessage,
       }));
-      
+
       Alert.alert('Upload Failed', errorMessage);
       return null;
     }
@@ -101,7 +101,7 @@ export const useImageUpload = (): UseImageUploadReturn => {
     maxImages: number = 5
   ): Promise<string[]> => {
     try {
-      
+
       // Request permissions
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
@@ -155,14 +155,14 @@ export const useImageUpload = (): UseImageUploadReturn => {
 
     } catch (error) {
       console.error('❌ [useImageUpload] Multiple pick and upload failed:', error);
-      
+
       const errorMessage = error instanceof Error ? error.message : 'Failed to pick and upload images';
       setUploadState(prev => ({
         ...prev,
         isUploading: false,
         error: errorMessage,
       }));
-      
+
       Alert.alert('Upload Failed', errorMessage);
       return [];
     }
@@ -173,7 +173,7 @@ export const useImageUpload = (): UseImageUploadReturn => {
    */
   const uploadImageUri = async (uri: string, folder: string = 'products'): Promise<string | null> => {
     try {
-      
+
       setUploadState(prev => ({
         ...prev,
         isUploading: true,
@@ -198,14 +198,14 @@ export const useImageUpload = (): UseImageUploadReturn => {
 
     } catch (error) {
       console.error('❌ [useImageUpload] Upload failed:', error);
-      
+
       const errorMessage = error instanceof Error ? error.message : 'Failed to upload image';
       setUploadState(prev => ({
         ...prev,
         isUploading: false,
         error: errorMessage,
       }));
-      
+
       Alert.alert('Upload Failed', errorMessage);
       return null;
     }
@@ -220,7 +220,7 @@ export const useImageUpload = (): UseImageUploadReturn => {
     productId?: string
   ): Promise<{ coverImageUrl: string; additionalImageUrls: string[] } | null> => {
     try {
-      
+
       setUploadState(prev => ({
         ...prev,
         isUploading: true,
@@ -254,14 +254,14 @@ export const useImageUpload = (): UseImageUploadReturn => {
 
     } catch (error) {
       console.error('❌ [useImageUpload] Product images upload failed:', error);
-      
+
       const errorMessage = error instanceof Error ? error.message : 'Failed to upload product images';
       setUploadState(prev => ({
         ...prev,
         isUploading: false,
         error: errorMessage,
       }));
-      
+
       Alert.alert('Upload Failed', errorMessage);
       return null;
     }
