@@ -278,8 +278,13 @@ const CreateProduct = () => {
       setOriginalPrice((selectedBundle.original_price || bundleRequest.originalPrice).toString());
       setDiscountedPrice((selectedBundle.price || bundleRequest.price).toString());
       setStock(bundleRequest.stock.toString());
-      if (bundleRequest.imageUrl) {
-        setCoverImage(bundleRequest.imageUrl);
+      // Pre-fill image - check both bundleRequest and direct bundle response
+      const imageUrl = bundleRequest.imageUrl || selectedBundle.image_url;
+      if (imageUrl) {
+        console.log(`📷 [selectBundle] Setting cover image: ${imageUrl}`);
+        setCoverImage(imageUrl);
+      } else {
+        console.log('⚠️ [selectBundle] No image URL found in bundle response');
       }
 
       setSelectedBundleIndex(index);
