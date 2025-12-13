@@ -10,6 +10,7 @@ import {
   Alert,
   Dimensions,
   FlatList,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -25,7 +26,6 @@ import {
   AlertCircle,
   Loader,
   Package,
-  DollarSign,
   Calendar,
   BarChart3,
   Zap,
@@ -47,8 +47,8 @@ import { useImageUpload } from '@/hooks/useImageUpload';
 const { width } = Dimensions.get('window');
 const IMAGE_SIZE = (width - spacing.lg * 3) / 2;
 
-// Product Types
-const productTypes = ["Food", "Electronics", "Clothing", "Home Appliances", "Books", "Health & Beauty", "Sports & Outdoors", "Toys & Games", "Pets", "Automotives", "Baby Products", "Office Supplies", "Arts & Crafts"];
+// Food Product Types
+const productTypes = ["Meal", "Dish", "Beverage", "Pastry", "Sweets", "Frozen"];
 
 
 interface Metadata {
@@ -118,7 +118,7 @@ const EditProduct = () => {
           expiresOn: product.expiresOn ? new Date(product.expiresOn) : undefined,
         };
       });
-      
+
       setAvailableProducts(products);
     } catch (error) {
       console.error('Error loading products:', error);
@@ -129,14 +129,14 @@ const EditProduct = () => {
   };
 
   const toggleProductSelection = (productId: string) => {
-    setAvailableProducts(prev => 
-      prev.map(product => 
-        product.id === productId 
+    setAvailableProducts(prev =>
+      prev.map(product =>
+        product.id === productId
           ? { ...product, isSelected: !product.isSelected }
           : product
       )
     );
-    
+
     setSelectedProducts(prev => {
       const isCurrentlySelected = prev.some(p => p.id === productId);
       if (isCurrentlySelected) {
@@ -154,7 +154,7 @@ const EditProduct = () => {
       await new Promise(resolve => setTimeout(resolve, 500));
 
       const token = await getToken({ template: "seller_app" });
-      
+
       // First try to load as a product
       try {
         const response = await getProductbyID(productId as string, token ?? "");
@@ -182,7 +182,7 @@ const EditProduct = () => {
         }
       } catch (productError) {
         console.log('❌ Failed to load as product, trying as bundle...', productError);
-        
+
         // If product fetch fails, try as a bundle
         try {
           const bundleResponse = await getBundleById(productId as string, token ?? "");
@@ -202,10 +202,10 @@ const EditProduct = () => {
             setIsActive(bundleData.isActive);
             setIsDynamicPricingEnabled(bundleData.isDynamicPricingEnabled || false);
             setDynamicPricingStartDays(bundleData.dynamicPricingStartDays?.toString() || '14');
-            
+
             // Load available products for bundle editing
             await loadSellerProducts();
-            
+
             // Set selected products based on bundle data
             if (bundleData.products) {
               const selectedProductsData: SelectableProduct[] = bundleData.products.map((p: any) => ({
@@ -221,7 +221,7 @@ const EditProduct = () => {
               }));
               setSelectedProducts(selectedProductsData);
             }
-            
+
             console.log('✅ Successfully loaded as bundle');
           } else {
             Alert.alert('Error', 'Bundle not found.');
@@ -277,18 +277,17 @@ const EditProduct = () => {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
+        allowsEditing: false,
         quality: 0.8,
         exif: false,
       });
 
       if (!result.canceled && result.assets[0]) {
         const imageUri = result.assets[0].uri;
-        
+
         // Upload to Firebase Storage
         const downloadURL = await uploadImageUri(imageUri, 'products/additional');
-        
+
         if (downloadURL) {
           setAdditionalImages(prev => [...prev, downloadURL]);
         }
@@ -310,18 +309,17 @@ const EditProduct = () => {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
+        allowsEditing: false,
         quality: 0.8,
         exif: false,
       });
 
       if (!result.canceled && result.assets[0]) {
         const imageUri = result.assets[0].uri;
-        
+
         // Upload to Firebase Storage
         const downloadURL = await uploadImageUri(imageUri, 'products/covers');
-        
+
         if (downloadURL) {
           setCoverImage(downloadURL);
         }
@@ -393,7 +391,7 @@ const EditProduct = () => {
       } else if (parseFloat(productCost) >= parseFloat(discountedPrice)) {
         newErrors.productCost = 'Product cost must be less than the current price';
       }
-      
+
       if (!dynamicPricingStartDays || parseInt(dynamicPricingStartDays) <= 0) {
         newErrors.dynamicPricingStartDays = 'Valid start days is required';
       }
@@ -404,16 +402,16 @@ const EditProduct = () => {
       if (selectedProducts.length < 2) {
         newErrors.selectedProducts = 'Please select at least 2 products for the bundle';
       }
-      
+
       if (isDynamicPricingEnabled) {
         if (!productCost || parseFloat(productCost) <= 0) {
           newErrors.productCost = 'Valid product cost is required for dynamic pricing';
         }
-        
+
         if (parseFloat(discountedPrice) <= parseFloat(productCost)) {
           newErrors.productCost = 'Product cost must be less than current price';
         }
-        
+
         if (!dynamicPricingStartDays || parseInt(dynamicPricingStartDays) <= 0) {
           newErrors.dynamicPricingStartDays = 'Valid number of days is required';
         }
@@ -431,7 +429,7 @@ const EditProduct = () => {
 
     try {
       const token = await getToken({ template: "seller_app" });
-      
+
       if (isBundle && bundle) {
         // Update bundle
         const bundleUpdateData: BundleUpdateRequestDto = {
@@ -479,18 +477,18 @@ const EditProduct = () => {
         await updateProduct(productData, token ?? "");
         showToast('success', 'Product Updated!', 'Your product has been updated successfully.');
       }
-      
+
       router.back();
     } catch (error: any) {
       console.error(`❌ [EditProduct] Error updating ${isBundle ? 'bundle' : 'product'}:`, error);
-      
+
       let errorMessage = `Failed to update ${isBundle ? 'bundle' : 'product'}. Please try again.`;
       if (error?.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error?.message) {
         errorMessage = error.message;
       }
-      
+
       showToast('error', 'Update Failed', errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -499,10 +497,12 @@ const EditProduct = () => {
 
   const getProductTypeColor = (type: string) => {
     switch (type.toLowerCase()) {
-      case 'food': return colors.primary;
-      case 'electronics': return colors.warning;
-      case 'clothing': return colors.info;
-      case 'home appliances': return colors.success;
+      case 'meal': return colors.primary;
+      case 'dish': return colors.success;
+      case 'beverage': return colors.info;
+      case 'pastry': return colors.warning;
+      case 'sweets': return '#E91E63'; // Pink
+      case 'frozen': return '#00BCD4'; // Cyan
       default: return colors.text.secondary;
     }
   };
@@ -535,7 +535,7 @@ const EditProduct = () => {
           disabled={!name.trim() || !description.trim() || !coverImage || (isBundle && selectedProducts.length < 2) || isSubmitting}
         >
           {isSubmitting ? (
-            <View style={styles.loadingIndicator} />
+            <ActivityIndicator size="small" color={colors.text.inverse} />
           ) : (
             <Check size={20} color={colors.text.inverse} />
           )}
@@ -563,7 +563,7 @@ const EditProduct = () => {
 
             {isLoadingProducts ? (
               <View style={styles.loadingContainer}>
-                <View style={styles.loadingIndicator} />
+                <ActivityIndicator size="small" color={colors.primary} />
                 <Text style={styles.loadingText}>Loading your products...</Text>
               </View>
             ) : (
@@ -588,8 +588,10 @@ const EditProduct = () => {
                     </View>
                   </TouchableOpacity>
                 )}
-                scrollEnabled={false}
+                scrollEnabled={true}
+                nestedScrollEnabled={true}
                 style={styles.productSelectionList}
+                showsVerticalScrollIndicator={true}
               />
             )}
           </View>
@@ -739,7 +741,7 @@ const EditProduct = () => {
         {/* Pricing Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <DollarSign size={20} color={colors.primary} />
+            <Text style={{ fontSize: 20, color: colors.primary, fontWeight: '600' }}>₱</Text>
             <Text style={styles.sectionTitle}>Pricing</Text>
           </View>
           <Text style={styles.sectionDescription}>
@@ -798,7 +800,7 @@ const EditProduct = () => {
           {/* Dynamic Pricing Toggle - Only for products */}
           {!isBundle && (
             <>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.dynamicPricingToggle}
                 onPress={() => {
                   setIsDynamicPricingEnabled(!isDynamicPricingEnabled);
@@ -831,7 +833,7 @@ const EditProduct = () => {
 
               {/* Expandable Dynamic Pricing Section */}
               {isDynamicPricingEnabled && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.expandToggle}
                   onPress={() => setIsDynamicPricingExpanded(!isDynamicPricingExpanded)}
                 >
@@ -891,30 +893,30 @@ const EditProduct = () => {
                   />
 
                   {/* Dynamic Pricing Preview */}
-                  {discountedPrice && productCost && dynamicPricingStartDays && 
-                   parseFloat(discountedPrice) > parseFloat(productCost) && 
-                   parseInt(dynamicPricingStartDays) > 0 && (
-                    <View style={styles.pricingPreview}>
-                      <View style={styles.previewHeader}>
-                        <TrendingDown size={16} color={colors.info} />
-                        <Text style={styles.previewTitle}>Pricing Preview</Text>
+                  {discountedPrice && productCost && dynamicPricingStartDays &&
+                    parseFloat(discountedPrice) > parseFloat(productCost) &&
+                    parseInt(dynamicPricingStartDays) > 0 && (
+                      <View style={styles.pricingPreview}>
+                        <View style={styles.previewHeader}>
+                          <TrendingDown size={16} color={colors.info} />
+                          <Text style={styles.previewTitle}>Pricing Preview</Text>
+                        </View>
+                        <View style={styles.previewRow}>
+                          <Text style={styles.previewLabel}>Current Price:</Text>
+                          <Text style={styles.previewValue}>₱{parseFloat(discountedPrice).toFixed(2)}</Text>
+                        </View>
+                        <View style={styles.previewRow}>
+                          <Text style={styles.previewLabel}>Final Price (Day {dynamicPricingStartDays}):</Text>
+                          <Text style={styles.previewValue}>₱{parseFloat(productCost).toFixed(2)}</Text>
+                        </View>
+                        <View style={styles.previewRow}>
+                          <Text style={styles.previewLabel}>Daily Reduction:</Text>
+                          <Text style={styles.previewValue}>
+                            ₱{((parseFloat(discountedPrice) - parseFloat(productCost)) / parseInt(dynamicPricingStartDays)).toFixed(2)}
+                          </Text>
+                        </View>
                       </View>
-                      <View style={styles.previewRow}>
-                        <Text style={styles.previewLabel}>Current Price:</Text>
-                        <Text style={styles.previewValue}>₱{parseFloat(discountedPrice).toFixed(2)}</Text>
-                      </View>
-                      <View style={styles.previewRow}>
-                        <Text style={styles.previewLabel}>Final Price (Day {dynamicPricingStartDays}):</Text>
-                        <Text style={styles.previewValue}>₱{parseFloat(productCost).toFixed(2)}</Text>
-                      </View>
-                      <View style={styles.previewRow}>
-                        <Text style={styles.previewLabel}>Daily Reduction:</Text>
-                        <Text style={styles.previewValue}>
-                          ₱{((parseFloat(discountedPrice) - parseFloat(productCost)) / parseInt(dynamicPricingStartDays)).toFixed(2)}
-                        </Text>
-                      </View>
-                    </View>
-                  )}
+                    )}
                 </View>
               )}
             </>
@@ -1430,10 +1432,10 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: typography.fontWeights.medium,
   },
-  
+
   // Product Selection Styles
   productSelectionList: {
-    maxHeight: 300,
+    maxHeight: 400,
   },
   productSelectionItem: {
     flexDirection: 'row',

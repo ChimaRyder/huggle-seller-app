@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -10,6 +10,8 @@ import {
   Alert,
   Dimensions,
   FlatList,
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -25,7 +27,6 @@ import {
   AlertCircle,
   Loader,
   Package,
-  DollarSign,
   Calendar,
   BarChart3,
   ChevronDown,
@@ -39,18 +40,19 @@ import {
 } from 'lucide-react-native';
 import { colors, spacing, typography, radii } from '@/constants/theme';
 import { createProduct, getAllProducts } from '@/utils/Controllers/ProductController';
-import { createBundle, updateBundle, generateBundleFromExternal, generateMultipleBundlesFromExternal, convertExternalBundleToRequest, deleteMultipleBundles } from '@/utils/Controllers/BundleController';
+import { createBundle, saveBundleToBundler, previewBundlesFromExternal, convertExternalBundleToRequest } from '@/utils/Controllers/BundleController';
 import { validateSellerAccess } from '@/utils/sellerUtils';
 import { showToast } from '@/components/Toast';
 import * as ImagePicker from 'expo-image-picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import { BundleCreationMode, SelectableProduct, BundleFormData, BundleRequestDto, ExternalBundleResponse } from '@/types/bundle';
 
 const { width } = Dimensions.get('window');
 const IMAGE_SIZE = (width - spacing.lg * 3) / 2;
 
-// Product Types
-const productTypes = ["Food", "Electronics", "Clothing", "Home Appliances", "Books", "Health & Beauty", "Sports & Outdoors", "Toys & Games", "Pets", "Automotives", "Baby Products", "Office Supplies", "Arts & Crafts"];
+// Food Product Types
+const productTypes = ["Meal", "Dish", "Beverage", "Pastry", "Sweets", "Frozen"];
 
 
 
@@ -59,11 +61,11 @@ const CreateProduct = () => {
   const router = useRouter();
   const { getToken } = useAuth();
   const { user } = useUser();
-  
+
   // Mode selection
   const [creationMode, setCreationMode] = useState<'product' | 'bundle'>('product');
   const [bundleCreationMode, setBundleCreationMode] = useState<BundleCreationMode>('from-products');
-  
+
   // Product state
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -78,7 +80,8 @@ const CreateProduct = () => {
   const [currentCategory, setCurrentCategory] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
   // Dynamic pricing state
   const [isDynamicPricingEnabled, setIsDynamicPricingEnabled] = useState(false);
   const [productCost, setProductCost] = useState('');
@@ -90,7 +93,7 @@ const CreateProduct = () => {
   const [selectedProducts, setSelectedProducts] = useState<SelectableProduct[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [isGeneratingBundle, setIsGeneratingBundle] = useState(false);
-  
+
   // AI Generated bundles state
   const [generatedBundles, setGeneratedBundles] = useState<ExternalBundleResponse[]>([]);
   const [selectedBundleIndex, setSelectedBundleIndex] = useState<number | null>(null);
@@ -98,6 +101,10 @@ const CreateProduct = () => {
 
   // Image upload hook
   const { uploadState, uploadImageUri } = useImageUpload();
+
+  // Refs for scrolling to errors
+  const scrollViewRef = useRef<ScrollView>(null);
+  const fieldRefs = useRef<{ [key: string]: number }>({});
 
   // Load seller's products for bundle creation
   useEffect(() => {
@@ -114,7 +121,7 @@ const CreateProduct = () => {
 
       const response = await getAllProducts('', token);
       console.log('📦 [loadSellerProducts] Raw products response:', response.data);
-      
+
       const products: SelectableProduct[] = response.data.map((product: any, index: number) => {
         console.log(`📦 [loadSellerProducts] Processing product ${index}:`, {
           id: product.id,
@@ -124,7 +131,7 @@ const CreateProduct = () => {
           originalPrice: product.originalPrice,
           stock: product.stock,
         });
-        
+
         return {
           id: product.id,
           name: product.name,
@@ -137,9 +144,9 @@ const CreateProduct = () => {
           expiresOn: product.expiresOn ? new Date(product.expiresOn) : undefined,
         };
       });
-      
+
       console.log('📦 [loadSellerProducts] Processed products:', products.length);
-      
+
       setAvailableProducts(products);
     } catch (error) {
       console.error('Error loading products:', error);
@@ -150,14 +157,14 @@ const CreateProduct = () => {
   };
 
   const toggleProductSelection = (productId: string) => {
-    setAvailableProducts(prev => 
-      prev.map(product => 
-        product.id === productId 
+    setAvailableProducts(prev =>
+      prev.map(product =>
+        product.id === productId
           ? { ...product, isSelected: !product.isSelected }
           : product
       )
     );
-    
+
     setSelectedProducts(prev => {
       const isCurrentlySelected = prev.some(p => p.id === productId);
       if (isCurrentlySelected) {
@@ -180,19 +187,21 @@ const CreateProduct = () => {
         throw new Error('Seller access validation failed');
       }
 
-      console.log('🚀 [generateExternalBundles] Calling API with store ID:', validation.storeId);
-      const response = await generateMultipleBundlesFromExternal(validation.storeId, token, 3);
-      
+      console.log('🚀 [generateExternalBundles] Calling preview API with store ID:', validation.storeId);
+      // Use preview endpoint - bundles are NOT saved to database
+      const response = await previewBundlesFromExternal(validation.storeId, token, 3);
+
       console.log('📦 [generateExternalBundles] Full API response:', response);
       console.log('📦 [generateExternalBundles] Response data:', response.data);
-      
+      console.log('📦 [generateExternalBundles] Is preview (not saved):', (response as any).isPreview ?? 'unknown');
+
       // The API returns bundles directly as an array
       if (response.data && Array.isArray(response.data)) {
-        console.log('✅ [generateExternalBundles] Found bundles array:', response.data.length);
+        console.log('✅ [generateExternalBundles] Found previews array:', response.data.length);
         setGeneratedBundles(response.data);
         setShowBundleSelection(true);
         setSelectedBundleIndex(null);
-        showToast('success', 'Bundles Generated', `${response.data.length} bundle options have been generated. Choose your favorite!`);
+        showToast('success', 'Bundles Generated', `${response.data.length} bundle previews generated. Choose your favorite!`);
       } else {
         console.error('❌ [generateExternalBundles] Unexpected response structure:', response.data);
         throw new Error('Invalid response format from bundle generation service');
@@ -210,39 +219,20 @@ const CreateProduct = () => {
       const selectedBundle = generatedBundles[index];
       const token = await getToken({ template: "seller_app" });
       const validation = validateSellerAccess(token, user);
-      
+
       if (!validation.isValid || !validation.storeId) {
         throw new Error('Seller access validation failed');
       }
 
-      console.log(`🎯 [selectBundle] Selected bundle ${index}: ${selectedBundle.name} (ID: ${selectedBundle.id})`);
-
-      // Delete unselected bundles from the database
-      const unselectedBundleIds = generatedBundles
-        .filter((_, i) => i !== index)
-        .map(bundle => bundle.id);
-
-      if (unselectedBundleIds.length > 0) {
-        console.log('🗑️ [selectBundle] Cleaning up unselected bundles:', unselectedBundleIds);
-        try {
-          const deleteResults = await deleteMultipleBundles(unselectedBundleIds, token);
-          console.log('🧹 [selectBundle] Cleanup results:', deleteResults);
-          
-          if (deleteResults.failed.length > 0) {
-            console.warn('⚠️ [selectBundle] Some bundles failed to delete:', deleteResults.failed);
-          }
-        } catch (error) {
-          console.error('❌ [selectBundle] Failed to cleanup unselected bundles:', error);
-          // Don't fail the selection process if cleanup fails
-        }
-      }
+      console.log(`🎯 [selectBundle] Selected preview bundle ${index}: ${selectedBundle.name}`);
+      // Note: No need to delete unselected bundles - previews are NOT saved to database
 
       const bundleRequest = convertExternalBundleToRequest(selectedBundle, validation.storeId);
 
       // Load product details for the bundle products
       const bundleProductIds = selectedBundle.products.map(p => p.id);
       const bundleProducts: SelectableProduct[] = [];
-      
+
       // Find matching products from available products
       for (const productId of bundleProductIds) {
         const matchingProduct = availableProducts.find(p => p.id === productId);
@@ -252,15 +242,14 @@ const CreateProduct = () => {
             isSelected: true
           });
         } else {
-          // If product not in availableProducts, we need to fetch it
-          // For now, create a basic product object from the AI bundle data
+          // If product not in availableProducts, create from AI bundle data
           const aiProduct = selectedBundle.products.find(p => p.id === productId);
           if (aiProduct) {
             bundleProducts.push({
               id: aiProduct.id,
               name: aiProduct.name,
-              price: 100, // Default price since AI bundles don't include pricing
-              originalPrice: 100,
+              price: aiProduct.price || 100,
+              originalPrice: aiProduct.original_price || aiProduct.price || 100,
               stock: aiProduct.stock,
               coverImage: '',
               isSelected: true,
@@ -272,7 +261,7 @@ const CreateProduct = () => {
       }
 
       // Update available products to mark selected ones
-      setAvailableProducts(prev => 
+      setAvailableProducts(prev =>
         prev.map(product => ({
           ...product,
           isSelected: bundleProductIds.includes(product.id)
@@ -282,24 +271,26 @@ const CreateProduct = () => {
       // Set selected products
       setSelectedProducts(bundleProducts);
 
-      // Pre-fill form with selected bundle data
+      // Pre-fill form with selected bundle data (including AI-calculated pricing)
       setName(bundleRequest.name);
       setDescription(bundleRequest.description || '');
-      setOriginalPrice(bundleRequest.originalPrice.toString());
-      setDiscountedPrice(bundleRequest.price.toString());
+      // Use pricing from AI bundle if available, otherwise use estimated prices
+      setOriginalPrice((selectedBundle.original_price || bundleRequest.originalPrice).toString());
+      setDiscountedPrice((selectedBundle.price || bundleRequest.price).toString());
       setStock(bundleRequest.stock.toString());
-      if (bundleRequest.imageUrl) {
-        setCoverImage(bundleRequest.imageUrl);
+      // Pre-fill image - check both bundleRequest and direct bundle response
+      const imageUrl = bundleRequest.imageUrl || selectedBundle.image_url;
+      if (imageUrl) {
+        console.log(`📷 [selectBundle] Setting cover image: ${imageUrl}`);
+        setCoverImage(imageUrl);
+      } else {
+        console.log('⚠️ [selectBundle] No image URL found in bundle response');
       }
 
       setSelectedBundleIndex(index);
       setShowBundleSelection(false);
-      
-      const cleanupMessage = unselectedBundleIds.length > 0 
-        ? ` ${unselectedBundleIds.length} unused bundles have been cleaned up.`
-        : '';
-      
-      showToast('success', 'Bundle Selected', `Bundle has been loaded into the form.${cleanupMessage} Review and submit when ready.`);
+
+      showToast('success', 'Bundle Selected', `Bundle has been loaded into the form. Review and submit when ready.`);
     } catch (error) {
       console.error('❌ [selectBundle] Error selecting bundle:', error);
       showToast('error', 'Selection Failed', 'Failed to select bundle. Please try again.');
@@ -308,36 +299,17 @@ const CreateProduct = () => {
 
   const navigateBack = () => {
     const hasChanges = name.trim() || description.trim() || coverImage || additionalImages.length > 0 || selectedProducts.length > 0;
-    const hasUnselectedBundles = generatedBundles.length > 0 && selectedBundleIndex === null;
-    
-    if (hasChanges || hasUnselectedBundles) {
-      let message = 'Are you sure you want to discard your changes?';
-      if (hasUnselectedBundles) {
-        message = 'You have unselected AI bundles that will be deleted. Are you sure you want to go back?';
-      }
-      
+
+    if (hasChanges) {
       Alert.alert(
         'Discard Changes',
-        message,
+        'Are you sure you want to discard your changes?',
         [
           { text: 'Keep Editing', style: 'cancel' },
-          { 
-            text: 'Discard', 
-            style: 'destructive', 
-            onPress: async () => {
-              // Clean up unselected bundles before navigating away
-              if (hasUnselectedBundles) {
-                try {
-                  const token = await getToken({ template: "seller_app" });
-                  const bundleIds = generatedBundles.map(bundle => bundle.id);
-                  console.log('🗑️ [navigateBack] Cleaning up unselected bundles:', bundleIds);
-                  await deleteMultipleBundles(bundleIds, token);
-                } catch (error) {
-                  console.error('❌ [navigateBack] Failed to cleanup bundles:', error);
-                }
-              }
-              router.back();
-            }
+          {
+            text: 'Discard',
+            style: 'destructive',
+            onPress: () => router.back()
           },
         ]
       );
@@ -362,18 +334,17 @@ const CreateProduct = () => {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
+        allowsEditing: false,
         quality: 0.8,
         exif: false,
       });
 
       if (!result.canceled && result.assets[0]) {
         const imageUri = result.assets[0].uri;
-        
+
         // Upload to Firebase Storage
         const downloadURL = await uploadImageUri(imageUri, 'products/additional');
-        
+
         if (downloadURL) {
           setAdditionalImages(prev => [...prev, downloadURL]);
         }
@@ -395,18 +366,17 @@ const CreateProduct = () => {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
+        allowsEditing: false,
         quality: 0.8,
         exif: false,
       });
 
       if (!result.canceled && result.assets[0]) {
         const imageUri = result.assets[0].uri;
-        
+
         // Upload to Firebase Storage
         const downloadURL = await uploadImageUri(imageUri, 'products/covers');
-        
+
         if (downloadURL) {
           setCoverImage(downloadURL);
         }
@@ -431,6 +401,37 @@ const CreateProduct = () => {
 
   const removeCategory = (categoryToRemove: string) => {
     setCategory(prev => prev.filter(cat => cat !== categoryToRemove));
+  };
+
+  // Define field order for scrolling to first error
+  const fieldOrder = [
+    'selectedProducts',
+    'name',
+    'description',
+    'productType',
+    'coverImage',
+    'originalPrice',
+    'discountedPrice',
+    'productCost',
+    'dynamicPricingStartDays',
+    'stock',
+  ];
+
+  const scrollToFirstError = (errors: { [key: string]: string }) => {
+    // Find the first error field based on field order
+    for (const field of fieldOrder) {
+      if (errors[field] && fieldRefs.current[field] !== undefined) {
+        const yOffset = fieldRefs.current[field];
+        scrollViewRef.current?.scrollTo({
+          y: Math.max(0, yOffset - 100), // Offset by 100px to show some context above
+          animated: true,
+        });
+
+        // Show toast to indicate which field has the error
+        showToast('error', 'Missing Information', errors[field]);
+        return;
+      }
+    }
   };
 
   const validateForm = (): boolean => {
@@ -483,13 +484,19 @@ const CreateProduct = () => {
       } else if (parseFloat(productCost) >= parseFloat(discountedPrice)) {
         newErrors.productCost = 'Product cost must be less than the current price';
       }
-      
+
       if (!dynamicPricingStartDays || parseInt(dynamicPricingStartDays) <= 0) {
         newErrors.dynamicPricingStartDays = 'Valid start days is required';
       }
     }
 
     setErrors(newErrors);
+
+    // Scroll to first error if validation fails
+    if (Object.keys(newErrors).length > 0) {
+      setTimeout(() => scrollToFirstError(newErrors), 100);
+    }
+
     return Object.keys(newErrors).length === 0;
   };
 
@@ -532,61 +539,45 @@ const CreateProduct = () => {
         await createProduct(productData, token);
         showToast('success', 'Product Created!', 'Your product has been created successfully.');
       } else {
-        // Handle bundle creation/update
-        if (bundleCreationMode === 'external-generation' && selectedBundleIndex !== null && generatedBundles[selectedBundleIndex]) {
-          // Update existing AI-generated bundle instead of creating a new one
-          const selectedBundle = generatedBundles[selectedBundleIndex];
-          const updateData = {
-            name: name.trim(),
-            description: description.trim() || '',
-            productIds: selectedProducts.map(p => p.id),
-            images: additionalImages,
-            stock: parseInt(stock),
-            imageUrl: coverImage,
-            price: parseFloat(discountedPrice),
-            originalPrice: parseFloat(originalPrice),
-            expiresOn: duration,
-            isActive: true,
-            isDynamicPricingEnabled: isDynamicPricingEnabled,
-            dynamicPricingStartDays: isDynamicPricingEnabled ? parseInt(dynamicPricingStartDays) : 14,
-          };
+        // Handle bundle creation - save via bundler API (not C# backend)
+        // The bundler API is the source of truth for bundle creation
 
-          await updateBundle(selectedBundle.id.toString(), updateData, token);
-          showToast('success', 'Bundle Updated!', 'Your AI-generated bundle has been updated successfully.');
-        } else {
-          // Create new bundle (for from-products mode or when no AI bundle selected)
-          const bundleData: BundleRequestDto = {
-            storeId: validation.storeId,
-            name: name.trim(),
-            description: description.trim() || '',
-            productIds: selectedProducts.map(p => p.id),
-            images: additionalImages,
-            stock: parseInt(stock),
-            imageUrl: coverImage,
-            price: parseFloat(discountedPrice),
-            originalPrice: parseFloat(originalPrice),
-            expiresOn: duration,
-            isActive: true,
-            isDynamicPricingEnabled: isDynamicPricingEnabled,
-            dynamicPricingStartDays: isDynamicPricingEnabled ? parseInt(dynamicPricingStartDays) : 14,
-          };
+        // Prepare bundle data in the format expected by bundler
+        const bundleDataForBundler = {
+          name: name.trim(),
+          description: description.trim() || '',
+          products: selectedProducts.map(p => ({
+            id: p.id,
+            name: p.name,
+            stock: p.stock || parseInt(stock),
+            price: (p as any).discountedPrice || (p as any).price || parseFloat(discountedPrice),
+            original_price: (p as any).originalPrice || (p as any).original_price || parseFloat(originalPrice),
+            product_type: p.productType || 'Unknown',
+            expires_on: (p as any).expirationDate || (p as any).expires_on || duration.toISOString(),
+            tags: (p as any).category || (p as any).tags || []
+          })),
+          images: additionalImages,
+          image_url: coverImage,
+          stock: parseInt(stock),
+          price: parseFloat(discountedPrice),
+          original_price: parseFloat(originalPrice)
+        };
 
-          await createBundle(bundleData, token);
-          showToast('success', 'Bundle Created!', 'Your bundle has been created successfully.');
-        }
+        await saveBundleToBundler(bundleDataForBundler, validation.storeId);
+        showToast('success', 'Bundle Created!', 'Your bundle has been created successfully.');
       }
 
       router.back();
     } catch (error: any) {
       console.error(`❌ [Create${creationMode === 'product' ? 'Product' : 'Bundle'}] Error:`, error);
-      
+
       let errorMessage = `Failed to create ${creationMode}. Please try again.`;
       if (error?.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error?.message) {
         errorMessage = error.message;
       }
-      
+
       showToast('error', 'Creation Failed', errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -595,10 +586,12 @@ const CreateProduct = () => {
 
   const getProductTypeColor = (type: string) => {
     switch (type.toLowerCase()) {
-      case 'food': return colors.primary;
-      case 'electronics': return colors.warning;
-      case 'clothing': return colors.info;
-      case 'home appliances': return colors.success;
+      case 'meal': return colors.primary;
+      case 'dish': return colors.success;
+      case 'beverage': return colors.info;
+      case 'pastry': return colors.warning;
+      case 'sweets': return '#E91E63'; // Pink
+      case 'frozen': return '#00BCD4'; // Cyan
       default: return colors.text.secondary;
     }
   };
@@ -612,18 +605,13 @@ const CreateProduct = () => {
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>
-            {creationMode === 'product' 
-              ? 'Create Product'
-              : (bundleCreationMode === 'external-generation' && selectedBundleIndex !== null)
-                ? 'Update Bundle'
-                : 'Create Bundle'
-            }
+            {creationMode === 'product' ? 'Create Product' : 'Create Bundle'}
           </Text>
           <Text style={styles.headerSubtitle}>
-            {creationMode === 'product' 
-              ? 'Add a new product to your store' 
+            {creationMode === 'product'
+              ? 'Add a new product to your store'
               : (bundleCreationMode === 'external-generation' && selectedBundleIndex !== null)
-                ? 'Review and update your AI-generated bundle'
+                ? 'Review and save your AI-generated bundle'
                 : 'Create a bundle from your products'
             }
           </Text>
@@ -634,7 +622,7 @@ const CreateProduct = () => {
           disabled={!name.trim() || !coverImage || isSubmitting}
         >
           {isSubmitting ? (
-            <View style={styles.loadingIndicator} />
+            <ActivityIndicator size="small" color={colors.text.inverse} />
           ) : (
             <Check size={20} color={colors.text.inverse} />
           )}
@@ -646,19 +634,8 @@ const CreateProduct = () => {
         <View style={styles.modeToggle}>
           <TouchableOpacity
             style={[styles.modeButton, creationMode === 'product' && styles.modeButtonActive]}
-            onPress={async () => {
-              // Clean up any unselected bundles when switching to product mode
-              if (creationMode !== 'product' && generatedBundles.length > 0 && selectedBundleIndex === null) {
-                try {
-                  const token = await getToken({ template: "seller_app" });
-                  const bundleIds = generatedBundles.map(bundle => bundle.id);
-                  console.log('🗑️ [modeSwitch] Cleaning up unselected bundles:', bundleIds);
-                  await deleteMultipleBundles(bundleIds, token);
-                } catch (error) {
-                  console.error('❌ [modeSwitch] Failed to cleanup bundles:', error);
-                }
-              }
-              
+            onPress={() => {
+              // No cleanup needed - preview bundles are not saved to database
               setCreationMode('product');
               setGeneratedBundles([]);
               setSelectedBundleIndex(null);
@@ -672,19 +649,8 @@ const CreateProduct = () => {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.modeButton, creationMode === 'bundle' && styles.modeButtonActive]}
-            onPress={async () => {
-              // Clean up any unselected bundles when switching modes
-              if (creationMode !== 'bundle' && generatedBundles.length > 0 && selectedBundleIndex === null) {
-                try {
-                  const token = await getToken({ template: "seller_app" });
-                  const bundleIds = generatedBundles.map(bundle => bundle.id);
-                  console.log('🗑️ [modeSwitch] Cleaning up unselected bundles:', bundleIds);
-                  await deleteMultipleBundles(bundleIds, token);
-                } catch (error) {
-                  console.error('❌ [modeSwitch] Failed to cleanup bundles:', error);
-                }
-              }
-              
+            onPress={() => {
+              // No cleanup needed - preview bundles are not saved to database
               setCreationMode('bundle');
               setGeneratedBundles([]);
               setSelectedBundleIndex(null);
@@ -699,7 +665,7 @@ const CreateProduct = () => {
         </View>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollViewRef} style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Bundle Creation Options */}
         {creationMode === 'bundle' && (
           <View style={styles.section}>
@@ -760,7 +726,7 @@ const CreateProduct = () => {
               >
                 {isGeneratingBundle ? (
                   <>
-                    <View style={styles.loadingIndicator} />
+                    <ActivityIndicator size="small" color={colors.text.inverse} />
                     <Text style={styles.generateBundleButtonText}>Generating...</Text>
                   </>
                 ) : (
@@ -782,7 +748,7 @@ const CreateProduct = () => {
                 <Text style={styles.bundleSelectionDescription}>
                   Select the bundle option you like most. You can review and edit the details afterwards.
                 </Text>
-                
+
                 <FlatList
                   data={generatedBundles}
                   keyExtractor={(item, index) => `bundle-${index}`}
@@ -805,7 +771,7 @@ const CreateProduct = () => {
                           <Image source={{ uri: item.image_url }} style={styles.bundleOptionImage} />
                         )}
                       </View>
-                      
+
                       <View style={styles.bundleOptionDetails}>
                         <View style={styles.bundleOptionStat}>
                           <Package size={16} color={colors.text.secondary} />
@@ -814,9 +780,9 @@ const CreateProduct = () => {
                           </Text>
                         </View>
                         <View style={styles.bundleOptionStat}>
-                          <DollarSign size={16} color={colors.primary} />
+                          <Text style={{ fontSize: 14, color: colors.primary, fontWeight: '600' }}>₱</Text>
                           <Text style={styles.bundleOptionStatText}>
-                            ₱{(item.products.length * 100 * 0.85).toFixed(2)}
+                            {(item.products.length * 100 * 0.85).toFixed(2)}
                           </Text>
                         </View>
                         <View style={styles.bundleOptionStat}>
@@ -851,19 +817,8 @@ const CreateProduct = () => {
 
                 <TouchableOpacity
                   style={styles.regenerateBundlesButton}
-                  onPress={async () => {
-                    // Clean up all currently generated bundles before generating new ones
-                    if (generatedBundles.length > 0) {
-                      try {
-                        const token = await getToken({ template: "seller_app" });
-                        const bundleIds = generatedBundles.map(bundle => bundle.id);
-                        console.log('🗑️ [regenerate] Cleaning up all current bundles:', bundleIds);
-                        await deleteMultipleBundles(bundleIds, token);
-                      } catch (error) {
-                        console.error('❌ [regenerate] Failed to cleanup bundles:', error);
-                      }
-                    }
-                    
+                  onPress={() => {
+                    // No cleanup needed - preview bundles are not saved to database
                     setShowBundleSelection(false);
                     setGeneratedBundles([]);
                     setSelectedBundleIndex(null);
@@ -879,7 +834,7 @@ const CreateProduct = () => {
 
         {/* Product Selection for Bundle */}
         {creationMode === 'bundle' && (
-          <View style={styles.section}>
+          <View style={styles.section} onLayout={(e) => { fieldRefs.current['selectedProducts'] = e.nativeEvent.layout.y; }}>
             <View style={styles.sectionHeader}>
               <Package size={20} color={colors.primary} />
               <Text style={styles.sectionTitle}>Select Products</Text>
@@ -893,14 +848,14 @@ const CreateProduct = () => {
             )}
             <Text style={styles.sectionDescription}>
               Choose at least 2 products to create a bundle
-              {bundleCreationMode === 'external-generation' && selectedBundleIndex !== null && 
+              {bundleCreationMode === 'external-generation' && selectedBundleIndex !== null &&
                 ' (AI bundle products are pre-selected, but you can modify the selection)'
               }
             </Text>
 
             {isLoadingProducts ? (
               <View style={styles.loadingContainer}>
-                <View style={styles.loadingIndicator} />
+                <ActivityIndicator size="small" color={colors.primary} />
                 <Text style={styles.loadingText}>Loading your products...</Text>
               </View>
             ) : (
@@ -923,8 +878,10 @@ const CreateProduct = () => {
                     </View>
                   </TouchableOpacity>
                 )}
-                scrollEnabled={false}
+                scrollEnabled={true}
+                nestedScrollEnabled={true}
                 style={styles.productSelectionList}
+                showsVerticalScrollIndicator={true}
               />
             )}
           </View>
@@ -942,49 +899,53 @@ const CreateProduct = () => {
             Basic information about your {creationMode}
           </Text>
 
-          <Text style={styles.label}>
-            {creationMode === 'product' ? 'Product' : 'Bundle'} Name
-          </Text>
-          {errors.name && (
-            <View style={styles.errorContainer}>
-              <AlertCircle size={16} color={colors.error} />
-              <Text style={styles.errorText}>{errors.name}</Text>
-            </View>
-          )}
-          <TextInput
-            style={[
-              styles.textInput,
-              errors.name && { borderColor: colors.error }
-            ]}
-            placeholder={`Enter ${creationMode} name...`}
-            placeholderTextColor={colors.text.tertiary}
-            value={name}
-            onChangeText={setName}
-          />
+          <View onLayout={(e) => { fieldRefs.current['name'] = e.nativeEvent.layout.y; }}>
+            <Text style={styles.label}>
+              {creationMode === 'product' ? 'Product' : 'Bundle'} Name
+            </Text>
+            {errors.name && (
+              <View style={styles.errorContainer}>
+                <AlertCircle size={16} color={colors.error} />
+                <Text style={styles.errorText}>{errors.name}</Text>
+              </View>
+            )}
+            <TextInput
+              style={[
+                styles.textInput,
+                errors.name && { borderColor: colors.error }
+              ]}
+              placeholder={`Enter ${creationMode} name...`}
+              placeholderTextColor={colors.text.tertiary}
+              value={name}
+              onChangeText={setName}
+            />
+          </View>
 
-          <Text style={styles.label}>Description <Text style={styles.optionalText}>(Optional)</Text></Text>
-          {errors.description && (
-            <View style={styles.errorContainer}>
-              <AlertCircle size={16} color={colors.error} />
-              <Text style={styles.errorText}>{errors.description}</Text>
-            </View>
-          )}
-          <TextInput
-            style={[
-              styles.descriptionInput,
-              errors.description && { borderColor: colors.error }
-            ]}
-            multiline
-            placeholder={`Describe your ${creationMode} in detail...`}
-            placeholderTextColor={colors.text.tertiary}
-            value={description}
-            onChangeText={setDescription}
-            textAlignVertical="top"
-          />
+          <View onLayout={(e) => { fieldRefs.current['description'] = e.nativeEvent.layout.y; }}>
+            <Text style={styles.label}>Description <Text style={styles.optionalText}>(Optional)</Text></Text>
+            {errors.description && (
+              <View style={styles.errorContainer}>
+                <AlertCircle size={16} color={colors.error} />
+                <Text style={styles.errorText}>{errors.description}</Text>
+              </View>
+            )}
+            <TextInput
+              style={[
+                styles.descriptionInput,
+                errors.description && { borderColor: colors.error }
+              ]}
+              multiline
+              placeholder={`Describe your ${creationMode} in detail...`}
+              placeholderTextColor={colors.text.tertiary}
+              value={description}
+              onChangeText={setDescription}
+              textAlignVertical="top"
+            />
+          </View>
 
           {/* Product Type - Only for products */}
           {creationMode === 'product' && (
-            <>
+            <View onLayout={(e) => { fieldRefs.current['productType'] = e.nativeEvent.layout.y; }}>
               <Text style={styles.label}>Product Type</Text>
               {errors.productType && (
                 <View style={styles.errorContainer}>
@@ -1011,12 +972,12 @@ const CreateProduct = () => {
                   </TouchableOpacity>
                 ))}
               </View>
-            </>
+            </View>
           )}
         </View>
 
         {/* Images Section */}
-        <View style={styles.section}>
+        <View style={styles.section} onLayout={(e) => { fieldRefs.current['coverImage'] = e.nativeEvent.layout.y; }}>
           <View style={styles.sectionHeader}>
             <ImageIcon size={20} color={colors.primary} />
             <Text style={styles.sectionTitle}>
@@ -1048,8 +1009,8 @@ const CreateProduct = () => {
                 </TouchableOpacity>
               </View>
             ) : (
-              <TouchableOpacity 
-                style={[styles.addCoverImageButton, uploadState.isUploading && styles.uploadingButton]} 
+              <TouchableOpacity
+                style={[styles.addCoverImageButton, uploadState.isUploading && styles.uploadingButton]}
                 onPress={pickCoverImage}
                 disabled={uploadState.isUploading}
               >
@@ -1087,8 +1048,8 @@ const CreateProduct = () => {
             ))}
 
             {additionalImages.length < 3 && (
-              <TouchableOpacity 
-                style={[styles.addImageButton, uploadState.isUploading && styles.uploadingButton]} 
+              <TouchableOpacity
+                style={[styles.addImageButton, uploadState.isUploading && styles.uploadingButton]}
                 onPress={pickImage}
                 disabled={uploadState.isUploading}
               >
@@ -1115,50 +1076,54 @@ const CreateProduct = () => {
         {/* Pricing Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <DollarSign size={20} color={colors.primary} />
+            <Text style={{ fontSize: 20, color: colors.primary, fontWeight: '600' }}>₱</Text>
             <Text style={styles.sectionTitle}>Pricing</Text>
           </View>
           <Text style={styles.sectionDescription}>
             Set competitive prices for your product
           </Text>
 
-          <Text style={styles.label}>Original Price (₱)</Text>
-          {errors.originalPrice && (
-            <View style={styles.errorContainer}>
-              <AlertCircle size={16} color={colors.error} />
-              <Text style={styles.errorText}>{errors.originalPrice}</Text>
-            </View>
-          )}
-          <TextInput
-            style={[
-              styles.textInput,
-              errors.originalPrice && { borderColor: colors.error }
-            ]}
-            placeholder="0.00"
-            placeholderTextColor={colors.text.tertiary}
-            value={originalPrice}
-            onChangeText={setOriginalPrice}
-            keyboardType="numeric"
-          />
+          <View onLayout={(e) => { fieldRefs.current['originalPrice'] = e.nativeEvent.layout.y; }}>
+            <Text style={styles.label}>Original Price (₱)</Text>
+            {errors.originalPrice && (
+              <View style={styles.errorContainer}>
+                <AlertCircle size={16} color={colors.error} />
+                <Text style={styles.errorText}>{errors.originalPrice}</Text>
+              </View>
+            )}
+            <TextInput
+              style={[
+                styles.textInput,
+                errors.originalPrice && { borderColor: colors.error }
+              ]}
+              placeholder="0.00"
+              placeholderTextColor={colors.text.tertiary}
+              value={originalPrice}
+              onChangeText={setOriginalPrice}
+              keyboardType="numeric"
+            />
+          </View>
 
-          <Text style={styles.label}>Current Price (₱)</Text>
-          {errors.discountedPrice && (
-            <View style={styles.errorContainer}>
-              <AlertCircle size={16} color={colors.error} />
-              <Text style={styles.errorText}>{errors.discountedPrice}</Text>
-            </View>
-          )}
-          <TextInput
-            style={[
-              styles.textInput,
-              errors.discountedPrice && { borderColor: colors.error }
-            ]}
-            placeholder="0.00"
-            placeholderTextColor={colors.text.tertiary}
-            value={discountedPrice}
-            onChangeText={setDiscountedPrice}
-            keyboardType="numeric"
-          />
+          <View onLayout={(e) => { fieldRefs.current['discountedPrice'] = e.nativeEvent.layout.y; }}>
+            <Text style={styles.label}>Current Price (₱)</Text>
+            {errors.discountedPrice && (
+              <View style={styles.errorContainer}>
+                <AlertCircle size={16} color={colors.error} />
+                <Text style={styles.errorText}>{errors.discountedPrice}</Text>
+              </View>
+            )}
+            <TextInput
+              style={[
+                styles.textInput,
+                errors.discountedPrice && { borderColor: colors.error }
+              ]}
+              placeholder="0.00"
+              placeholderTextColor={colors.text.tertiary}
+              value={discountedPrice}
+              onChangeText={setDiscountedPrice}
+              keyboardType="numeric"
+            />
+          </View>
 
           {originalPrice && discountedPrice && parseFloat(originalPrice) > parseFloat(discountedPrice) && (
             <View style={styles.priceCalculation}>
@@ -1172,7 +1137,7 @@ const CreateProduct = () => {
           )}
 
           {/* Dynamic Pricing Toggle */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.dynamicPricingToggle}
             onPress={() => {
               setIsDynamicPricingEnabled(!isDynamicPricingEnabled);
@@ -1205,7 +1170,7 @@ const CreateProduct = () => {
 
           {/* Expandable Dynamic Pricing Section */}
           {isDynamicPricingEnabled && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.expandToggle}
               onPress={() => setIsDynamicPricingExpanded(!isDynamicPricingExpanded)}
             >
@@ -1220,81 +1185,85 @@ const CreateProduct = () => {
 
           {isDynamicPricingEnabled && isDynamicPricingExpanded && (
             <View style={styles.dynamicPricingSection}>
-              <Text style={styles.label}>Product Cost (₱)</Text>
-              <Text style={styles.fieldDescription}>
-                The minimum price the product will reach on its final day before expiration
-              </Text>
-              {errors.productCost && (
-                <View style={styles.errorContainer}>
-                  <AlertCircle size={16} color={colors.error} />
-                  <Text style={styles.errorText}>{errors.productCost}</Text>
-                </View>
-              )}
-              <TextInput
-                style={[
-                  styles.textInput,
-                  errors.productCost && { borderColor: colors.error }
-                ]}
-                placeholder="0.00"
-                placeholderTextColor={colors.text.tertiary}
-                value={productCost}
-                onChangeText={setProductCost}
-                keyboardType="numeric"
-              />
+              <View onLayout={(e) => { fieldRefs.current['productCost'] = e.nativeEvent.layout.y; }}>
+                <Text style={styles.label}>Product Cost (₱)</Text>
+                <Text style={styles.fieldDescription}>
+                  The minimum price the product will reach on its final day before expiration
+                </Text>
+                {errors.productCost && (
+                  <View style={styles.errorContainer}>
+                    <AlertCircle size={16} color={colors.error} />
+                    <Text style={styles.errorText}>{errors.productCost}</Text>
+                  </View>
+                )}
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    errors.productCost && { borderColor: colors.error }
+                  ]}
+                  placeholder="0.00"
+                  placeholderTextColor={colors.text.tertiary}
+                  value={productCost}
+                  onChangeText={setProductCost}
+                  keyboardType="numeric"
+                />
+              </View>
 
-              <Text style={styles.label}>Start Dynamic Pricing (Days Before Expiration)</Text>
-              <Text style={styles.fieldDescription}>
-                Number of days before expiration when dynamic pricing begins
-              </Text>
-              {errors.dynamicPricingStartDays && (
-                <View style={styles.errorContainer}>
-                  <AlertCircle size={16} color={colors.error} />
-                  <Text style={styles.errorText}>{errors.dynamicPricingStartDays}</Text>
-                </View>
-              )}
-              <TextInput
-                style={[
-                  styles.textInput,
-                  errors.dynamicPricingStartDays && { borderColor: colors.error }
-                ]}
-                placeholder="14"
-                placeholderTextColor={colors.text.tertiary}
-                value={dynamicPricingStartDays}
-                onChangeText={setDynamicPricingStartDays}
-                keyboardType="numeric"
-              />
+              <View onLayout={(e) => { fieldRefs.current['dynamicPricingStartDays'] = e.nativeEvent.layout.y; }}>
+                <Text style={styles.label}>Start Dynamic Pricing (Days Before Expiration)</Text>
+                <Text style={styles.fieldDescription}>
+                  Number of days before expiration when dynamic pricing begins
+                </Text>
+                {errors.dynamicPricingStartDays && (
+                  <View style={styles.errorContainer}>
+                    <AlertCircle size={16} color={colors.error} />
+                    <Text style={styles.errorText}>{errors.dynamicPricingStartDays}</Text>
+                  </View>
+                )}
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    errors.dynamicPricingStartDays && { borderColor: colors.error }
+                  ]}
+                  placeholder="14"
+                  placeholderTextColor={colors.text.tertiary}
+                  value={dynamicPricingStartDays}
+                  onChangeText={setDynamicPricingStartDays}
+                  keyboardType="numeric"
+                />
+              </View>
 
               {/* Dynamic Pricing Preview */}
-              {discountedPrice && productCost && dynamicPricingStartDays && 
-               parseFloat(discountedPrice) > parseFloat(productCost) && 
-               parseInt(dynamicPricingStartDays) > 0 && (
-                <View style={styles.pricingPreview}>
-                  <View style={styles.previewHeader}>
-                    <TrendingDown size={16} color={colors.info} />
-                    <Text style={styles.previewTitle}>Pricing Preview</Text>
+              {discountedPrice && productCost && dynamicPricingStartDays &&
+                parseFloat(discountedPrice) > parseFloat(productCost) &&
+                parseInt(dynamicPricingStartDays) > 0 && (
+                  <View style={styles.pricingPreview}>
+                    <View style={styles.previewHeader}>
+                      <TrendingDown size={16} color={colors.info} />
+                      <Text style={styles.previewTitle}>Pricing Preview</Text>
+                    </View>
+                    <View style={styles.previewRow}>
+                      <Text style={styles.previewLabel}>Current Price:</Text>
+                      <Text style={styles.previewValue}>₱{parseFloat(discountedPrice).toFixed(2)}</Text>
+                    </View>
+                    <View style={styles.previewRow}>
+                      <Text style={styles.previewLabel}>Final Price (Day {dynamicPricingStartDays}):</Text>
+                      <Text style={styles.previewValue}>₱{parseFloat(productCost).toFixed(2)}</Text>
+                    </View>
+                    <View style={styles.previewRow}>
+                      <Text style={styles.previewLabel}>Daily Reduction:</Text>
+                      <Text style={styles.previewValue}>
+                        ₱{((parseFloat(discountedPrice) - parseFloat(productCost)) / parseInt(dynamicPricingStartDays)).toFixed(2)}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={styles.previewRow}>
-                    <Text style={styles.previewLabel}>Current Price:</Text>
-                    <Text style={styles.previewValue}>₱{parseFloat(discountedPrice).toFixed(2)}</Text>
-                  </View>
-                  <View style={styles.previewRow}>
-                    <Text style={styles.previewLabel}>Final Price (Day {dynamicPricingStartDays}):</Text>
-                    <Text style={styles.previewValue}>₱{parseFloat(productCost).toFixed(2)}</Text>
-                  </View>
-                  <View style={styles.previewRow}>
-                    <Text style={styles.previewLabel}>Daily Reduction:</Text>
-                    <Text style={styles.previewValue}>
-                      ₱{((parseFloat(discountedPrice) - parseFloat(productCost)) / parseInt(dynamicPricingStartDays)).toFixed(2)}
-                    </Text>
-                  </View>
-                </View>
-              )}
+                )}
             </View>
           )}
         </View>
 
         {/* Stock Section */}
-        <View style={styles.section}>
+        <View style={styles.section} onLayout={(e) => { fieldRefs.current['stock'] = e.nativeEvent.layout.y; }}>
           <View style={styles.sectionHeader}>
             <BarChart3 size={20} color={colors.primary} />
             <Text style={styles.sectionTitle}>Inventory</Text>
@@ -1322,6 +1291,45 @@ const CreateProduct = () => {
             keyboardType="numeric"
           />
         </View>
+
+        {/* Expiry Date Section */}
+        {creationMode === 'product' && (
+          <View style={styles.section} onLayout={(e) => { fieldRefs.current['expiryDate'] = e.nativeEvent.layout.y; }}>
+            <View style={styles.sectionHeader}>
+              <Calendar size={20} color={colors.primary} />
+              <Text style={styles.sectionTitle}>Expiry Date</Text>
+            </View>
+            <Text style={styles.sectionDescription}>
+              Set the expiry date for your food product
+            </Text>
+
+            <Text style={styles.label}>Product Expiration</Text>
+            <TouchableOpacity
+              style={styles.datePickerButton}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Calendar size={18} color={colors.icon.secondary} />
+              <Text style={styles.datePickerText}>
+                {duration.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric' })}
+              </Text>
+            </TouchableOpacity>
+
+            {showDatePicker && (
+              <DateTimePicker
+                value={duration}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(event, selectedDate) => {
+                  setShowDatePicker(false);
+                  if (selectedDate) {
+                    setDuration(selectedDate);
+                  }
+                }}
+                minimumDate={new Date()}
+              />
+            )}
+          </View>
+        )}
 
         {/* Categories Section - Only for products */}
         {creationMode === 'product' && (
@@ -1468,8 +1476,13 @@ const styles = StyleSheet.create({
   // Sections
   section: {
     backgroundColor: colors.background.primary,
-    marginBottom: spacing.md,
-    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    padding: spacing.xl,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1913,7 +1926,7 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
   },
   productSelectionList: {
-    maxHeight: 300,
+    maxHeight: 400,
   },
   productSelectionItem: {
     flexDirection: 'row',
@@ -2097,6 +2110,22 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.sm,
     color: colors.text.secondary,
     fontWeight: typography.fontWeights.medium,
+  },
+  datePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+    borderRadius: radii.md,
+    backgroundColor: colors.background.secondary,
+    gap: spacing.sm,
+  },
+  datePickerText: {
+    fontSize: typography.fontSizes.md,
+    color: colors.text.primary,
+    flex: 1,
   },
 });
 

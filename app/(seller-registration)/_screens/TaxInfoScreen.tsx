@@ -69,13 +69,8 @@ const TaxInfoScreen = () => {
     return true;
   };
 
-  const uploadPlaceholder = async () => {
-    Alert.alert(
-      "Feature Under Development", 
-      "File upload functionality will be available once the new architecture is implemented."
-    );
-    return "placeholder-url";
-  };
+  // File upload is handled locally - no cloud upload needed during registration
+  // Files will be uploaded to the server when the registration is submitted
 
   // Handle Government ID Image Upload
   const handleUploadGovernmentId = async (
@@ -119,8 +114,7 @@ const TaxInfoScreen = () => {
             selectedImage.mimeType ||
             `image/${selectedImage.uri.split(".").pop()}`;
 
-          await uploadPlaceholder();
-
+          // Store file locally - will be uploaded with registration submission
           setFieldValue("governmentIdImage", {
             uri: selectedImage.uri,
             name: fileName,
@@ -170,8 +164,7 @@ const TaxInfoScreen = () => {
         }
 
         try {
-          await uploadPlaceholder();
-
+          // Store file locally - will be uploaded with registration submission
           setFieldValue("businessPermitPdf", {
             uri: selectedDocument.uri,
             name: selectedDocument.name,

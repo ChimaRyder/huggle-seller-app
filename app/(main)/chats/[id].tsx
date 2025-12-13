@@ -106,11 +106,13 @@ export default function ChatScreen() {
         });
 
         // Load existing messages from the response and sort by created_at
+        // With inverted FlatList, newest messages should be at the START of the array (index 0)
+        // so they appear at the BOTTOM of the visual list
         const channelMessages = messagesResponse.messages || [];
         const sortedMessages = channelMessages.sort((a, b) => {
           const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
           const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
-          return timeB - timeA;
+          return timeB - timeA; // Newest first for inverted list
         });
         setMessages(sortedMessages);
 
@@ -151,9 +153,9 @@ export default function ChatScreen() {
           });
         });
 
-        // Auto-scroll to bottom for new messages
+        // Auto-scroll to bottom for new messages (offset 0 for inverted list)
         setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
+          flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
         }, 100);
       }
     };
@@ -189,8 +191,9 @@ export default function ChatScreen() {
     const keyboardDidShowListener = Keyboard.addListener(
       'keyboardDidShow',
       () => {
+        // For inverted list, offset 0 is the visual bottom (newest messages)
         setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
+          flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
         }, 100);
       }
     );
@@ -200,8 +203,9 @@ export default function ChatScreen() {
     };
   }, []);
 
+  // For inverted FlatList, scrolling to offset 0 shows newest messages (visual bottom)
   const scrollToBottom = useCallback(() => {
-    flatListRef.current?.scrollToEnd({ animated: false });
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
   }, []);
 
   const handleSendMessage = useCallback(async () => {
@@ -223,9 +227,9 @@ export default function ChatScreen() {
       // Clear input
       setMessage('');
 
-      // Auto-scroll to bottom
+      // Auto-scroll to bottom (offset 0 for inverted list)
       setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
       }, 100);
 
     } catch (error) {
@@ -291,8 +295,8 @@ export default function ChatScreen() {
             {!isConnected
               ? 'Chat service is not connected. Please check your Stream Chat configuration and internet connection.'
               : !client || !user
-              ? 'Chat service is not initialized. Please restart the app and try again.'
-              : 'Customer conversation not found'}
+                ? 'Chat service is not initialized. Please restart the app and try again.'
+                : 'Customer conversation not found'}
           </Text>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>Go Back</Text>
@@ -304,75 +308,75 @@ export default function ChatScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.headerBackButton}>
-            <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
-          </TouchableOpacity>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.headerBackButton}>
+          <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
+        </TouchableOpacity>
 
-          <View style={styles.headerInfo}>
-            <Image source={{ uri: otherParticipant.image }} style={styles.storeAvatar} />
-            <View style={styles.storeInfo}>
-              <Text style={styles.storeName} numberOfLines={1}>
-                {otherParticipant.name}
-              </Text>
-              <Text style={styles.storeStatus}>Online</Text>
-            </View>
+        <View style={styles.headerInfo}>
+          <Image source={{ uri: otherParticipant.image }} style={styles.storeAvatar} />
+          <View style={styles.storeInfo}>
+            <Text style={styles.storeName} numberOfLines={1}>
+              {otherParticipant.name}
+            </Text>
+            <Text style={styles.storeStatus}>Online</Text>
           </View>
-
-          <TouchableOpacity style={styles.headerAction}>
-            <Ionicons name="ellipsis-vertical" size={24} color="black" />
-          </TouchableOpacity>
         </View>
 
-        {/* Messages List */}
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          renderItem={renderMessage}
-          keyExtractor={(item) => item.id}
-          style={styles.messagesList}
-          contentContainerStyle={styles.messagesContent}
-          showsVerticalScrollIndicator={false}
-          onContentSizeChange={scrollToBottom}
-          ListEmptyComponent={() => (
-            <View style={styles.emptyMessagesContainer}>
-              <Text style={styles.emptyMessagesText}>
-                {isLoadingChannel ? 'Loading messages...' : 'No messages yet. Start the conversation!'}
-              </Text>
-            </View>
-          )}
-          inverted
-        />
+        <TouchableOpacity style={styles.headerAction}>
+          <Ionicons name="ellipsis-vertical" size={24} color="black" />
+        </TouchableOpacity>
+      </View>
 
-        {/* Input Area */}
-        <View style={[styles.inputContainer]}>
-          <View style={styles.inputWrapper}>
-            <TextInput
-              style={styles.textInput}
-              value={message}
-              onChangeText={setMessage}
-              placeholder={`Message ${otherParticipant?.name || 'participant'}...`}
-              placeholderTextColor={colors.text.secondary}
-              multiline
-              maxLength={500}
+      {/* Messages List */}
+      <FlatList
+        ref={flatListRef}
+        data={messages}
+        renderItem={renderMessage}
+        keyExtractor={(item) => item.id}
+        style={styles.messagesList}
+        contentContainerStyle={styles.messagesContent}
+        showsVerticalScrollIndicator={false}
+        onContentSizeChange={scrollToBottom}
+        ListEmptyComponent={() => (
+          <View style={styles.emptyMessagesContainer}>
+            <Text style={styles.emptyMessagesText}>
+              {isLoadingChannel ? 'Loading messages...' : 'No messages yet. Start the conversation!'}
+            </Text>
+          </View>
+        )}
+        inverted
+      />
+
+      {/* Input Area */}
+      <View style={[styles.inputContainer]}>
+        <View style={styles.inputWrapper}>
+          <TextInput
+            style={styles.textInput}
+            value={message}
+            onChangeText={setMessage}
+            placeholder={`Message ${otherParticipant?.name || 'participant'}...`}
+            placeholderTextColor={colors.text.secondary}
+            multiline
+            maxLength={500}
+          />
+          <TouchableOpacity
+            style={[
+              styles.sendButton,
+              message.trim().length === 0 && styles.sendButtonDisabled
+            ]}
+            onPress={handleSendMessage}
+            disabled={message.trim().length === 0}
+          >
+            <Ionicons
+              name="send"
+              size={20}
+              color={message.trim().length > 0 ? colors.primary : colors.text.tertiary}
             />
-            <TouchableOpacity
-              style={[
-                styles.sendButton,
-                message.trim().length === 0 && styles.sendButtonDisabled
-              ]}
-              onPress={handleSendMessage}
-              disabled={message.trim().length === 0}
-            >
-              <Ionicons
-                name="send"
-                size={20}
-                color={message.trim().length > 0 ? colors.primary : colors.text.tertiary}
-              />
-            </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         </View>
+      </View>
     </SafeAreaView>
   );
 }

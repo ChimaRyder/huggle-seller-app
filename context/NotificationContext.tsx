@@ -40,20 +40,20 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     try {
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
-      
+
       if (existingStatus !== 'granted') {
         const { status } = await Notifications.requestPermissionsAsync();
         finalStatus = status;
       }
-      
+
       if (finalStatus !== 'granted') {
         console.log('Failed to get push token for push notification!');
         return null;
       }
-      
+
       const token = (await Notifications.getExpoPushTokenAsync()).data;
       console.log('Seller Push Token:', token);
-      
+
       // Store token in backend
       if (isSignedIn) {
         try {
@@ -64,7 +64,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
           console.error('Failed to store push token:', error);
         }
       }
-      
+
       return token;
     } catch (error) {
       console.error('Error getting push token:', error);
@@ -75,53 +75,57 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
   // Handle notification navigation for seller-specific types
   const handleNotificationNavigation = (data: any) => {
     const { type, relatedEntityId, relatedEntityType } = data;
-    
-    try {
-      switch (type) {
-        case 'NewOrder':
-          // Navigate to specific order details if ID provided, otherwise orders list
-          if (relatedEntityId) {
-            router.push({
-              pathname: '/(main)/orders/orderDetails' as any,
-              params: { id: relatedEntityId },
-            });
-          } else {
-            router.push('/(main)/orders');
-          }
-          break;
-          
-        case 'OrderPickedUp':
-          // Navigate to specific order details if ID provided, otherwise orders list
-          if (relatedEntityId) {
-            router.push({
-              pathname: '/(main)/orders/orderDetails' as any,
-              params: { id: relatedEntityId },
-            });
-          } else {
-            router.push('/(main)/orders');
-          }
-          break;
-          
-        case 'NewReport':
-          // Navigate to analytics or reports section
-          router.push('/(main)/analytics');
-          break;
-          
-        case 'NewVerificationRequest':
-          // Navigate to verification screen
-          router.push('/(main)/profile/storeVerification');
-          break;
-          
-        default:
-          // Fallback to notifications screen
-          router.push('/(main)/notifications/notificationsScreen');
-          break;
+
+    // Defer navigation to ensure navigation stack is ready
+    // This fixes the issue where navigation fails on first login
+    setTimeout(() => {
+      try {
+        switch (type) {
+          case 'NewOrder':
+            // Navigate to specific order details if ID provided, otherwise orders list
+            if (relatedEntityId) {
+              router.push({
+                pathname: '/(main)/orders/orderDetails' as any,
+                params: { id: relatedEntityId },
+              });
+            } else {
+              router.push('/(main)/orders');
+            }
+            break;
+
+          case 'OrderPickedUp':
+            // Navigate to specific order details if ID provided, otherwise orders list
+            if (relatedEntityId) {
+              router.push({
+                pathname: '/(main)/orders/orderDetails' as any,
+                params: { id: relatedEntityId },
+              });
+            } else {
+              router.push('/(main)/orders');
+            }
+            break;
+
+          case 'NewReport':
+            // Navigate to analytics or reports section
+            router.push('/(main)/analytics');
+            break;
+
+          case 'NewVerificationRequest':
+            // Navigate to verification screen
+            router.push('/(main)/profile/storeVerification');
+            break;
+
+          default:
+            // Fallback to notifications screen
+            router.push('/(main)/notifications/notificationsScreen');
+            break;
+        }
+      } catch (error) {
+        console.error('Navigation error from notification:', error);
+        // Fallback to notifications screen
+        router.push('/(main)/notifications/notificationsScreen');
       }
-    } catch (error) {
-      console.error('Navigation error from notification:', error);
-      // Fallback to notifications screen
-      router.push('/(main)/notifications/notificationsScreen');
-    }
+    }, 100);
   };
 
   useEffect(() => {

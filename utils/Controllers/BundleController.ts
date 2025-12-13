@@ -10,7 +10,7 @@ import {
 } from '@/types/bundle';
 
 /**
- * Creates a new bundle for the seller
+ * Creates a new bundle for the seller via C# backend
  * @param bundle - Bundle data to create
  * @param token - Authentication token
  * @returns Promise with the created bundle response
@@ -23,12 +23,91 @@ const createBundle = async (bundle: BundleRequestDto, token: string) => {
       bundle,
       token
     );
-    
+
     return {
       data: response.data,
       status: response.status
     };
   } catch (error) {
+    throw error;
+  }
+};
+
+/**
+ * Saves a bundle to the bundler API's database.
+ * This is the primary method for creating AI-generated bundles.
+ * The bundler API is the source of truth for bundle creation.
+ * 
+ * @param bundle - Bundle data to save (from AI preview)
+ * @param storeId - The seller's store ID  
+ * @returns Promise with the saved bundle response
+ */
+const saveBundleToBundler = async (bundle: {
+  name: string;
+  description: string;
+  products: Array<{ id: string; name: string; stock: number; price?: number; original_price?: number; product_type?: string; expires_on?: string; tags?: string[] }>;
+  images: string[];
+  image_url?: string;
+  stock: number;
+  price?: number;
+  original_price?: number;
+}, storeId: string) => {
+  try {
+    const bundleSaveUrl = process.env.EXPO_PUBLIC_BUNDLE_SAVE_URL || process.env.EXPO_PUBLIC_BUNDLE_GENERATION_URL?.replace('/recommend/ai/save-with-images', '/save');
+
+    if (!bundleSaveUrl) {
+      throw new Error('Bundle save URL not configured. Please set EXPO_PUBLIC_BUNDLE_SAVE_URL in .env');
+    }
+
+    console.log('📦 [saveBundleToBundler] Saving bundle to bundler API:', bundleSaveUrl);
+
+    // Prepare the bundle data in the format expected by the bundler
+    const bundlePayload = {
+      store_id: storeId,
+      name: bundle.name,
+      description: bundle.description,
+      products: bundle.products.map(p => ({
+        id: p.id,
+        name: p.name,
+        stock: p.stock,
+        price: p.price || 0,
+        original_price: p.original_price || 0,
+        product_type: p.product_type || 'Unknown',
+        expires_on: p.expires_on || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        tags: p.tags || []
+      })),
+      images: bundle.images,
+      image_url: bundle.image_url,
+      stock: bundle.stock,
+      price: bundle.price,
+      original_price: bundle.original_price
+    };
+
+    console.log('📦 [saveBundleToBundler] Payload:', JSON.stringify(bundlePayload, null, 2));
+
+    const response = await fetch(bundleSaveUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(bundlePayload)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ [saveBundleToBundler] Failed to save bundle:', response.status, errorText);
+      throw new Error(`Failed to save bundle: ${response.status} - ${errorText}`);
+    }
+
+    const savedBundle = await response.json();
+    console.log('✅ [saveBundleToBundler] Bundle saved successfully:', savedBundle);
+
+    return {
+      data: savedBundle,
+      status: response.status
+    };
+  } catch (error) {
+    console.error('❌ [saveBundleToBundler] Error:', error);
     throw error;
   }
 };
@@ -45,34 +124,38 @@ const getAllBundles = async (search: string, token: string, storeId?: string) =>
     // Extract storeId from token if not provided
     const extractedStoreId = getStoreIdFromToken(token);
     const actualStoreId = storeId || extractedStoreId;
-    
+
     if (!actualStoreId) {
       throw new Error('Store ID not found in token or parameters. Please ensure you have a valid seller account.');
     }
-    
-    let endpoint = `/api/products/store/${actualStoreId}`;
+
+    // Use the bundles-specific endpoint on main backend
+    let endpoint = `/api/products/bundles/store/${actualStoreId}`;
     const params = new URLSearchParams();
-    
+
     // Add search parameter if provided
     if (search && search.trim()) {
       params.append('search', search.trim());
     }
-    
-    // Add bundles filter
-    params.append('type', 'bundles');
-    
-    // Add query params to endpoint
+
+    // Add query params to endpoint if any
     const queryString = params.toString();
     if (queryString) {
       endpoint += `?${queryString}`;
     }
-    
+
+    console.log('📦 [getAllBundles] Fetching bundles from main API:', endpoint);
+
     // Make API call
     const response = await apiClient.get<any>(endpoint, token);
-    
+
+    console.log('📦 [getAllBundles] Response:', response);
+
     // Extract the actual data from the response
     const rawData = handleApiResponse<any>(response);
-    
+
+    console.log('📦 [getAllBundles] Raw data:', rawData);
+
     // Ensure we have an array to work with
     let bundles: SellerBundleDto[];
     if (Array.isArray(rawData)) {
@@ -86,17 +169,20 @@ const getAllBundles = async (search: string, token: string, storeId?: string) =>
     } else {
       bundles = [];
     }
-    
+
+    console.log('📦 [getAllBundles] Parsed bundles count:', bundles.length);
+
     return {
       data: bundles,
       status: response.status
     };
   } catch (error) {
+    console.error('❌ [getAllBundles] Error:', error);
     if (error instanceof Error) {
       const apiError = error as ApiError;
       throw {
         response: {
-          status: apiError.status,
+          status: apiError.status || 500,
           data: { message: apiError.message }
         }
       };
@@ -114,9 +200,9 @@ const getAllBundles = async (search: string, token: string, storeId?: string) =>
 const getBundleById = async (bundleId: string, token: string) => {
   try {
     const response = await apiClient.get<any>(`/api/products/bundles/${bundleId}`, token);
-    
+
     const bundleData = handleApiResponse<SellerBundleDto>(response);
-    
+
     return {
       data: bundleData,
       status: response.status
@@ -150,7 +236,7 @@ const updateBundle = async (bundleId: string, bundle: BundleUpdateRequestDto, to
       bundle,
       token
     );
-    
+
     return {
       data: response.data,
       status: response.status
@@ -160,7 +246,7 @@ const updateBundle = async (bundleId: string, bundle: BundleUpdateRequestDto, to
     if (error.response && error.response.data) {
       throw error;
     }
-    
+
     // If it's an ApiError object, format it properly
     if (error.message && error.status) {
       throw {
@@ -170,7 +256,7 @@ const updateBundle = async (bundleId: string, bundle: BundleUpdateRequestDto, to
         }
       };
     }
-    
+
     // Fallback for unknown error types
     throw error;
   }
@@ -185,7 +271,7 @@ const updateBundle = async (bundleId: string, bundle: BundleUpdateRequestDto, to
 const deleteBundle = async (bundleId: string | number, token: string) => {
   try {
     const response = await apiClient.delete<any>(`/api/products/bundles/${bundleId}`, token);
-    
+
     return {
       data: response.data,
       status: response.status
@@ -216,9 +302,9 @@ const deleteMultipleBundles = async (bundleIds: (string | number)[], token: stri
     failed: [],
     totalAttempted: bundleIds.length,
   };
-  
+
   console.log(`🗑️ [deleteMultipleBundles] Attempting to delete ${bundleIds.length} bundles:`, bundleIds);
-  
+
   for (const bundleId of bundleIds) {
     try {
       await deleteBundle(bundleId, token);
@@ -229,7 +315,7 @@ const deleteMultipleBundles = async (bundleIds: (string | number)[], token: stri
       console.error(`❌ [deleteMultipleBundles] Failed to delete bundle ${bundleId}:`, error);
     }
   }
-  
+
   console.log(`📊 [deleteMultipleBundles] Results: ${results.deleted.length} deleted, ${results.failed.length} failed`);
   return results;
 };
@@ -243,17 +329,17 @@ const deleteMultipleBundles = async (bundleIds: (string | number)[], token: stri
 const generateBundleFromExternal = async (storeId: string, token: string) => {
   try {
     const bundleGenerationUrl = process.env.EXPO_PUBLIC_BUNDLE_GENERATION_URL;
-    
+
     if (!bundleGenerationUrl) {
       throw new Error('Bundle generation service URL not configured');
     }
-    
+
     // Prepare request payload for external service
     const requestPayload = {
       store_id: storeId,
       // Additional context can be added here
     };
-    
+
     // Make API call to external bundle generation service
     const response = await fetch(bundleGenerationUrl, {
       method: 'POST',
@@ -263,13 +349,13 @@ const generateBundleFromExternal = async (storeId: string, token: string) => {
       },
       body: JSON.stringify(requestPayload),
     });
-    
+
     if (!response.ok) {
       throw new Error(`External bundle generation failed: ${response.statusText}`);
     }
-    
+
     const externalBundleData: ExternalBundleResponse = await response.json();
-    
+
     return {
       data: externalBundleData,
       status: response.status
@@ -297,21 +383,21 @@ const generateBundleFromExternal = async (storeId: string, token: string) => {
 const generateMultipleBundlesFromExternal = async (storeId: string, token: string, numBundles: number = 3) => {
   try {
     const bundleGenerationUrl = process.env.EXPO_PUBLIC_BUNDLE_GENERATION_URL;
-    
+
     console.log('🌐 [generateMultipleBundlesFromExternal] Bundle generation URL:', bundleGenerationUrl);
-    
+
     if (!bundleGenerationUrl) {
       throw new Error('Bundle generation service URL not configured');
     }
-    
+
     // Prepare request payload for external service
     const requestPayload: BundleGenerationRequest = {
       store_id: storeId,
       num_bundles: numBundles,
     };
-    
+
     console.log('📤 [generateMultipleBundlesFromExternal] Request payload:', requestPayload);
-    
+
     // Make API call to external bundle generation service
     const response = await fetch(bundleGenerationUrl, {
       method: 'POST',
@@ -321,19 +407,19 @@ const generateMultipleBundlesFromExternal = async (storeId: string, token: strin
       },
       body: JSON.stringify(requestPayload),
     });
-    
+
     console.log('📥 [generateMultipleBundlesFromExternal] Response status:', response.status);
     console.log('📥 [generateMultipleBundlesFromExternal] Response ok:', response.ok);
-    
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error('❌ [generateMultipleBundlesFromExternal] Error response:', errorText);
       throw new Error(`External bundle generation failed: ${response.statusText} - ${errorText}`);
     }
-    
+
     const responseText = await response.text();
     console.log('📄 [generateMultipleBundlesFromExternal] Raw response text:', responseText);
-    
+
     let externalBundlesData;
     try {
       externalBundlesData = JSON.parse(responseText);
@@ -342,7 +428,7 @@ const generateMultipleBundlesFromExternal = async (storeId: string, token: strin
       console.error('❌ [generateMultipleBundlesFromExternal] JSON parse error:', parseError);
       throw new Error('Invalid JSON response from bundle generation service');
     }
-    
+
     return {
       data: externalBundlesData,
       status: response.status
@@ -368,7 +454,7 @@ const generateMultipleBundlesFromExternal = async (storeId: string, token: strin
  * @returns BundleRequestDto formatted for backend
  */
 const convertExternalBundleToRequest = (
-  externalBundle: ExternalBundleResponse, 
+  externalBundle: ExternalBundleResponse,
   storeId: string
 ): BundleRequestDto => {
   // Since the AI bundles don't include product prices, we'll use estimated pricing
@@ -377,7 +463,7 @@ const convertExternalBundleToRequest = (
   const totalProductCount = externalBundle.products.length;
   const estimatedOriginalPrice = totalProductCount * estimatedPricePerProduct;
   const estimatedBundlePrice = estimatedOriginalPrice * 0.85; // 15% bundle discount
-  
+
   return {
     storeId: storeId,
     name: externalBundle.name,
@@ -395,8 +481,91 @@ const convertExternalBundleToRequest = (
   };
 };
 
+/**
+ * Generates multiple bundle previews from AI service WITHOUT saving to database.
+ * Bundles are returned with generated images but are NOT persisted.
+ * Use this for the preview/selection flow, then save only the selected bundle
+ * via createBundle().
+ * 
+ * @param storeId - The store ID for context
+ * @param token - Authentication token
+ * @param numBundles - Number of bundles to generate (default: 3)
+ * @returns Promise with the generated bundle previews (not saved)
+ */
+const previewBundlesFromExternal = async (storeId: string, token: string, numBundles: number = 3) => {
+  try {
+    // Use the new preview endpoint that doesn't save bundles
+    const bundlePreviewUrl = process.env.EXPO_PUBLIC_BUNDLE_PREVIEW_URL;
+
+    console.log('🌐 [previewBundlesFromExternal] Bundle preview URL:', bundlePreviewUrl);
+
+    if (!bundlePreviewUrl) {
+      // Fallback to old save-with-images endpoint if preview URL not configured
+      console.warn('⚠️ [previewBundlesFromExternal] BUNDLE_PREVIEW_URL not configured, falling back to save-with-images');
+      return generateMultipleBundlesFromExternal(storeId, token, numBundles);
+    }
+
+    // Prepare request payload for external service
+    const requestPayload: BundleGenerationRequest = {
+      store_id: storeId,
+      num_bundles: numBundles,
+    };
+
+    console.log('📤 [previewBundlesFromExternal] Request payload:', requestPayload);
+
+    // Make API call to preview endpoint (no database save)
+    const response = await fetch(bundlePreviewUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(requestPayload),
+    });
+
+    console.log('📥 [previewBundlesFromExternal] Response status:', response.status);
+    console.log('📥 [previewBundlesFromExternal] Response ok:', response.ok);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ [previewBundlesFromExternal] Error response:', errorText);
+      throw new Error(`Bundle preview generation failed: ${response.statusText} - ${errorText}`);
+    }
+
+    const responseText = await response.text();
+    console.log('📄 [previewBundlesFromExternal] Raw response text:', responseText);
+
+    let previewBundlesData;
+    try {
+      previewBundlesData = JSON.parse(responseText);
+      console.log('📦 [previewBundlesFromExternal] Parsed response:', previewBundlesData);
+    } catch (parseError) {
+      console.error('❌ [previewBundlesFromExternal] JSON parse error:', parseError);
+      throw new Error('Invalid JSON response from bundle preview service');
+    }
+
+    return {
+      data: previewBundlesData,
+      status: response.status,
+      isPreview: true  // Flag indicating these bundles are NOT saved to DB
+    };
+  } catch (error) {
+    console.error('❌ [previewBundlesFromExternal] Full error:', error);
+    if (error instanceof Error) {
+      throw {
+        response: {
+          status: 500,
+          data: { message: error.message }
+        }
+      };
+    }
+    throw error;
+  }
+};
+
 export {
   createBundle,
+  saveBundleToBundler,
   getAllBundles,
   getBundleById,
   updateBundle,
@@ -404,5 +573,6 @@ export {
   deleteMultipleBundles,
   generateBundleFromExternal,
   generateMultipleBundlesFromExternal,
+  previewBundlesFromExternal,
   convertExternalBundleToRequest
 };

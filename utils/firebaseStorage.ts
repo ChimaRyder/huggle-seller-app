@@ -34,7 +34,7 @@ export interface UploadResult {
  * Handles both iOS and Android file uploads with progress tracking
  */
 export class FirebaseStorageService {
-  
+
   /**
    * Uploads a single image to Firebase Storage
    * @param uri - Local file URI from ImagePicker
@@ -54,28 +54,29 @@ export class FirebaseStorageService {
       const timestamp = Date.now();
       const fileExtension = uri.split('.').pop() || 'jpg';
       const finalFileName = fileName || `image_${timestamp}.${fileExtension}`;
-      
+
       // Create storage reference
       const storageRef = ref(storage, `${folder}/${finalFileName}`);
-      
+
       // Fetch the file data
       const response = await fetch(uri);
       const blob = await response.blob();
-      
+
       // Start upload task
       const uploadTask = uploadBytesResumable(storageRef, blob);
-      
+
       return new Promise((resolve, reject) => {
         uploadTask.on(
           'state_changed',
           (snapshot) => {
             if (onProgress) {
+              const progressPercent = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
               const progress = {
                 bytesTransferred: snapshot.bytesTransferred,
                 totalBytes: snapshot.totalBytes,
-                progress: (snapshot.bytesTransferred / snapshot.totalBytes) * 100,
+                progress: Math.min(progressPercent, 100),
               };
-              
+
               onProgress(progress);
             }
           },
@@ -86,7 +87,7 @@ export class FirebaseStorageService {
           async () => {
             try {
               const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-              
+
               resolve({
                 downloadURL,
                 fullPath: uploadTask.snapshot.ref.fullPath,
@@ -98,13 +99,13 @@ export class FirebaseStorageService {
           }
         );
       });
-      
+
     } catch (error) {
       console.error('❌ [FirebaseStorage] Upload failed:', error);
       throw new Error(`Failed to upload image: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
-  
+
   /**
    * Uploads multiple images concurrently
    * @param uris - Array of local file URIs
@@ -118,32 +119,32 @@ export class FirebaseStorageService {
     onProgress?: (completedCount: number, totalCount: number) => void
   ): Promise<UploadResult[]> {
     try {
-      
+
       let completedCount = 0;
       const results: UploadResult[] = [];
-      
+
       // Upload images concurrently
       const uploadPromises = uris.map(async (uri, index) => {
         const result = await this.uploadImage(uri, folder, `image_${Date.now()}_${index}.jpg`);
         completedCount++;
-        
+
         if (onProgress) {
           onProgress(completedCount, uris.length);
         }
-        
+
         return result;
       });
-      
+
       const uploadResults = await Promise.all(uploadPromises);
-      
+
       return uploadResults;
-      
+
     } catch (error) {
       console.error('❌ [FirebaseStorage] Multiple upload failed:', error);
       throw new Error(`Failed to upload images: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
-  
+
   /**
    * Uploads a cover image and additional images for a product
    * @param coverImageUri - URI of the cover image
@@ -162,7 +163,7 @@ export class FirebaseStorageService {
       const folderPath = productId ? `products/${productId}` : 'products';
       const allUris = [coverImageUri, ...additionalImageUris];
       let completedCount = 0;
-      
+
       // Upload cover image
       const coverImageResult = await this.uploadImage(
         coverImageUri,
@@ -173,7 +174,7 @@ export class FirebaseStorageService {
           if (onProgress) onProgress(completedCount, allUris.length);
         }
       );
-      
+
       // Upload additional images
       const additionalImageResults = await Promise.all(
         additionalImageUris.map(async (uri, index) => {
@@ -189,19 +190,19 @@ export class FirebaseStorageService {
           return result.downloadURL;
         })
       );
-      
-      
+
+
       return {
         coverImageUrl: coverImageResult.downloadURL,
         additionalImageUrls: additionalImageResults,
       };
-      
+
     } catch (error) {
       console.error('❌ [FirebaseStorage] Product image upload failed:', error);
       throw new Error(`Failed to upload product images: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
-  
+
   /**
    * Deletes an image from Firebase Storage
    * @param fullPath - Full storage path of the file
@@ -211,13 +212,13 @@ export class FirebaseStorageService {
     try {
       const storageRef = ref(storage, fullPath);
       await deleteObject(storageRef);
-      
+
     } catch (error) {
       console.error('❌ [FirebaseStorage] Delete failed:', error);
       throw new Error(`Failed to delete image: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
-  
+
   /**
    * Extracts the storage path from a Firebase download URL
    * @param downloadURL - Firebase download URL
@@ -235,7 +236,7 @@ export class FirebaseStorageService {
       return null;
     }
   }
-  
+
   /**
    * Gets the file size of an uploaded image
    * @param fullPath - Full storage path of the file

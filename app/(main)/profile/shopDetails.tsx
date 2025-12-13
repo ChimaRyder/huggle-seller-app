@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Image,
   Switch,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -27,6 +28,7 @@ import { getMyStore, updateStore } from '@/utils/Controllers/StoreController';
 import { showToast } from '@/components/Toast';
 import BusinessHoursPicker from '../../(seller-registration)/components/BusinessHoursPicker';
 import * as ImagePicker from 'expo-image-picker';
+import FirebaseStorageService from '@/utils/firebaseStorage';
 
 const shopCategories = ["Restaurant", "Grocery", "Market", "Store"];
 
@@ -55,8 +57,8 @@ const initialStore = {
 
 export default function ShopDetailsScreen() {
   const router = useRouter();
-  const {getToken} = useAuth();
-  const {user} = useUser();
+  const { getToken } = useAuth();
+  const { user } = useUser();
   const [store, setStore] = useState(initialStore);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -152,14 +154,63 @@ export default function ShopDetailsScreen() {
     return Object.keys(newErrors).length === 0;
   };
 
+  /**
+   * Helper function to check if a URL is a local file URI that needs uploading
+   */
+  const isLocalFileUri = (uri: string): boolean => {
+    return uri.startsWith('file://') || uri.startsWith('content://');
+  };
+
   const handleSave = async () => {
     if (!validateForm()) return;
 
     setSaving(true);
 
     try {
-      const token = await getToken({template: "seller_app"});
-      await updateStore(store, token ?? "");
+      const token = await getToken({ template: "seller_app" });
+
+      // Prepare store data with uploaded image URLs
+      let storeToSave = { ...store };
+
+      // Upload cover image if it's a local file
+      if (store.coverImageUrl && isLocalFileUri(store.coverImageUrl)) {
+        try {
+          console.log('📤 Uploading cover image to Firebase...');
+          const coverImageResult = await FirebaseStorageService.uploadImage(
+            store.coverImageUrl,
+            `stores/${store.id || user?.id}/cover`,
+            `cover_${Date.now()}.jpg`
+          );
+          storeToSave.coverImageUrl = coverImageResult.downloadURL;
+          console.log('✅ Cover image uploaded:', coverImageResult.downloadURL);
+        } catch (uploadError) {
+          console.error('❌ Failed to upload cover image:', uploadError);
+          showToast('error', 'Upload Failed', 'Failed to upload cover image. Please try again.');
+          setSaving(false);
+          return;
+        }
+      }
+
+      // Upload profile image if it's a local file
+      if (store.profileImageUrl && isLocalFileUri(store.profileImageUrl)) {
+        try {
+          console.log('📤 Uploading profile image to Firebase...');
+          const profileImageResult = await FirebaseStorageService.uploadImage(
+            store.profileImageUrl,
+            `stores/${store.id || user?.id}/profile`,
+            `profile_${Date.now()}.jpg`
+          );
+          storeToSave.profileImageUrl = profileImageResult.downloadURL;
+          console.log('✅ Profile image uploaded:', profileImageResult.downloadURL);
+        } catch (uploadError) {
+          console.error('❌ Failed to upload profile image:', uploadError);
+          showToast('error', 'Upload Failed', 'Failed to upload profile image. Please try again.');
+          setSaving(false);
+          return;
+        }
+      }
+
+      await updateStore(storeToSave, token ?? "");
 
       showToast('success', 'Store Updated!', "Your store details have been updated.");
       router.back();
@@ -176,18 +227,18 @@ export default function ShopDetailsScreen() {
     useCallback(() => {
       const loadStoreDetails = async () => {
         try {
-          const token = await getToken({template: "seller_app"});
+          const token = await getToken({ template: "seller_app" });
           const response = await getMyStore(token ?? "");
 
           // Handle the nested response structure from backend
           const storeData = response.data?.data || response.data;
           console.log('Raw store data from backend:', storeData);
-          
+
           // Ensure business hours are properly structured and map backend fields to frontend
           if (storeData) {
             // First handle business hours - ensure we have 7 days
             let normalizedBusinessHours = Array.from({ length: 7 }, () => ({ isOpen: false, openTime: '', closeTime: '' }));
-            
+
             if (storeData.businessHours && Array.isArray(storeData.businessHours)) {
               // Fill in the actual business hours data
               storeData.businessHours.forEach((hours: any, index: number) => {
@@ -221,10 +272,10 @@ export default function ShopDetailsScreen() {
               createdAt: storeData.createdAt || '',
               updatedAt: storeData.updatedAt || '',
             };
-            
+
             console.log('Setting normalized store data:', normalizedStore);
             setStore(normalizedStore);
-            
+
             // Debug: Check what images we have after setting
             setTimeout(() => {
               console.log('Current store state after setting:', {
@@ -234,7 +285,7 @@ export default function ShopDetailsScreen() {
               });
             }, 100);
           }
-        } catch(error) {
+        } catch (error) {
           console.error('Error getting store: ', error);
         }
       };
@@ -260,7 +311,7 @@ export default function ShopDetailsScreen() {
           disabled={!store.name.trim() || !store.description.trim() || saving}
         >
           {saving ? (
-            <View style={styles.loadingIndicator} />
+            <ActivityIndicator size="small" color={colors.text.inverse} />
           ) : (
             <Check size={20} color={colors.text.inverse} />
           )}
@@ -284,8 +335,8 @@ export default function ShopDetailsScreen() {
             <TouchableOpacity style={styles.coverImageContainer} onPress={pickCoverImage}>
               {store.coverImageUrl && store.coverImageUrl.trim() !== '' ? (
                 <>
-                  <Image 
-                    source={{ uri: store.coverImageUrl }} 
+                  <Image
+                    source={{ uri: store.coverImageUrl }}
                     style={styles.coverImage}
                     onLoad={() => console.log('Cover image loaded successfully')}
                     onError={(error) => console.log('Cover image load error:', error)}
@@ -310,8 +361,8 @@ export default function ShopDetailsScreen() {
             <TouchableOpacity style={styles.profileImageContainer} onPress={pickProfileImage}>
               {store.profileImageUrl && store.profileImageUrl.trim() !== '' ? (
                 <>
-                  <Image 
-                    source={{ uri: store.profileImageUrl }} 
+                  <Image
+                    source={{ uri: store.profileImageUrl }}
                     style={styles.profileImage}
                     onLoad={() => console.log('Profile image loaded successfully')}
                     onError={(error) => console.log('Profile image load error:', error)}
@@ -653,7 +704,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: colors.background.secondary,
     position: 'relative',
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
   },
   profileImage: {
     width: '100%',
