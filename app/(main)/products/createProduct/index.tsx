@@ -11,6 +11,7 @@ import {
   Dimensions,
   FlatList,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -43,14 +44,15 @@ import { createBundle, previewBundlesFromExternal, convertExternalBundleToReques
 import { validateSellerAccess } from '@/utils/sellerUtils';
 import { showToast } from '@/components/Toast';
 import * as ImagePicker from 'expo-image-picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import { BundleCreationMode, SelectableProduct, BundleFormData, BundleRequestDto, ExternalBundleResponse } from '@/types/bundle';
 
 const { width } = Dimensions.get('window');
 const IMAGE_SIZE = (width - spacing.lg * 3) / 2;
 
-// Product Types
-const productTypes = ["Food", "Electronics", "Clothing", "Home Appliances", "Books", "Health & Beauty", "Sports & Outdoors", "Toys & Games", "Pets", "Automotives", "Baby Products", "Office Supplies", "Arts & Crafts"];
+// Food Product Types
+const productTypes = ["Meal", "Dish", "Beverage", "Pastry", "Sweets", "Frozen"];
 
 
 
@@ -78,6 +80,7 @@ const CreateProduct = () => {
   const [currentCategory, setCurrentCategory] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Dynamic pricing state
   const [isDynamicPricingEnabled, setIsDynamicPricingEnabled] = useState(false);
@@ -326,8 +329,7 @@ const CreateProduct = () => {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
+        allowsEditing: false,
         quality: 0.8,
         exif: false,
       });
@@ -359,8 +361,7 @@ const CreateProduct = () => {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
+        allowsEditing: false,
         quality: 0.8,
         exif: false,
       });
@@ -574,10 +575,12 @@ const CreateProduct = () => {
 
   const getProductTypeColor = (type: string) => {
     switch (type.toLowerCase()) {
-      case 'food': return colors.primary;
-      case 'electronics': return colors.warning;
-      case 'clothing': return colors.info;
-      case 'home appliances': return colors.success;
+      case 'meal': return colors.primary;
+      case 'dish': return colors.success;
+      case 'beverage': return colors.info;
+      case 'pastry': return colors.warning;
+      case 'sweets': return '#E91E63'; // Pink
+      case 'frozen': return '#00BCD4'; // Cyan
       default: return colors.text.secondary;
     }
   };
@@ -1277,6 +1280,45 @@ const CreateProduct = () => {
             keyboardType="numeric"
           />
         </View>
+
+        {/* Expiry Date Section */}
+        {creationMode === 'product' && (
+          <View style={styles.section} onLayout={(e) => { fieldRefs.current['expiryDate'] = e.nativeEvent.layout.y; }}>
+            <View style={styles.sectionHeader}>
+              <Calendar size={20} color={colors.primary} />
+              <Text style={styles.sectionTitle}>Expiry Date</Text>
+            </View>
+            <Text style={styles.sectionDescription}>
+              Set the expiry date for your food product
+            </Text>
+
+            <Text style={styles.label}>Product Expiration</Text>
+            <TouchableOpacity
+              style={styles.datePickerButton}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Calendar size={18} color={colors.icon.secondary} />
+              <Text style={styles.datePickerText}>
+                {duration.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric' })}
+              </Text>
+            </TouchableOpacity>
+
+            {showDatePicker && (
+              <DateTimePicker
+                value={duration}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(event, selectedDate) => {
+                  setShowDatePicker(false);
+                  if (selectedDate) {
+                    setDuration(selectedDate);
+                  }
+                }}
+                minimumDate={new Date()}
+              />
+            )}
+          </View>
+        )}
 
         {/* Categories Section - Only for products */}
         {creationMode === 'product' && (
@@ -2057,6 +2099,22 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.sm,
     color: colors.text.secondary,
     fontWeight: typography.fontWeights.medium,
+  },
+  datePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border.primary,
+    borderRadius: radii.md,
+    backgroundColor: colors.background.secondary,
+    gap: spacing.sm,
+  },
+  datePickerText: {
+    fontSize: typography.fontSizes.md,
+    color: colors.text.primary,
+    flex: 1,
   },
 });
 

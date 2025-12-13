@@ -47,8 +47,8 @@ import { useImageUpload } from '@/hooks/useImageUpload';
 const { width } = Dimensions.get('window');
 const IMAGE_SIZE = (width - spacing.lg * 3) / 2;
 
-// Product Types
-const productTypes = ["Food", "Electronics", "Clothing", "Home Appliances", "Books", "Health & Beauty", "Sports & Outdoors", "Toys & Games", "Pets", "Automotives", "Baby Products", "Office Supplies", "Arts & Crafts"];
+// Food Product Types
+const productTypes = ["Meal", "Dish", "Beverage", "Pastry", "Sweets", "Frozen"];
 
 
 interface Metadata {
@@ -277,8 +277,7 @@ const EditProduct = () => {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
+        allowsEditing: false,
         quality: 0.8,
         exif: false,
       });
@@ -310,8 +309,7 @@ const EditProduct = () => {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
+        allowsEditing: false,
         quality: 0.8,
         exif: false,
       });
@@ -499,10 +497,12 @@ const EditProduct = () => {
 
   const getProductTypeColor = (type: string) => {
     switch (type.toLowerCase()) {
-      case 'food': return colors.primary;
-      case 'electronics': return colors.warning;
-      case 'clothing': return colors.info;
-      case 'home appliances': return colors.success;
+      case 'meal': return colors.primary;
+      case 'dish': return colors.success;
+      case 'beverage': return colors.info;
+      case 'pastry': return colors.warning;
+      case 'sweets': return '#E91E63'; // Pink
+      case 'frozen': return '#00BCD4'; // Cyan
       default: return colors.text.secondary;
     }
   };
