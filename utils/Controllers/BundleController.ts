@@ -10,7 +10,7 @@ import {
 } from '@/types/bundle';
 
 /**
- * Creates a new bundle for the seller
+ * Creates a new bundle for the seller via C# backend
  * @param bundle - Bundle data to create
  * @param token - Authentication token
  * @returns Promise with the created bundle response
@@ -29,6 +29,85 @@ const createBundle = async (bundle: BundleRequestDto, token: string) => {
       status: response.status
     };
   } catch (error) {
+    throw error;
+  }
+};
+
+/**
+ * Saves a bundle to the bundler API's database.
+ * This is the primary method for creating AI-generated bundles.
+ * The bundler API is the source of truth for bundle creation.
+ * 
+ * @param bundle - Bundle data to save (from AI preview)
+ * @param storeId - The seller's store ID  
+ * @returns Promise with the saved bundle response
+ */
+const saveBundleToBundler = async (bundle: {
+  name: string;
+  description: string;
+  products: Array<{ id: string; name: string; stock: number; price?: number; original_price?: number; product_type?: string; expires_on?: string; tags?: string[] }>;
+  images: string[];
+  image_url?: string;
+  stock: number;
+  price?: number;
+  original_price?: number;
+}, storeId: string) => {
+  try {
+    const bundleSaveUrl = process.env.EXPO_PUBLIC_BUNDLE_SAVE_URL || process.env.EXPO_PUBLIC_BUNDLE_GENERATION_URL?.replace('/recommend/ai/save-with-images', '/save');
+
+    if (!bundleSaveUrl) {
+      throw new Error('Bundle save URL not configured. Please set EXPO_PUBLIC_BUNDLE_SAVE_URL in .env');
+    }
+
+    console.log('📦 [saveBundleToBundler] Saving bundle to bundler API:', bundleSaveUrl);
+
+    // Prepare the bundle data in the format expected by the bundler
+    const bundlePayload = {
+      store_id: storeId,
+      name: bundle.name,
+      description: bundle.description,
+      products: bundle.products.map(p => ({
+        id: p.id,
+        name: p.name,
+        stock: p.stock,
+        price: p.price || 0,
+        original_price: p.original_price || 0,
+        product_type: p.product_type || 'Unknown',
+        expires_on: p.expires_on || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        tags: p.tags || []
+      })),
+      images: bundle.images,
+      image_url: bundle.image_url,
+      stock: bundle.stock,
+      price: bundle.price,
+      original_price: bundle.original_price
+    };
+
+    console.log('📦 [saveBundleToBundler] Payload:', JSON.stringify(bundlePayload, null, 2));
+
+    const response = await fetch(bundleSaveUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(bundlePayload)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ [saveBundleToBundler] Failed to save bundle:', response.status, errorText);
+      throw new Error(`Failed to save bundle: ${response.status} - ${errorText}`);
+    }
+
+    const savedBundle = await response.json();
+    console.log('✅ [saveBundleToBundler] Bundle saved successfully:', savedBundle);
+
+    return {
+      data: savedBundle,
+      status: response.status
+    };
+  } catch (error) {
+    console.error('❌ [saveBundleToBundler] Error:', error);
     throw error;
   }
 };
@@ -486,6 +565,7 @@ const previewBundlesFromExternal = async (storeId: string, token: string, numBun
 
 export {
   createBundle,
+  saveBundleToBundler,
   getAllBundles,
   getBundleById,
   updateBundle,

@@ -40,7 +40,7 @@ import {
 } from 'lucide-react-native';
 import { colors, spacing, typography, radii } from '@/constants/theme';
 import { createProduct, getAllProducts } from '@/utils/Controllers/ProductController';
-import { createBundle, previewBundlesFromExternal, convertExternalBundleToRequest } from '@/utils/Controllers/BundleController';
+import { createBundle, saveBundleToBundler, previewBundlesFromExternal, convertExternalBundleToRequest } from '@/utils/Controllers/BundleController';
 import { validateSellerAccess } from '@/utils/sellerUtils';
 import { showToast } from '@/components/Toast';
 import * as ImagePicker from 'expo-image-picker';
@@ -539,25 +539,31 @@ const CreateProduct = () => {
         await createProduct(productData, token);
         showToast('success', 'Product Created!', 'Your product has been created successfully.');
       } else {
-        // Handle bundle creation - always create new bundle
-        // (For AI previews, the bundle was not saved to DB, so we create it now)
-        const bundleData: BundleRequestDto = {
-          storeId: validation.storeId,
+        // Handle bundle creation - save via bundler API (not C# backend)
+        // The bundler API is the source of truth for bundle creation
+
+        // Prepare bundle data in the format expected by bundler
+        const bundleDataForBundler = {
           name: name.trim(),
           description: description.trim() || '',
-          productIds: selectedProducts.map(p => p.id),
+          products: selectedProducts.map(p => ({
+            id: p.id,
+            name: p.name,
+            stock: p.stock || parseInt(stock),
+            price: (p as any).discountedPrice || (p as any).price || parseFloat(discountedPrice),
+            original_price: (p as any).originalPrice || (p as any).original_price || parseFloat(originalPrice),
+            product_type: p.productType || 'Unknown',
+            expires_on: (p as any).expirationDate || (p as any).expires_on || duration.toISOString(),
+            tags: (p as any).category || (p as any).tags || []
+          })),
           images: additionalImages,
+          image_url: coverImage,
           stock: parseInt(stock),
-          imageUrl: coverImage,
           price: parseFloat(discountedPrice),
-          originalPrice: parseFloat(originalPrice),
-          expiresOn: duration,
-          isActive: true,
-          isDynamicPricingEnabled: isDynamicPricingEnabled,
-          dynamicPricingStartDays: isDynamicPricingEnabled ? parseInt(dynamicPricingStartDays) : 14,
+          original_price: parseFloat(originalPrice)
         };
 
-        await createBundle(bundleData, token);
+        await saveBundleToBundler(bundleDataForBundler, validation.storeId);
         showToast('success', 'Bundle Created!', 'Your bundle has been created successfully.');
       }
 
