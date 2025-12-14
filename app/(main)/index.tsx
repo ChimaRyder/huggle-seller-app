@@ -1,12 +1,11 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { StyleSheet } from "react-native";
+import { StyleSheet, View } from "react-native";
 import {
   BottomNavigation,
   BottomNavigationTab,
   Icon,
   IconElement,
   IconProps,
-  ViewPager,
   Layout,
 } from "@ui-kitten/components";
 import ProductsScreen from "./products";
@@ -54,20 +53,22 @@ const ProfileIcon = (props: IconProps): IconElement => (
   />
 );
 
+import { StatusBar } from "expo-status-bar";
+
 export default function BottomNav() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [unread, setUnread] = useState(0);
   const router = useRouter();
   const { user } = useUser();
-  const {getToken} = useAuth();
+  const { getToken } = useAuth();
 
 
   const checkUnread = async () => {
     try {
-      const token = await getToken({template: "seller_app"});
+      const token = await getToken({ template: "seller_app" });
       const response = await getUnreadCount(token ?? "", user?.id as string);
       console.log('🔔 Seller app received notification count response:', JSON.stringify(response));
-      
+
       const count = ((response as any).data).count;
       console.log('🔔 Seller app parsed count:', count);
       setUnread(count);
@@ -85,7 +86,7 @@ export default function BottomNav() {
   // Poll for unread count every 10 seconds like buyer app
   useEffect(() => {
     if (!user) return;
-    
+
     const interval = setInterval(checkUnread, 10000);
     return () => clearInterval(interval);
   }, [user, getToken]);
@@ -98,19 +99,25 @@ export default function BottomNav() {
 
   return (
     <Layout level="1" style={styles.layout}>
+      <StatusBar style="dark" />
       <SafeAreaView style={styles.container}>
-        <ViewPager
-          selectedIndex={selectedIndex}
-          onSelect={(index) => setSelectedIndex(index)}
-          style={styles.viewPager}
-          swipeEnabled={false}
-        >
-          <ProductsScreen unread={unread} />
-          <OrdersScreen unread={unread}/>
-          <ChatsScreen unread={unread} />
-          <PromotionsScreen />
-          <ProfileScreen />
-        </ViewPager>
+        <View style={styles.viewPager}>
+          <View style={selectedIndex === 0 ? { flex: 1 } : { display: 'none' }}>
+            <ProductsScreen unread={unread} />
+          </View>
+          <View style={selectedIndex === 1 ? { flex: 1 } : { display: 'none' }}>
+            <OrdersScreen unread={unread} />
+          </View>
+          <View style={selectedIndex === 2 ? { flex: 1 } : { display: 'none' }}>
+            <ChatsScreen unread={unread} />
+          </View>
+          <View style={selectedIndex === 3 ? { flex: 1 } : { display: 'none' }}>
+            <PromotionsScreen />
+          </View>
+          <View style={selectedIndex === 4 ? { flex: 1 } : { display: 'none' }}>
+            <ProfileScreen />
+          </View>
+        </View>
         <BottomNavigation
           selectedIndex={selectedIndex}
           onSelect={(index) => setSelectedIndex(index)}
@@ -118,19 +125,19 @@ export default function BottomNav() {
           appearance="noIndicator"
         >
           <BottomNavigationTab
-          icon={HomeIcon}
+            icon={HomeIcon}
           />
           <BottomNavigationTab
-          icon={OrdersIcon}
+            icon={OrdersIcon}
           />
           <BottomNavigationTab
-          icon={ChatIcon}
+            icon={ChatIcon}
           />
           <BottomNavigationTab
-          icon={GiftIcon}
+            icon={GiftIcon}
           />
           <BottomNavigationTab
-          icon={ProfileIcon}
+            icon={ProfileIcon}
           />
         </BottomNavigation>
       </SafeAreaView>
