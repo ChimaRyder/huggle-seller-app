@@ -110,13 +110,19 @@ export interface ProductPerformanceResponse {
  * @returns Store analytics summary
  */
 export const getStoreAnalyticsSummary = async (
-  token: string, 
-  storeId: string, 
+  token: string,
+  storeId: string,
   period: 'current' | '6months' | 'year' | 'all' = 'current'
 ): Promise<ApiResponse<StoreAnalyticsSummary>> => {
   try {
     const endpoint = `/api/analytics/store/${storeId}/summary?period=${period}`;
-    return await apiClient.get<StoreAnalyticsSummary>(endpoint, token);
+    const response = await apiClient.get<any>(endpoint, token);
+    const data = handleApiResponse<StoreAnalyticsSummary>(response);
+
+    return {
+      data,
+      status: response.status
+    };
   } catch (error: any) {
     console.error('Error fetching store analytics summary:', error);
     throw error;
@@ -132,18 +138,24 @@ export const getStoreAnalyticsSummary = async (
  * @returns Top products data
  */
 export const getStoreTopProducts = async (
-  token: string, 
-  storeId: string, 
-  months?: number, 
+  token: string,
+  storeId: string,
+  months?: number,
   limit: number = 10
 ): Promise<ApiResponse<TopProductsResponse>> => {
   try {
     const params = new URLSearchParams();
     if (months) params.append('months', months.toString());
     params.append('limit', limit.toString());
-    
+
     const endpoint = `/api/analytics/store/${storeId}/top-products?${params.toString()}`;
-    return await apiClient.get<TopProductsResponse>(endpoint, token);
+    const response = await apiClient.get<any>(endpoint, token);
+    const data = handleApiResponse<TopProductsResponse>(response);
+
+    return {
+      data,
+      status: response.status
+    };
   } catch (error: any) {
     console.error('Error fetching top products:', error);
     throw error;
@@ -158,21 +170,25 @@ export const getStoreTopProducts = async (
  * @returns Product performance data
  */
 export const getProductPerformance = async (
-  token: string, 
-  productId: string, 
+  token: string,
+  productId: string,
   period: 'current' | '6months' | 'year' | 'all' = 'current'
 ): Promise<ApiResponse<ProductPerformanceResponse>> => {
   try {
     const endpoint = `/api/analytics/product/${productId}?period=${period}`;
     console.log('📊 Fetching product performance from:', endpoint);
-    
-    const response = await apiClient.get<ProductPerformanceResponse>(endpoint, token);
-    console.log('📈 Product performance response:', response);
-    
-    return response;
+
+    const response = await apiClient.get<any>(endpoint, token);
+    const data = handleApiResponse<ProductPerformanceResponse>(response);
+    console.log('📈 Product performance response:', data);
+
+    return {
+      data,
+      status: response.status
+    };
   } catch (error: any) {
     console.error('❌ Error fetching product performance:', error);
-    
+
     // Return empty analytics data if the endpoint doesn't exist or fails
     // This prevents the product page from breaking
     return {
